@@ -24,6 +24,18 @@ export default async function handler(req, res) {
       return res.json({ entry })
     }
 
+    if (req.method === 'PUT') {
+      const { id } = req.query
+      if (!id) return res.status(400).json({ error: 'id required' })
+      const { itemName, comment, author, noteDate } = req.body
+      if (!comment) return res.status(400).json({ error: 'comment required' })
+      const idx = notes.findIndex(e => e.id === id)
+      if (idx === -1) return res.status(404).json({ error: 'not found' })
+      notes[idx] = { ...notes[idx], itemName: itemName || '', comment, author: author || '', noteDate: noteDate || notes[idx].noteDate }
+      await kvSet('barNotes', notes)
+      return res.json({ entry: notes[idx] })
+    }
+
     if (req.method === 'DELETE') {
       const { id } = req.query
       if (!id) return res.status(400).json({ error: 'id required' })
