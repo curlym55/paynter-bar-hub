@@ -2096,15 +2096,25 @@ function TrendsView({ data, loading, error }) {
 
 // ─── NOTES VIEW ────────────────────────────────────────────────────────────────
 function NotesView({ items, notes, readOnly, onRefresh }) {
-  const [form, setForm]       = useState({ noteDate: '', itemName: '', comment: '', author: '' })
-  const [saving, setSaving]   = useState(false)
+  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '' })
+  const [saving, setSaving]     = useState(false)
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
-  const [showForm, setShowForm]     = useState(false)
+  const [showForm, setShowForm] = useState(false)
+  const [editingId, setEditingId]   = useState(null)
+  const [editForm, setEditForm]     = useState({})
 
   // Default date to today Brisbane time
   const todayBrisbane = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-  const ef = (f, v) => setForm(p => ({ ...p, [f]: v }))
+  const ef  = (f, v) => setForm(p => ({ ...p, [f]: v }))
+  const eef = (f, v) => setEditForm(p => ({ ...p, [f]: v }))
+
+  function startEdit(n) {
+    setEditingId(n.id)
+    setEditForm({ noteDate: n.noteDate, itemName: n.itemName || '', comment: n.comment, author: n.author || '' })
+  }
+
+  function cancelEdit() { setEditingId(null); setEditForm({}) }
 
   async function saveNote() {
     if (!form.comment.trim()) return
@@ -2119,6 +2129,22 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
       setShowForm(false)
       onRefresh()
     } catch(e) { alert('Save failed') }
+    setSaving(false)
+  }
+
+  async function updateNote() {
+    if (!editForm.comment.trim()) return
+    setSaving(true)
+    try {
+      await fetch(`/api/notes?id=${editingId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm)
+      })
+      setEditingId(null)
+      setEditForm({})
+      onRefresh()
+    } catch(e) { alert('Update failed') }
     setSaving(false)
   }
 
@@ -2218,30 +2244,79 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
           {filtered.map(n => (
-            <div key={n.id} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '16px 20px', position: 'relative' }}>
-              <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
-                <div style={{ flex: 1 }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 99 }}>
-                      {new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
-                    </span>
-                    {n.itemName && (
-                      <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490', background: '#ecfeff', padding: '3px 10px', borderRadius: 99 }}>
-                        {n.itemName}
-                      </span>
-                    )}
-                    {n.author && (
-                      <span style={{ fontSize: 11, color: '#94a3b8' }}>— {n.author}</span>
-                    )}
+            <div key={n.id} style={{ background: '#fff', border: `1px solid ${editingId === n.id ? '#7c3aed' : '#e2e8f0'}`, borderRadius: 10, padding: '16px 20px' }}>
+              {editingId === n.id ? (
+                /* ── Inline edit form ── */
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', marginBottom: 14 }}>Edit Note</div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</label>
+                      <input type="date" value={editForm.noteDate} onChange={e => eef('noteDate', e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+                    </div>
+                    <div>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Item</label>
+                      <select value={editForm.itemName} onChange={e => eef('itemName', e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', background: '#fff' }}>
+                        <option value="">— General note —</option>
+                        {[...new Set((items || []).map(i => i.name))].sort().map(nm => <option key={nm} value={nm}>{nm}</option>)}
+                      </select>
+                    </div>
                   </div>
-                  <div style={{ fontSize: 14, color: '#0f172a', lineHeight: 1.6 }}>{n.comment}</div>
+                  <div style={{ marginBottom: 12 }}>
+                    <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Comment *</label>
+                    <textarea value={editForm.comment} onChange={e => eef('comment', e.target.value)} rows={3}
+                      style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'flex-end' }}>
+                    <div style={{ flex: 1 }}>
+                      <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Author</label>
+                      <input type="text" value={editForm.author} onChange={e => eef('author', e.target.value)}
+                        style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+                    </div>
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button onClick={cancelEdit}
+                        style={{ background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer' }}>
+                        Cancel
+                      </button>
+                      <button onClick={updateNote} disabled={saving || !editForm.comment.trim()}
+                        style={{ background: saving || !editForm.comment.trim() ? '#94a3b8' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 8,
+                          padding: '10px 18px', fontSize: 13, fontWeight: 700, cursor: saving || !editForm.comment.trim() ? 'not-allowed' : 'pointer' }}>
+                        {saving ? 'Saving...' : '✓ Save'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                {!readOnly && (
-                  <button onClick={() => deleteNote(n.id)}
-                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 16, padding: '0 4px', flexShrink: 0 }}
-                    title="Delete note">✕</button>
-                )}
-              </div>
+              ) : (
+                /* ── Read view ── */
+                <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 99 }}>
+                        {new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      {n.itemName && (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490', background: '#ecfeff', padding: '3px 10px', borderRadius: 99 }}>
+                          {n.itemName}
+                        </span>
+                      )}
+                      {n.author && <span style={{ fontSize: 11, color: '#94a3b8' }}>— {n.author}</span>}
+                    </div>
+                    <div style={{ fontSize: 14, color: '#0f172a', lineHeight: 1.6 }}>{n.comment}</div>
+                  </div>
+                  {!readOnly && (
+                    <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
+                      <button onClick={() => startEdit(n)}
+                        style={{ background: '#f5f3ff', border: 'none', borderRadius: 6, padding: '4px 10px', cursor: 'pointer', color: '#7c3aed', fontSize: 12, fontWeight: 600 }}
+                        title="Edit note">✏️ Edit</button>
+                      <button onClick={() => deleteNote(n.id)}
+                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#cbd5e1', fontSize: 16, padding: '0 4px' }}
+                        title="Delete note">✕</button>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
         </div>
