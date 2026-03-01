@@ -902,9 +902,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
   if (!authed) return (
     <div style={styles.loadWrap}>
       <div style={{ ...styles.loadBox, background: '#fff', padding: 40, borderRadius: 16, boxShadow: '0 4px 24px rgba(0,0,0,0.10)', minWidth: 300 }}>
-        <div style={{ marginBottom: 8 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', color: '#94a3b8', textTransform: 'uppercase', fontFamily: 'IBM Plex Mono, monospace' }}>PAYNTER BAR</span>
-        </div>
         <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>Paynter Bar Hub</h2>
         <p style={{ fontSize: 13, color: '#64748b', marginBottom: 24 }}>Enter PIN to continue</p>
         <input type="password" inputMode="numeric" maxLength={6} value={pin}
@@ -956,7 +953,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           <div className="header-inner" style={styles.headerInner}>
             <div>
               <div style={styles.headerTop}>
-                <span style={styles.logo}>PAYNTER BAR HUB</span>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em' }}>READ ONLY</span>}
                 <span style={styles.logoSub}>GemLife Palmwoods</span>
               </div>
