@@ -1507,11 +1507,11 @@ function WastageView({ items, log, readOnly, onRefresh }) {
     <div className="view-wrap" style={{ padding: '16px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Summary strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
         {[...summary, { reason: 'Total', count: log.length, bg: '#f8fafc', text: '#0f172a' }].map(s => (
           <div key={s.reason}
             onClick={() => setFilter(s.reason === 'Total' ? 'All' : s.reason)}
-            style={{ background: s.bg, border: `1px solid ${s.text}33`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer',
+            style={{ background: s.bg, border: `1px solid ${s.text}33`, borderRadius: 8, padding: '10px 14px', cursor: 'pointer', flex: '1 1 80px', minWidth: 70,
               outline: filter === (s.reason === 'Total' ? 'All' : s.reason) ? `2px solid ${s.text}` : 'none' }}>
             <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{s.reason}</div>
             <div style={{ fontSize: 24, fontWeight: 800, color: s.text, fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1 }}>{s.count}</div>
@@ -2940,7 +2940,7 @@ function EditText({ value, onChange, saving, placeholder, readOnly }) {
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = {
-  page:          { minHeight: '100vh', background: '#f1f5f9', fontFamily: "'IBM Plex Sans', sans-serif" },
+  page:          { minHeight: '100vh', background: '#f1f5f9', fontFamily: "'IBM Plex Sans', sans-serif", overflowX: 'hidden' },
   loadWrap:      { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f1f5f9' },
   loadBox:       { textAlign: 'center' },
   spinner:       { width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #1f4e79', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' },
@@ -2954,7 +2954,7 @@ const styles = {
   lastUpdated:   { fontSize: 12, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" },
   btn:           { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" },
   btnDisabled:   { background: '#334155', cursor: 'not-allowed' },
-  statsBar:      { display: 'flex', borderTop: '1px solid #334155', padding: '0 32px' },
+  statsBar:      { display: 'flex', borderTop: '1px solid #334155', padding: '0 32px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
   stat:          { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px', borderRight: '1px solid #334155', gap: 2, borderTopWidth: 3, borderTopStyle: 'solid', borderTopColor: 'transparent' },
   statNum:       { fontSize: 22, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#f8fafc' },
   statLabel:     { fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' },
