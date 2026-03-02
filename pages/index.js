@@ -98,12 +98,19 @@ export default function Home() {
     setError(null)
     try {
       const effectiveDays = days || daysBack
-      const r = await fetch(`/api/items?days=${effectiveDays}`)
+      const [r, ro] = await Promise.all([
+        fetch(`/api/items?days=${effectiveDays}`),
+        fetch('/api/settings?action=getOrdered')
+      ])
       if (!r.ok) throw new Error((await r.json()).error || 'Failed to load')
       const data = await r.json()
       setItems(data.items)
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
+      if (ro.ok) {
+        const od = await ro.json()
+        setOrderedItems(od.ordered || {})
+      }
     } catch (e) {
       setError(e.message)
     } finally {
