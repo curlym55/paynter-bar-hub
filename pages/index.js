@@ -950,7 +950,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         <style>{`
           .desktop-nav { display: flex !important; }
           .mobile-nav  { display: none  !important; }
-          .dash-stats   { grid-template-columns: repeat(4, 1fr) !important; }
+          .dash-stats   { grid-template-columns: repeat(5, 1fr) !important; }
           .dash-features { grid-template-columns: repeat(4, 1fr) !important; }
           @media (max-width: 768px) {
             .desktop-nav  { display: none  !important; }
@@ -1049,6 +1049,11 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#2563eb' }}>
               <span style={{ ...styles.statNum, color: '#2563eb' }}>{orderCount}</span>
               <span style={styles.statLabel}>To Order</span>
+            </div>
+            <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: 'pointer' }}
+              onClick={() => setMainTab('reorder')}>
+              <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
+              <span style={styles.statLabel}>On Order</span>
             </div>
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#f59e0b' }}>
               {editingTarget ? (
@@ -1307,6 +1312,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           <DashboardView
             items={items}
             lastUpdated={lastUpdated}
+            orderedItems={orderedItems}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
@@ -1643,10 +1649,11 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav }) {
-  const critCount  = items.filter(i => i.priority === 'CRITICAL').length
-  const lowCount   = items.filter(i => i.priority === 'LOW').length
-  const orderCount = items.filter(i => i.orderQty > 0).length
+function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
+  const critCount    = items.filter(i => i.priority === 'CRITICAL').length
+  const lowCount     = items.filter(i => i.priority === 'LOW').length
+  const orderCount   = items.filter(i => i.orderQty > 0).length
+  const onOrderCount = Object.keys(orderedItems).length
   const totalItems = items.length
 
   const now = new Date()
@@ -1672,11 +1679,12 @@ function DashboardView({ items, lastUpdated, onNav }) {
     <div className="dash-wrap" style={{ padding: '20px 32px', maxWidth: 1100, margin: '0 auto' }}>
 
       {/* Compact header row: stats + refresh */}
-      <div className="dash-stats" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 10, marginBottom: 20 }}>
+      <div className="dash-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
         {[
           { label: 'Critical',      value: critCount,    sub: 'below target',    color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
           { label: 'Low Stock',     value: lowCount,     sub: 'running low',     color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
           { label: 'To Order',      value: orderCount,   sub: 'need ordering',   color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
+          { label: 'On Order',      value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
           { label: 'Refreshed',     value: refreshedAgo, sub: 'Square data',     color: '#475569', bg: '#f8fafc', action: null },
         ].map(({ label, value, sub, color, bg, action }) => (
           <div key={label}
