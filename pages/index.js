@@ -970,6 +970,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             .dash-stats   { grid-template-columns: repeat(2, 1fr) !important; }
             .dash-features { grid-template-columns: repeat(2, 1fr) !important; }
             .dash-wrap { padding: 12px 12px !important; }
+            .view-wrap  { padding: 12px 12px !important; }
+            .two-col-grid { grid-template-columns: 1fr !important; }
+            .form-two-col { grid-template-columns: 1fr !important; }
           }
         `}</style>
       </Head>
@@ -1501,7 +1504,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   }
 
   return (
-    <div style={{ padding: '16px', maxWidth: 960, margin: '0 auto' }}>
+    <div className="view-wrap" style={{ padding: '16px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Summary strip */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
@@ -1608,7 +1611,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
       )}
 
       {/* Log table */}
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0' }}>
         <div style={{ background: '#1e3a5f', color: '#fff', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
           <span style={{ fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>
             {filter === 'All' ? 'All Entries' : filter} — {filtered.length} records
@@ -1830,7 +1833,7 @@ function BestSellersView({ items, salesData, loading, error }) {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div className="two-col-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
 
         {/* Top 10 sellers */}
         <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
@@ -1967,7 +1970,7 @@ function isHidden(item) {
   const visibleCount = items.filter(i => !isHidden(i)).length
 
   return (
-    <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
+    <div className="view-wrap" style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
 
       {/* Toolbar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '14px 20px', marginBottom: 20 }}>
@@ -1993,8 +1996,8 @@ function isHidden(item) {
           <div style={{ background: '#1e3a5f', color: '#fff', borderRadius: '8px 8px 0 0', padding: '8px 16px', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em' }}>
             {cat}
           </div>
-          <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px', overflowX: 'auto' }}>
+            <table style={{ width: '100%', minWidth: 380, borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Item</th>
@@ -2325,7 +2328,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
   const itemNames = [...new Set((items || []).map(i => i.name))].sort()
 
   return (
-    <div style={{ padding: 32, maxWidth: 1000, margin: '0 auto' }}>
+    <div className="view-wrap" style={{ padding: '20px 24px', maxWidth: 1000, margin: '0 auto' }}>
       {/* Header bar */}
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24, gap: 16, flexWrap: 'wrap' }}>
         <div>
@@ -2350,7 +2353,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
       {showForm && !readOnly && (
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: 24, marginBottom: 24 }}>
           <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 16 }}>New Note</div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
+          <div className="form-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
             <div>
               <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</label>
               <input type="date" value={form.noteDate || todayBrisbane} onChange={e => ef('noteDate', e.target.value)}
@@ -2417,7 +2420,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
                 /* ── Inline edit form ── */
                 <div>
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#7c3aed', marginBottom: 14 }}>Edit Note</div>
-                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                  <div className="form-two-col" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                     <div>
                       <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Date</label>
                       <input type="date" value={editForm.noteDate} onChange={e => eef('noteDate', e.target.value)}
@@ -2726,7 +2729,7 @@ function SalesView({ period, setPeriod, custom, setCustom, report, loading, erro
   const hasRev = report && report.items.some(i => i.revenue != null)
 
   return (
-    <div style={{ padding: '24px 32px' }}>
+    <div className="view-wrap" style={{ padding: '24px 32px' }}>
       {/* Period controls */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, background: '#fff', padding: '10px 20px', borderBottom: '1px solid #e2e8f0' }}>
         {[['month','This Month'],['lastmonth','Last Month'],['3months','Last 3 Months'],['custom','Custom Range']].map(([val, label]) => (
