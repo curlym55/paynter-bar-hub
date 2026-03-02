@@ -9,6 +9,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ priceList })
       }
 
+      if (req.query.action === 'getOrdered') {
+        const ordered = (await kvGet('orderedItems')) || {}
+        return res.status(200).json({ ordered })
+      }
+
       const settings     = (await kvGet('itemSettings')) || {}
       const targetWeeks  = (await kvGet('targetWeeks'))  || 6
       const suppliers    = (await kvGet('suppliers'))    || ['Dan Murphys', 'Coles Woolies', 'ACW']
@@ -31,6 +36,17 @@ export default async function handler(req, res) {
           allPl[realName][field] = value
         }
         await kvSet('priceListSettings', allPl)
+        return res.status(200).json({ ok: true })
+      }
+
+      if (action === 'setOrdered') {
+        const ordered = (await kvGet('orderedItems')) || {}
+        if (value === null) {
+          delete ordered[itemName]
+        } else {
+          ordered[itemName] = { date: new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }), supplier: value || '' }
+        }
+        await kvSet('orderedItems', ordered)
         return res.status(200).json({ ok: true })
       }
 
