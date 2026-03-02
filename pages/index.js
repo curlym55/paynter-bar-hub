@@ -58,6 +58,7 @@ export default function Home() {
   const [notesLog, setNotesLog]         = useState([])
   const [notesLoaded, setNotesLoaded]   = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
+  const [orderedItems, setOrderedItems] = useState({})
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
   const [sellersError, setSellersError] = useState(null)
@@ -167,6 +168,22 @@ export default function Home() {
     } finally {
       setSalesLoading(false)
     }
+  }
+
+  async function toggleOrdered(itemName, supplier) {
+    const isOrdered = !!orderedItems[itemName]
+    const newVal = isOrdered ? null : (supplier || '')
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'setOrdered', itemName, value: newVal })
+    })
+    setOrderedItems(prev => {
+      const next = { ...prev }
+      if (isOrdered) delete next[itemName]
+      else next[itemName] = { date: new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }), supplier: supplier || '' }
+      return next
+    })
   }
 
   async function loadNotes() {
@@ -896,8 +913,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => !filterOrder || item.orderQty > 0)
 
-  const orderCount = items.filter(i => i.orderQty > 0).length
-  const critCount  = items.filter(i => i.priority === 'CRITICAL').length
+  const orderCount   = items.filter(i => i.orderQty > 0).length
+  const onOrderCount = Object.keys(orderedItems).length
+  const critCount    = items.filter(i => i.priority === 'CRITICAL').length
 
   if (!authed) return (
     <div style={styles.loadWrap}>
@@ -1124,6 +1142,30 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
+            {onOrderCount > 0 && (
+              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {onOrderCount} item{onOrderCount !== 1 ? 's' : ''} on order — awaiting delivery</span>
+                <span style={{ fontSize: 12, color: '#4ade80' }}>·</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>
+                  {Object.entries(orderedItems).map(([name, info]) => `${name} (${info.date})`).join(' · ')}
+                </span>
+                {!readOnly && (
+                  <button
+                    onClick={async () => {
+                      if (!confirm('Mark all ordered items as received and clear the on-order list?')) return
+                      await Promise.all(Object.keys(orderedItems).map(name =>
+                        fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'setOrdered', itemName: name, value: null }) })
+                      ))
+                      setOrderedItems({})
+                    }}
+                    style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+                    ✓ Mark All Received
+                  </button>
+                )}
+              </div>
+            )}
+
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
@@ -1140,6 +1182,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     <th style={{ ...styles.th, textAlign: 'right' }}>Order Qty</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Bottles</th>
                     <th style={{ ...styles.th, textAlign: 'center' }}>Priority</th>
+                    <th style={{ ...styles.th, textAlign: 'center' }}>On Order</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
                     {viewMode === 'pricing' && <>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy Price</th>
@@ -1150,16 +1193,20 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 </thead>
                 <tbody>
                   {displayed.length === 0 && (
-                    <tr><td colSpan={viewMode === 'pricing' ? 16 : 13} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
+                    <tr><td colSpan={viewMode === 'pricing' ? 17 : 14} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
                       {filterOrder ? 'No items to order this week.' : 'No items found.'}
                     </td></tr>
                   )}
                   {displayed.map((item, idx) => {
                     const p = PRIORITY_COLORS[item.priority]
-                    const rowBg = item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc')
+                    const isOrdered = !!orderedItems[item.name]
+                    const rowBg = isOrdered ? '#f0fdf4' : (item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc'))
                     return (
                       <tr key={item.name} style={{ background: rowBg }}>
-                        <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>{item.name}</td>
+                        <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
+                          {item.name}
+                          {isOrdered && <span style={{ marginLeft: 6, fontSize: 10, background: '#16a34a', color: '#fff', borderRadius: 99, padding: '1px 7px', fontWeight: 700, verticalAlign: 'middle' }}>ON ORDER</span>}
+                        </td>
                         <td style={styles.td}>
                           <EditSelect value={item.category} options={CATEGORIES}
                             onChange={v => saveSetting(item.name, 'category', v)}
@@ -1201,6 +1248,21 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: p.badge, color: '#fff' }}>{item.priority}</span>
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                          {!readOnly && (
+                            <button
+                              onClick={() => toggleOrdered(item.name, item.supplier)}
+                              title={isOrdered ? `Ordered ${orderedItems[item.name]?.date} — click to clear` : 'Mark as ordered'}
+                              style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, border: 'none', cursor: 'pointer',
+                                background: isOrdered ? '#dcfce7' : '#f1f5f9',
+                                color: isOrdered ? '#16a34a' : '#94a3b8' }}>
+                              {isOrdered ? `✓ ${orderedItems[item.name]?.date}` : '+ Order'}
+                            </button>
+                          )}
+                          {readOnly && isOrdered && (
+                            <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>✓ {orderedItems[item.name]?.date}</span>
+                          )}
                         </td>
                         <td style={styles.td}>
                           <EditText value={item.notes || ''} onChange={v => saveSetting(item.name, 'notes', v)}
