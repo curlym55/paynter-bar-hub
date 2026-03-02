@@ -913,8 +913,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => !filterOrder || item.orderQty > 0)
 
-  const orderCount   = items.filter(i => i.orderQty > 0).length
   const onOrderCount = Object.keys(orderedItems).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
 
   if (!authed) return (
@@ -1147,29 +1147,60 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
-            {onOrderCount > 0 && (
-              <div style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 10, display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {onOrderCount} item{onOrderCount !== 1 ? 's' : ''} on order — awaiting delivery</span>
-                <span style={{ fontSize: 12, color: '#4ade80' }}>·</span>
-                <span style={{ fontSize: 12, color: '#64748b' }}>
-                  {Object.entries(orderedItems).map(([name, info]) => `${name} (${info.date})`).join(' · ')}
-                </span>
-                {!readOnly && (
-                  <button
-                    onClick={async () => {
-                      if (!confirm('Mark all ordered items as received and clear the on-order list?')) return
-                      await Promise.all(Object.keys(orderedItems).map(name =>
-                        fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ action: 'setOrdered', itemName: name, value: null }) })
-                      ))
-                      setOrderedItems({})
-                    }}
-                    style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
-                    ✓ Mark All Received
-                  </button>
-                )}
-              </div>
-            )}
+            {onOrderCount > 0 && (() => {
+              // Group ordered items by supplier, then by date within each supplier
+              const bySupplier = {}
+              for (const [name, info] of Object.entries(orderedItems)) {
+                const key = info.supplier || 'Unknown'
+                if (!bySupplier[key]) bySupplier[key] = {}
+                if (!bySupplier[key][info.date]) bySupplier[key][info.date] = []
+                bySupplier[key][info.date].push(name)
+              }
+
+              async function markSupplierReceived(supplier) {
+                const itemsForSupplier = Object.entries(orderedItems)
+                  .filter(([, info]) => (info.supplier || 'Unknown') === supplier)
+                  .map(([name]) => name)
+                if (!confirm(`Mark ${itemsForSupplier.length} item${itemsForSupplier.length !== 1 ? 's' : ''} from ${supplier} as received?`)) return
+                await Promise.all(itemsForSupplier.map(name =>
+                  fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'setOrdered', itemName: name, value: null }) })
+                ))
+                setOrderedItems(prev => {
+                  const next = { ...prev }
+                  itemsForSupplier.forEach(name => delete next[name])
+                  return next
+                })
+              }
+
+              return (
+                <div style={{ marginBottom: 10 }}>
+                  {Object.entries(bySupplier).map(([supplier, dateGroups]) => {
+                    const supplierItems = Object.values(dateGroups).flat()
+                    return (
+                      <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 6 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                          <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
+                          <span style={{ fontSize: 12, color: '#64748b' }}>— {supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
+                          {!readOnly && (
+                            <button onClick={() => markSupplierReceived(supplier)}
+                              style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+                              ✓ {supplier} Received
+                            </button>
+                          )}
+                        </div>
+                        {Object.entries(dateGroups).map(([date, names]) => (
+                          <div key={date} style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #bbf7d0' }}>
+                            <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 700, marginRight: 8 }}>Ordered {date}</span>
+                            <span style={{ fontSize: 11, color: '#64748b' }}>{names.join(' · ')}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            })()}
 
             <div style={styles.tableWrap}>
               <table style={styles.table}>
@@ -1652,8 +1683,8 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
-  const orderCount   = items.filter(i => i.orderQty > 0).length
   const onOrderCount = Object.keys(orderedItems).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
   const totalItems = items.length
 
   const now = new Date()
