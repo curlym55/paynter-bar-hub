@@ -2220,6 +2220,64 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
 
   function cancelEdit() { setEditingId(null); setEditForm({}) }
 
+  function printNotes() {
+    const rows = filtered.map(n => `
+      <tr>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;white-space:nowrap">
+          ${new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day:'numeric', month:'short', year:'numeric' })}
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#0e7490">
+          ${n.itemName || '—'}
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:13px">
+          ${n.comment.replace(/</g,'&lt;').replace(/>/g,'&gt;')}
+        </td>
+        <td style="padding:8px 10px;border-bottom:1px solid #f1f5f9;font-size:12px;color:#64748b;white-space:nowrap">
+          ${n.author || '—'}
+        </td>
+      </tr>`).join('')
+
+    const filterDesc = (filterFrom || filterTo)
+      ? `${filterFrom || '…'} to ${filterTo || '…'}`
+      : 'All dates'
+
+    const html = `<!DOCTYPE html><html><head>
+      <title>Notes Report — Paynter Bar</title>
+      <style>
+        @page { size: A4 portrait; margin: 15mm }
+        body { font-family: Arial, sans-serif; color: #0f172a; }
+        h1 { font-size: 18px; margin: 0 0 4px }
+        .meta { font-size: 11px; color: #64748b; margin-bottom: 16px }
+        table { width: 100%; border-collapse: collapse }
+        th { background: #5b21b6; color: #fff; padding: 7px 10px; font-size: 10px; text-transform: uppercase; letter-spacing: 0.06em; text-align: left }
+        tr:nth-child(even) td { background: #f8fafc }
+        .footer { margin-top: 16px; font-size: 10px; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 10px }
+      </style>
+    </head><body>
+      <h1>📝 Notes Report</h1>
+      <div class="meta">
+        Paynter Bar · GemLife Palmwoods<br>
+        Generated: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' })}<br>
+        Period: ${filterDesc} · ${filtered.length} note${filtered.length !== 1 ? 's' : ''}
+      </div>
+      <table>
+        <thead><tr>
+          <th style="width:90px">Date</th>
+          <th style="width:140px">Item</th>
+          <th>Comment</th>
+          <th style="width:100px">Author</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      <div class="footer">Paynter Bar Hub · GemLife Palmwoods</div>
+    </body></html>`
+
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    setTimeout(() => w.print(), 400)
+  }
+
   async function saveNote() {
     if (!form.comment.trim()) return
     setSaving(true)
@@ -2274,12 +2332,18 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
           <div style={{ fontSize: 22, fontWeight: 800, color: '#0f172a' }}>📝 Notes</div>
           <div style={{ fontSize: 13, color: '#64748b', marginTop: 2 }}>Bar observations, stock notes and general comments</div>
         </div>
-        {!readOnly && (
-          <button onClick={() => setShowForm(s => !s)}
-            style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-            {showForm ? '✕ Cancel' : '+ Add Note'}
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={printNotes} disabled={filtered.length === 0}
+            style={{ background: filtered.length === 0 ? '#94a3b8' : '#0e7490', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 18px', fontSize: 14, fontWeight: 700, cursor: filtered.length === 0 ? 'not-allowed' : 'pointer' }}>
+            🖨️ Print
           </button>
-        )}
+          {!readOnly && (
+            <button onClick={() => setShowForm(s => !s)}
+              style={{ background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+              {showForm ? '✕ Cancel' : '+ Add Note'}
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Add note form */}
