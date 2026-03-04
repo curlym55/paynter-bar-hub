@@ -1403,6 +1403,8 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   const [showForm, setShowForm] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm]   = useState({})
 
   const filtered = log.filter(e => {
     if (filter !== 'All' && e.reason !== filter) return false
@@ -1440,6 +1442,39 @@ function WastageView({ items, log, readOnly, onRefresh }) {
     if (!confirm('Delete this wastage entry?')) return
     await fetch(`/api/wastage?id=${id}`, { method: 'DELETE' })
     await onRefresh()
+  }
+
+  function startEdit(entry) {
+    setEditingId(entry.id)
+    setEditForm({
+      itemName:   entry.itemName,
+      qty:        entry.qty,
+      unit:       entry.unit || 'units',
+      reason:     entry.reason,
+      note:       entry.note || '',
+      recordedBy: entry.recordedBy || '',
+      date:       new Date(entry.date).toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
+    })
+  }
+
+  function cancelEdit() { setEditingId(null); setEditForm({}) }
+
+  async function saveEdit(entry) {
+    try {
+      const selected = items.find(i => i.name === editForm.itemName)
+      const r = await fetch(`/api/wastage?id=${entry.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...editForm,
+          category: selected?.category || entry.category || '',
+          date: editForm.date ? new Date(editForm.date + 'T12:00:00+10:00').getTime() : entry.date,
+        })
+      })
+      if (!r.ok) throw new Error((await r.json()).error)
+      await onRefresh()
+      cancelEdit()
+    } catch(e) { alert('Error: ' + e.message) }
   }
 
   function printReport() {
@@ -1652,26 +1687,72 @@ function WastageView({ items, log, readOnly, onRefresh }) {
             <tbody>
               {filtered.map((entry, idx) => {
                 const rc = REASON_COLOR[entry.reason] || REASON_COLOR.Other
+                const isEditing = editingId === entry.id
+                const inp = { fontSize: 12, border: '1px solid #93c5fd', borderRadius: 4, padding: '3px 6px', width: '100%', boxSizing: 'border-box' }
                 return (
-                  <tr key={entry.id} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
-                    <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-                      {new Date(entry.date).toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric' })}
-                    </td>
-                    <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{entry.itemName}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
-                      {entry.qty} <span style={{ fontSize: 10, color: '#94a3b8' }}>{entry.unit}</span>
-                    </td>
-                    <td style={{ padding: '8px 12px' }}>
-                      <span style={{ background: rc.bg, color: rc.text, fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 99 }}>{entry.reason}</span>
-                    </td>
-                    <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b', maxWidth: 200 }}>{entry.note || '—'}</td>
-                    <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>{entry.recordedBy || '—'}</td>
-                    <td style={{ padding: '8px 12px' }}>
-                      {!readOnly && (
-                        <button onClick={() => deleteEntry(entry.id)}
-                          style={{ fontSize: 11, background: '#fee2e2', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#dc2626' }}>✕</button>
-                      )}
-                    </td>
+                  <tr key={entry.id} style={{ background: isEditing ? '#eff6ff' : idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9', outline: isEditing ? '2px solid #3b82f6' : 'none' }}>
+                    {isEditing ? (
+                      <>
+                        <td style={{ padding: '6px 8px' }}>
+                          <input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={inp} />
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <select value={editForm.itemName} onChange={e => setEditForm(f => ({ ...f, itemName: e.target.value }))} style={inp}>
+                            {items.map(i => <option key={i.name}>{i.name}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <input type="number" value={editForm.qty} min="0" step="0.1" onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} style={{ ...inp, width: 55 }} />
+                            <select value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inp, width: 65 }}>
+                              {['units','bottles','nips','cans','glasses','kegs'].map(u => <option key={u}>{u}</option>)}
+                            </select>
+                          </div>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <select value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} style={inp}>
+                            {REASONS.map(r => <option key={r}>{r}</option>)}
+                          </select>
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <input value={editForm.note} onChange={e => setEditForm(f => ({ ...f, note: e.target.value }))} placeholder="Note..." style={inp} />
+                        </td>
+                        <td style={{ padding: '6px 8px' }}>
+                          <input value={editForm.recordedBy} onChange={e => setEditForm(f => ({ ...f, recordedBy: e.target.value }))} placeholder="Name..." style={inp} />
+                        </td>
+                        <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
+                          <div style={{ display: 'flex', gap: 4 }}>
+                            <button onClick={() => saveEdit(entry)} style={{ fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700 }}>✓</button>
+                            <button onClick={cancelEdit} style={{ fontSize: 11, background: '#e2e8f0', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>✕</button>
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
+                          {new Date(entry.date).toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short', year: 'numeric' })}
+                        </td>
+                        <td style={{ padding: '8px 12px', fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{entry.itemName}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center', fontSize: 13, fontWeight: 700, fontFamily: 'monospace' }}>
+                          {entry.qty} <span style={{ fontSize: 10, color: '#94a3b8' }}>{entry.unit}</span>
+                        </td>
+                        <td style={{ padding: '8px 12px' }}>
+                          <span style={{ background: rc.bg, color: rc.text, fontWeight: 700, fontSize: 11, padding: '2px 8px', borderRadius: 99 }}>{entry.reason}</span>
+                        </td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b', maxWidth: 200 }}>{entry.note || '—'}</td>
+                        <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>{entry.recordedBy || '—'}</td>
+                        <td style={{ padding: '8px 12px' }}>
+                          {!readOnly && (
+                            <div style={{ display: 'flex', gap: 4 }}>
+                              <button onClick={() => startEdit(entry)}
+                                style={{ fontSize: 11, background: '#eff6ff', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#2563eb' }}>✏️</button>
+                              <button onClick={() => deleteEntry(entry.id)}
+                                style={{ fontSize: 11, background: '#fee2e2', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', color: '#dc2626' }}>✕</button>
+                            </div>
+                          )}
+                        </td>
+                      </>
+                    )}
                   </tr>
                 )
               })}
