@@ -27,6 +27,17 @@ export default async function handler(req, res) {
       return res.json({ entry })
     }
 
+    if (req.method === 'PUT') {
+      const { id } = req.query
+      if (!id) return res.status(400).json({ error: 'id required' })
+      const { itemName, category, qty, unit, reason, note, recordedBy, date } = req.body
+      const idx = log.findIndex(e => e.id === id)
+      if (idx === -1) return res.status(404).json({ error: 'Entry not found' })
+      log[idx] = { ...log[idx], itemName, category: category || '', qty: Number(qty), unit: unit || 'units', reason, note: note || '', recordedBy: recordedBy || '', date }
+      await kvSet('wastageLog', log)
+      return res.json({ entry: log[idx] })
+    }
+
     if (req.method === 'DELETE') {
       const { id } = req.query
       if (!id) return res.status(400).json({ error: 'id required' })
