@@ -702,37 +702,135 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new()
 
-      // Summary sheet
-      const summaryData = [
-        ['Sales Report — Paynter Bar'],
-        ['Period:', periodLabel],
-        ['Generated:', generated],
+      // ── Style helpers ──────────────────────────────────────────────────────
+      const NAVY   = '0F172A'
+      const TEAL   = '0E7490'
+      const LGREY  = 'F1F5F9'
+      const WHITE  = 'FFFFFF'
+      const GREEN  = '16A34A'
+      const RED    = 'DC2626'
+
+      const sTitle = { font: { bold: true, sz: 16, color: { rgb: NAVY } } }
+      const sMeta  = { font: { sz: 10, color: { rgb: '64748B' } } }
+      const sSecHdr = {
+        font: { bold: true, sz: 11, color: { rgb: WHITE } },
+        fill: { fgColor: { rgb: NAVY } },
+        alignment: { horizontal: 'left' },
+        border: { bottom: { style: 'thin', color: { rgb: TEAL } } }
+      }
+      const sColHdr = {
+        font: { bold: true, sz: 10, color: { rgb: WHITE } },
+        fill: { fgColor: { rgb: TEAL } },
+        alignment: { horizontal: 'center' },
+        border: { bottom: { style: 'medium', color: { rgb: NAVY } } }
+      }
+      const sColHdrL = { ...sColHdr, alignment: { horizontal: 'left' } }
+      const sTotals = {
+        font: { bold: true, sz: 10, color: { rgb: NAVY } },
+        fill: { fgColor: { rgb: LGREY } },
+        border: { top: { style: 'medium', color: { rgb: NAVY } } }
+      }
+      const sEven  = { fill: { fgColor: { rgb: WHITE } }, font: { sz: 10 } }
+      const sOdd   = { fill: { fgColor: { rgb: 'F8FAFC' } }, font: { sz: 10 } }
+      const sPct   = (shade) => ({ ...shade, numFmt: '0.0%', alignment: { horizontal: 'center' } })
+      const sCurr  = (shade) => ({ ...shade, numFmt: '"$"#,##0', alignment: { horizontal: 'right' } })
+      const sNum   = (shade) => ({ ...shade, alignment: { horizontal: 'center' } })
+
+      const cell = (v, s) => ({ v, s, t: typeof v === 'number' ? 'n' : 's' })
+      const empty = () => ({ v: '', s: {} })
+
+      // ── Build rows ─────────────────────────────────────────────────────────
+      const catDataRows = CATEGORY_ORDER.filter(c => report.categories[c]).map((c, idx) => {
+        const cat = report.categories[c]
+        const pct = report.totals.unitsSold > 0 ? (cat.unitsSold / report.totals.unitsSold) : 0
+        const chg = cat.prevSold > 0 ? ((cat.unitsSold - cat.prevSold) / cat.prevSold) : null
+        const shade = idx % 2 === 0 ? sEven : sOdd
+        const row = [
+          cell(c, { ...shade, font: { ...shade.font, bold: true } }),
+          cell(cat.unitsSold, sNum(shade)),
+          cell(cat.prevSold || 0, sNum(shade)),
+          chg != null ? cell(chg, sPct(shade)) : cell('—', { ...shade, alignment: { horizontal: 'center' } }),
+          cell(pct, sPct(shade)),
+        ]
+        if (hasRev) row.push(cell(cat.revenue || 0, sCurr(shade)))
+        return row
+      })
+
+      const itemDataRows = report.items.filter(i => i.unitsSold > 0).map((i, idx) => {
+        const shade = idx % 2 === 0 ? sEven : sOdd
+        const chg = i.change != null ? i.change / 100 : null
+        const row = [
+          cell(i.name, { ...shade, font: { ...shade.font, bold: false } }),
+          cell(i.category, { ...shade, font: { sz: 10, color: { rgb: '64748B' } } }),
+          cell(i.unitsSold, sNum(shade)),
+          cell(i.prevSold || 0, sNum(shade)),
+          chg != null ? cell(chg, sPct(shade)) : cell('—', { ...shade, alignment: { horizontal: 'center' } }),
+        ]
+        if (hasRev) row.push(cell(i.revenue || 0, sCurr(shade)))
+        return row
+      })
+
+      // ── Assemble worksheet ─────────────────────────────────────────────────
+      const rows = [
+        // Title block
+        [cell('Sales Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
+        [cell('Period:', sMeta), cell(periodLabel, { ...sMeta, font: { bold: true, sz: 10 } }), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
+        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
         [],
-        ['SUMMARY', '', '', ''],
-        ['Total Units Sold', report.totals.unitsSold, prevLabel, report.totals.prevSold || 0],
-        ...(hasRev ? [['Total Revenue', `$${Number(report.totals.revenue || 0).toFixed(2)}`, 'Prior Revenue', `$${Number(report.totals.prevRev || 0).toFixed(2)}`]] : []),
-        ['Items Sold', report.items.filter(i => i.unitsSold > 0).length],
+        // Summary section
+        [cell('SUMMARY', sSecHdr), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
+        [cell('Total Units Sold', { font: { bold: true, sz: 10 } }), cell(report.totals.unitsSold, { font: { sz: 10 }, alignment: { horizontal: 'center' } }), cell(prevLabel, sMeta), cell(report.totals.prevSold || 0, { ...sMeta, alignment: { horizontal: 'center' } })],
+        ...(hasRev ? [[cell('Total Revenue', { font: { bold: true, sz: 10 } }), cell(report.totals.revenue || 0, sCurr(sEven)), cell('Prior Revenue', sMeta), cell(report.totals.prevRev || 0, sCurr({ ...sMeta }))]] : []),
+        [cell('Items Sold', { font: { bold: true, sz: 10 } }), cell(report.items.filter(i => i.unitsSold > 0).length, { font: { sz: 10 }, alignment: { horizontal: 'center' } })],
         [],
-        ['CATEGORY BREAKDOWN'],
-        ['Category', 'Units Sold', prevLabel, 'Change %', '% of Total', ...(hasRev ? ['Revenue'] : [])],
-        ...CATEGORY_ORDER.filter(c => report.categories[c]).map(c => {
-          const cat = report.categories[c]
-          const pct = report.totals.unitsSold > 0 ? +((cat.unitsSold / report.totals.unitsSold) * 100).toFixed(1) : 0
-          const chg = cat.prevSold > 0 ? +(((cat.unitsSold - cat.prevSold) / cat.prevSold) * 100).toFixed(1) : null
-          return [c, cat.unitsSold, cat.prevSold || 0, chg != null ? chg / 100 : '', pct / 100, ...(hasRev ? [cat.revenue || 0] : [])]
-        }),
-        ['TOTAL', report.totals.unitsSold, report.totals.prevSold || 0, '', 1, ...(hasRev ? [report.totals.revenue || 0] : [])],
+        // Category breakdown
+        [cell('CATEGORY BREAKDOWN', sSecHdr), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
+        [
+          cell('Category', sColHdrL),
+          cell('Units Sold', sColHdr),
+          cell(prevLabel, sColHdr),
+          cell('Change %', sColHdr),
+          cell('% of Total', sColHdr),
+          ...(hasRev ? [cell('Revenue', sColHdr)] : [])
+        ],
+        ...catDataRows,
+        [
+          cell('TOTAL', sTotals),
+          cell(report.totals.unitsSold, { ...sTotals, alignment: { horizontal: 'center' } }),
+          cell(report.totals.prevSold || 0, { ...sTotals, alignment: { horizontal: 'center' } }),
+          cell('', sTotals),
+          cell(1, { ...sTotals, numFmt: '0.0%', alignment: { horizontal: 'center' } }),
+          ...(hasRev ? [cell(report.totals.revenue || 0, { ...sTotals, numFmt: '"$"#,##0', alignment: { horizontal: 'right' } })] : [])
+        ],
         [],
-        ['ALL ITEMS'],
-        ['Item', 'Category', 'Units Sold', prevLabel, 'Change %', ...(hasRev ? ['Revenue'] : [])],
-        ...report.items.filter(i => i.unitsSold > 0).map(i => [
-          i.name, i.category, i.unitsSold, i.prevSold || 0,
-          i.change != null ? i.change / 100 : '',
-          ...(hasRev ? [i.revenue || 0] : [])
-        ])
+        // All items
+        [cell('ALL ITEMS', sSecHdr), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
+        [
+          cell('Item', sColHdrL),
+          cell('Category', sColHdrL),
+          cell('Units Sold', sColHdr),
+          cell(prevLabel, sColHdr),
+          cell('Change %', sColHdr),
+          ...(hasRev ? [cell('Revenue', sColHdr)] : [])
+        ],
+        ...itemDataRows,
       ]
-      const ws = XLSX.utils.aoa_to_sheet(summaryData)
-      ws['!cols'] = [{ wch: 36 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 12 }]
+
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 36 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, ...(hasRev ? [{ wch: 14 }] : [])]
+
+      // Merge title cell across all columns
+      const lastCol = hasRev ? 5 : 4
+      ws['!merges'] = [
+        { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
+        { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
+        { s: { r: rows.indexOf(rows.find((r,i) => i > 4 && r[0]?.v === 'CATEGORY BREAKDOWN')), c: 0 },
+          e: { r: rows.indexOf(rows.find((r,i) => i > 4 && r[0]?.v === 'CATEGORY BREAKDOWN')), c: lastCol } },
+      ]
+
+      // Row heights
+      ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 28 } : { hpt: 18 })
+
       XLSX.utils.book_append_sheet(wb, ws, 'Sales Report')
       XLSX.writeFile(wb, `PaynterBar_Sales_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
