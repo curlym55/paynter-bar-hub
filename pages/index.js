@@ -44,6 +44,7 @@ export default function Home() {
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
+  const [sohModal, setSohModal]               = useState(false)
   const [salesPdfPeriod, setSalesPdfPeriod] = useState('lastMonth')
   const [salesPdfFrom, setSalesPdfFrom]   = useState('')
   const [salesPdfTo, setSalesPdfTo]       = useState('')
@@ -676,14 +677,14 @@ export default function Home() {
         [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
         [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
         [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(`Sales avg: ${daysBack} days  |  Target: \${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
         [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
         [
-          cell(`\${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
-          cell(`\${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
-          cell(`\${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
-          cell(`\${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
+          cell(`${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
+          cell(`${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
+          cell(`${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
@@ -705,14 +706,14 @@ export default function Home() {
         const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name))
         // Category header row
         dataRows.push([
-          cell(`\${cat.toUpperCase()}  (\${catItems.length} items)`, sCatHdr),
+          cell(`${cat.toUpperCase()}  (${catItems.length} items)`, sCatHdr),
           empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr)
         ])
         catItems.forEach((item, idx) => {
           const rs = rowStyle(item.priority, idx)
           const ns = numStyle(item.priority, idx)
           const orderQty = item.isSpirit
-            ? (item.nipsToOrder > 0 ? `\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)` : '—')
+            ? (item.nipsToOrder > 0 ? `${item.nipsToOrder} nips (${item.bottlesToOrder} btl)` : '—')
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
@@ -1138,14 +1139,14 @@ export default function Home() {
         [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
         [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
         [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(`Sales avg: ${daysBack} days  |  Target: \${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
         [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
         [
-          cell(`\${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
-          cell(`\${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
-          cell(`\${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
-          cell(`\${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
+          cell(`${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
+          cell(`${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
+          cell(`${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
@@ -1167,14 +1168,14 @@ export default function Home() {
         const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name))
         // Category header row
         dataRows.push([
-          cell(`\${cat.toUpperCase()}  (\${catItems.length} items)`, sCatHdr),
+          cell(`${cat.toUpperCase()}  (${catItems.length} items)`, sCatHdr),
           empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr)
         ])
         catItems.forEach((item, idx) => {
           const rs = rowStyle(item.priority, idx)
           const ns = numStyle(item.priority, idx)
           const orderQty = item.isSpirit
-            ? (item.nipsToOrder > 0 ? `\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)` : '—')
+            ? (item.nipsToOrder > 0 ? `${item.nipsToOrder} nips (${item.bottlesToOrder} btl)` : '—')
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
@@ -1403,11 +1404,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               {/* Desktop nav */}
               <div className="desktop-nav" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button style={{ ...styles.btn, background: mainTab === 'home' ? '#1e3a5f' : '#334155' }} onClick={() => setMainTab('home')}>🏠 Home</button>
-                <button style={{ ...styles.btn, background: '#0e7490' }} onClick={() => generateStockReport(false)}>📋 SOH PDF</button>
-                <button style={{ ...styles.btn, background: '#16a34a' }} onClick={() => generateStockReport(true)}>📊 SOH Excel</button>
-                <button style={{ ...styles.btn, background: '#065f46' }} onClick={() => setSalesPdfModal(true)}>📈 Sales Report</button>
+                <button style={{ ...styles.btn, background: '#0e7490' }} onClick={() => setSohModal(true)}>📋 SOH Report</button>
                 <button style={{ ...styles.btn, background: mainTab === 'trends' ? '#b45309' : '#92400e' }} onClick={() => { const n = mainTab === 'trends' ? 'reorder' : 'trends'; setMainTab(n); if (n === 'trends' && !trendData) loadTrendData() }}>{mainTab === 'trends' ? '← Back' : '📈 Trends'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'sales' ? '#7c3aed' : '#4b5563' }} onClick={() => { const n = mainTab === 'sales' ? 'reorder' : 'sales'; setMainTab(n); if (n === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom) }}>{mainTab === 'sales' ? '← Reorder' : '📊 Sales'}</button>
+
                 <button style={{ ...styles.btn, background: mainTab === 'bestsellers' ? '#b45309' : '#78350f' }} onClick={() => { const n = mainTab === 'bestsellers' ? 'reorder' : 'bestsellers'; setMainTab(n); if (n === 'bestsellers') loadSellersData() }}>{mainTab === 'bestsellers' ? '← Back' : '🏆 Sellers'}</button>
                 <button style={{ ...styles.btn, background: mainTab === 'pricelist' ? '#be185d' : '#9d174d' }} onClick={() => setMainTab(t => t === 'pricelist' ? 'reorder' : 'pricelist')}>{mainTab === 'pricelist' ? '← Back' : '🏷️ Price List'}</button>
                 <button style={{ ...styles.btn, background: '#0f766e' }} onClick={() => window.open('https://paynter-bar-roster.vercel.app/', '_blank')}>👥 Roster</button>
@@ -1455,9 +1454,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </button>
             ))}
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderTop: '1px solid #475569' }}>
-              <button style={{ ...styles.btn, background: '#0e7490', flex: 1 }} onClick={() => { generateStockReport(false); setMenuOpen(false) }}>📋 SOH PDF</button>
-              <button style={{ ...styles.btn, background: '#16a34a', flex: 1 }} onClick={() => { generateStockReport(true); setMenuOpen(false) }}>📊 SOH Excel</button>
-              <button style={{ ...styles.btn, background: '#065f46', flex: 1 }} onClick={() => { setSalesPdfModal(true); setMenuOpen(false) }}>📈 Sales Report</button>
+              <button style={{ ...styles.btn, background: '#0e7490', flex: 1 }} onClick={() => { setSohModal(true); setMenuOpen(false) }}>📋 SOH Report</button>
             </div>
           </div>
 
@@ -1495,57 +1492,22 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         </header>
 
 
-        {/* Sales Report Period Modal */}
-        {salesPdfModal && (
+        {sohModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📈 Sales Report</div>
-                <button onClick={() => setSalesPdfModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📋 SOH Report</div>
+                <button onClick={() => setSohModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
               </div>
-
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Period</div>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
-                {[
-                  { value: 'thisMonth',     label: 'This Month' },
-                  { value: 'lastMonth',     label: 'Last Month' },
-                  { value: 'last3months',   label: 'Last 3 Months' },
-                  { value: 'financialYear', label: 'Financial Year (May – Apr)' },
-                  { value: 'custom',        label: 'Custom Range' },
-                ].map(opt => (
-                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: `2px solid ${salesPdfPeriod === opt.value ? '#0f172a' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer', background: salesPdfPeriod === opt.value ? '#f8fafc' : '#fff', fontWeight: salesPdfPeriod === opt.value ? 700 : 400 }}>
-                    <input type="radio" name="salesPdfPeriod" value={opt.value}
-                      checked={salesPdfPeriod === opt.value}
-                      onChange={() => setSalesPdfPeriod(opt.value)}
-                      style={{ accentColor: '#0f172a' }} />
-                    {opt.label}
-                  </label>
-                ))}
-              </div>
-
-              {salesPdfPeriod === 'custom' && (
-                <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>From</div>
-                    <input type="date" value={salesPdfFrom} onChange={e => setSalesPdfFrom(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                  </div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>To</div>
-                    <input type="date" value={salesPdfTo} onChange={e => setSalesPdfTo(e.target.value)}
-                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
-                  </div>
-                </div>
-              )}
-
-              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
-                <button onClick={() => generateSalesReport(false)} disabled={salesPdfLoading}
-                  style={{ flex: 1, padding: '12px 0', background: salesPdfLoading ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salesPdfLoading ? 'not-allowed' : 'pointer' }}>
-                  {salesPdfLoading ? 'Loading...' : '🖨️ Print / PDF'}
+              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>Export the current Stock on Hand as a formatted report.</p>
+              <div style={{ display: 'flex', gap: 10 }}>
+                <button onClick={() => { generateStockReport(false); setSohModal(false) }}
+                  style={{ flex: 1, padding: '12px 0', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  🖨️ Print / PDF
                 </button>
-                <button onClick={() => generateSalesReport(true)} disabled={salesPdfLoading}
-                  style={{ flex: 1, padding: '12px 0', background: salesPdfLoading ? '#94a3b8' : '#065f46', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salesPdfLoading ? 'not-allowed' : 'pointer' }}>
-                  {salesPdfLoading ? 'Loading...' : '📊 Export Excel'}
+                <button onClick={() => { generateStockReport(true); setSohModal(false) }}
+                  style={{ flex: 1, padding: '12px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                  📊 Excel
                 </button>
               </div>
             </div>
@@ -1563,6 +1525,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             category={salesCategory} setCategory={setSalesCategory}
             sort={salesSort} setSort={setSalesSort}
             onLoad={loadSalesReport}
+            onExportPdf={() => generateSalesReport(false)}
+            onExportXlsx={() => generateSalesReport(true)}
+            exportLoading={salesPdfLoading}
           />
         )}
 
@@ -3254,7 +3219,7 @@ function HelpTab() {
 
 
 // ─── SALES REPORT VIEW ────────────────────────────────────────────────────────
-function SalesView({ period, setPeriod, custom, setCustom, report, loading, error, category, setCategory, sort, setSort, onLoad }) {
+function SalesView({ period, setPeriod, custom, setCustom, report, loading, error, category, setCategory, sort, setSort, onLoad, onExportPdf, onExportXlsx, exportLoading }) {
   const fmt = n => n == null ? '-' : `$${Number(n).toFixed(2)}`
 
   const fmtChange = n => {
@@ -3304,6 +3269,20 @@ function SalesView({ period, setPeriod, custom, setCustom, report, loading, erro
           </>
         )}
       </div>
+
+      {/* Export buttons */}
+      {report && !loading && (
+        <div style={{ display: 'flex', gap: 8, padding: '8px 20px 0', background: '#fff', borderBottom: '1px solid #e2e8f0' }}>
+          <button onClick={onExportPdf} disabled={exportLoading}
+            style={{ padding: '6px 16px', background: exportLoading ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: exportLoading ? 'not-allowed' : 'pointer' }}>
+            {exportLoading ? 'Loading...' : '🖨️ Print / PDF'}
+          </button>
+          <button onClick={onExportXlsx} disabled={exportLoading}
+            style={{ padding: '6px 16px', background: exportLoading ? '#94a3b8' : '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: exportLoading ? 'not-allowed' : 'pointer' }}>
+            {exportLoading ? 'Loading...' : '📊 Excel'}
+          </button>
+        </div>
+      )}
 
       {loading && (
         <div style={{ textAlign: 'center', padding: 48, color: '#64748b' }}>
