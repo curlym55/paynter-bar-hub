@@ -43,6 +43,11 @@ export default function Home() {
   const [daysBack, setDaysBack]         = useState(90)
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
+  const [salesPdfModal, setSalesPdfModal] = useState(false)
+  const [salesPdfPeriod, setSalesPdfPeriod] = useState('lastMonth')
+  const [salesPdfFrom, setSalesPdfFrom]   = useState('')
+  const [salesPdfTo, setSalesPdfTo]       = useState('')
+  const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
   const [salesReport, setSalesReport]   = useState(null)
@@ -619,17 +624,47 @@ export default function Home() {
     setTimeout(() => w.print(), 600)
   }
 
-  async function generateSalesReport() {
-    const now   = new Date()
-    // Last completed month
-    const end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59) // last day of prev month
-    const start = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0)
-    const monthName = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
-    const generated = now.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+  async function generateSalesReport(exportXlsx = false) {
+    setSalesPdfLoading(true)
+    const now = new Date()
 
-    // Compare to month before
-    const compareEnd   = new Date(start.getTime() - 1)
-    const compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth(), 1)
+    let start, end, periodLabel, compareStart, compareEnd
+
+    if (salesPdfPeriod === 'thisMonth') {
+      start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+      end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+      periodLabel = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
+      compareEnd   = new Date(start.getTime() - 1)
+      compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth(), 1)
+    } else if (salesPdfPeriod === 'lastMonth') {
+      end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+      start = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0)
+      periodLabel = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
+      compareEnd   = new Date(start.getTime() - 1)
+      compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth(), 1)
+    } else if (salesPdfPeriod === 'last3months') {
+      end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+      start = new Date(end.getFullYear(), end.getMonth() - 2, 1, 0, 0, 0)
+      periodLabel = `${start.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })} – ${end.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`
+      compareEnd   = new Date(start.getTime() - 1)
+      compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth() - 2, 1)
+    } else if (salesPdfPeriod === 'financialYear') {
+      // Financial year: May 1 to Apr 30
+      const fyStart = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1
+      start = new Date(fyStart, 4, 1, 0, 0, 0)      // May 1
+      end   = new Date(fyStart + 1, 3, 30, 23, 59, 59) // Apr 30
+      periodLabel = `Financial Year ${fyStart}–${fyStart + 1} (May–Apr)`
+      compareStart = new Date(fyStart - 1, 4, 1, 0, 0, 0)
+      compareEnd   = new Date(fyStart, 3, 30, 23, 59, 59)
+    } else if (salesPdfPeriod === 'custom') {
+      if (!salesPdfFrom || !salesPdfTo) { setSalesPdfLoading(false); alert('Please select a from and to date'); return }
+      start = new Date(salesPdfFrom + 'T00:00:00+10:00')
+      end   = new Date(salesPdfTo   + 'T23:59:59+10:00')
+      periodLabel = `${new Date(salesPdfFrom).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(salesPdfTo).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      const diffMs = end - start
+      compareEnd   = new Date(start.getTime() - 1)
+      compareStart = new Date(compareEnd.getTime() - diffMs)
+    }
 
     const params = new URLSearchParams({
       start: start.toISOString(), end: end.toISOString(),
@@ -642,20 +677,68 @@ export default function Home() {
       if (!r.ok) throw new Error('Failed to fetch sales data')
       report = await r.json()
     } catch(e) {
+      setSalesPdfLoading(false)
       alert('Could not fetch sales data: ' + e.message)
       return
     }
 
+    setSalesPdfLoading(false)
+    setSalesPdfModal(false)
+
     const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
     const hasRev = report.items.some(i => i.revenue != null && i.revenue > 0)
-
+    const generated = now.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     const fmtRev = n => n ? `$${Number(n).toFixed(2)}` : '—'
-    const fmtChg = n => {
-      if (n == null) return '—'
-      return (n >= 0 ? '+' : '') + n + '%'
+    const fmtChg = n => n == null ? '—' : (n >= 0 ? '+' : '') + n + '%'
+    const prevLabel = salesPdfPeriod === 'financialYear' ? 'Prior FY' : salesPdfPeriod === 'last3months' ? 'Prior 3 Mo' : 'Prior Period'
+
+    if (exportXlsx) {
+      // ── Excel export ──────────────────────────────────────────────────────
+      const script = document.createElement('script')
+      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+      document.head.appendChild(script)
+      await new Promise(r => { script.onload = r })
+      const XLSX = window.XLSX
+
+      const wb = XLSX.utils.book_new()
+
+      // Summary sheet
+      const summaryData = [
+        ['Sales Report — Paynter Bar'],
+        ['Period:', periodLabel],
+        ['Generated:', generated],
+        [],
+        ['SUMMARY', '', '', ''],
+        ['Total Units Sold', report.totals.unitsSold, prevLabel, report.totals.prevSold || 0],
+        ...(hasRev ? [['Total Revenue', `$${Number(report.totals.revenue || 0).toFixed(2)}`, 'Prior Revenue', `$${Number(report.totals.prevRev || 0).toFixed(2)}`]] : []),
+        ['Items Sold', report.items.filter(i => i.unitsSold > 0).length],
+        [],
+        ['CATEGORY BREAKDOWN'],
+        ['Category', 'Units Sold', prevLabel, 'Change %', '% of Total', ...(hasRev ? ['Revenue'] : [])],
+        ...CATEGORY_ORDER.filter(c => report.categories[c]).map(c => {
+          const cat = report.categories[c]
+          const pct = report.totals.unitsSold > 0 ? +((cat.unitsSold / report.totals.unitsSold) * 100).toFixed(1) : 0
+          const chg = cat.prevSold > 0 ? +(((cat.unitsSold - cat.prevSold) / cat.prevSold) * 100).toFixed(1) : null
+          return [c, cat.unitsSold, cat.prevSold || 0, chg != null ? chg / 100 : '', pct / 100, ...(hasRev ? [cat.revenue || 0] : [])]
+        }),
+        ['TOTAL', report.totals.unitsSold, report.totals.prevSold || 0, '', 1, ...(hasRev ? [report.totals.revenue || 0] : [])],
+        [],
+        ['ALL ITEMS'],
+        ['Item', 'Category', 'Units Sold', prevLabel, 'Change %', ...(hasRev ? ['Revenue'] : [])],
+        ...report.items.filter(i => i.unitsSold > 0).map(i => [
+          i.name, i.category, i.unitsSold, i.prevSold || 0,
+          i.change != null ? i.change / 100 : '',
+          ...(hasRev ? [i.revenue || 0] : [])
+        ])
+      ]
+      const ws = XLSX.utils.aoa_to_sheet(summaryData)
+      ws['!cols'] = [{ wch: 36 }, { wch: 14 }, { wch: 14 }, { wch: 10 }, { wch: 10 }, { wch: 12 }]
+      XLSX.utils.book_append_sheet(wb, ws, 'Sales Report')
+      XLSX.writeFile(wb, `PaynterBar_Sales_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
+      return
     }
 
-    // Top 10
+    // ── PDF (print) ───────────────────────────────────────────────────────────
     const top10 = report.items.filter(i => i.unitsSold > 0).slice(0, 10)
     const top10Rows = top10.map((item, idx) => `
       <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'}">
@@ -664,14 +747,11 @@ export default function Home() {
         <td style="color:#64748b;font-size:11px">${item.category}</td>
         <td style="text-align:right;font-family:monospace;font-weight:700">${item.unitsSold}</td>
         <td style="text-align:right;font-family:monospace;color:#64748b">${item.prevSold || 0}</td>
-        <td style="text-align:right;font-family:monospace;color:${item.change >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">${fmtChg(item.change)}</td>
+        <td style="text-align:right;font-family:monospace;color:${(item.change||0) >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">${fmtChg(item.change)}</td>
         ${hasRev ? `<td style="text-align:right;font-family:monospace;color:#16a34a">${fmtRev(item.revenue)}</td>` : ''}
       </tr>`).join('')
 
-    // Category breakdown
-    const catRows = CATEGORY_ORDER
-      .filter(c => report.categories[c])
-      .map((c, idx) => {
+    const catRows = CATEGORY_ORDER.filter(c => report.categories[c]).map((c, idx) => {
         const cat = report.categories[c]
         const pct = report.totals.unitsSold > 0 ? ((cat.unitsSold / report.totals.unitsSold) * 100).toFixed(1) : 0
         const chg = cat.prevSold > 0 ? +(((cat.unitsSold - cat.prevSold) / cat.prevSold) * 100).toFixed(1) : null
@@ -685,9 +765,7 @@ export default function Home() {
         </tr>`
       }).join('')
 
-    const prevMonthName = compareStart.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
-
-    const html = `<!DOCTYPE html><html><head><title>Sales Report — ${monthName}</title>
+    const html = `<!DOCTYPE html><html><head><title>Sales Report — ${periodLabel}</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; background: #fff; }
@@ -709,26 +787,20 @@ export default function Home() {
   td { padding: 6px 10px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
   .totals-row td { background: #f1f5f9; font-weight: 700; border-top: 2px solid #e2e8f0; }
   .footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #94a3b8; display: flex; justify-content: space-between; }
-  @media print {
-    body { font-size: 11px; }
-    .page { padding: 16px; }
-    .section-title { page-break-before: auto; }
-    tr { page-break-inside: avoid; }
-  }
+  @media print { body { font-size: 11px; } .page { padding: 16px; } tr { page-break-inside: avoid; } }
 </style>
 </head><body><div class="page">
   <div class="header">
     <div class="header-left">
-      <h1>Monthly Sales Report</h1>
+      <h1>Sales Report</h1>
       <p>Paynter Bar — GemLife Palmwoods</p>
     </div>
     <div class="header-right">
-      <strong>${monthName}</strong>
+      <strong>${periodLabel}</strong>
       Generated: ${generated}<br>
-      Compared to: ${prevMonthName}
+      Compared to: ${prevLabel}
     </div>
   </div>
-
   <div class="summary">
     <div class="summary-card">
       <div class="num">${report.totals.unitsSold}</div>
@@ -750,15 +822,11 @@ export default function Home() {
       <div class="sub">${report.items[0]?.unitsSold || 0} units</div>
     </div>
   </div>
-
   <div class="section-title">Category Breakdown</div>
   <table>
     <thead><tr>
-      <th>Category</th>
-      <th style="text-align:right">Units Sold</th>
-      <th style="text-align:right">Prior Month</th>
-      <th style="text-align:right">Change</th>
-      <th style="text-align:right">% of Total</th>
+      <th>Category</th><th style="text-align:right">Units Sold</th><th style="text-align:right">${prevLabel}</th>
+      <th style="text-align:right">Change</th><th style="text-align:right">% of Total</th>
       ${hasRev ? '<th style="text-align:right">Revenue</th>' : ''}
     </tr></thead>
     <tbody>
@@ -767,29 +835,23 @@ export default function Home() {
         <td>TOTAL</td>
         <td style="text-align:right;font-family:monospace">${report.totals.unitsSold}</td>
         <td style="text-align:right;font-family:monospace;color:#64748b">${report.totals.prevSold || 0}</td>
-        <td style="text-align:right">—</td>
-        <td style="text-align:right">100%</td>
+        <td style="text-align:right">—</td><td style="text-align:right">100%</td>
         ${hasRev ? `<td style="text-align:right;font-family:monospace;color:#16a34a">${fmtRev(report.totals.revenue)}</td>` : ''}
       </tr>
     </tbody>
   </table>
-
   <div class="section-title">Top 10 Sellers</div>
   <table>
     <thead><tr>
-      <th style="width:28px;text-align:center">#</th>
-      <th>Item</th>
-      <th>Category</th>
-      <th style="text-align:right">Units Sold</th>
-      <th style="text-align:right">Prior Month</th>
+      <th style="width:28px;text-align:center">#</th><th>Item</th><th>Category</th>
+      <th style="text-align:right">Units Sold</th><th style="text-align:right">${prevLabel}</th>
       <th style="text-align:right">Change</th>
       ${hasRev ? '<th style="text-align:right">Revenue</th>' : ''}
     </tr></thead>
     <tbody>${top10Rows}</tbody>
   </table>
-
   <div class="footer">
-    <span>Paynter Bar Reorder System — Data from Square POS</span>
+    <span>Paynter Bar Hub — Data from Square POS</span>
     <span>Generated ${generated}</span>
   </div>
 </div></body></html>`
@@ -801,7 +863,7 @@ export default function Home() {
     setTimeout(() => w.print(), 600)
   }
 
-  function printOrderSheet(supplier) {
+  function printOrderSheetfunction printOrderSheet(supplier) {
     const orderItems = items.filter(i => i.supplier === supplier && i.orderQty > 0)
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = orderItems.map(item => `
@@ -992,6 +1054,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               <div className="desktop-nav" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button style={{ ...styles.btn, background: mainTab === 'home' ? '#1e3a5f' : '#334155' }} onClick={() => setMainTab('home')}>🏠 Home</button>
                 <button style={{ ...styles.btn, background: '#0e7490' }} onClick={generateStockReport}>📋 SOH PDF</button>
+              <button style={{ ...styles.btn, background: '#065f46' }} onClick={() => setSalesPdfModal(true)}>📈 Sales Report</button>
                 <button style={{ ...styles.btn, background: '#065f46' }} onClick={generateSalesReport}>📈 Sales PDF</button>
                 <button style={{ ...styles.btn, background: mainTab === 'trends' ? '#b45309' : '#92400e' }} onClick={() => { const n = mainTab === 'trends' ? 'reorder' : 'trends'; setMainTab(n); if (n === 'trends' && !trendData) loadTrendData() }}>{mainTab === 'trends' ? '← Back' : '📈 Trends'}</button>
                 <button style={{ ...styles.btn, background: mainTab === 'sales' ? '#7c3aed' : '#4b5563' }} onClick={() => { const n = mainTab === 'sales' ? 'reorder' : 'sales'; setMainTab(n); if (n === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom) }}>{mainTab === 'sales' ? '← Reorder' : '📊 Sales'}</button>
@@ -1043,7 +1106,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             ))}
             <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderTop: '1px solid #475569' }}>
               <button style={{ ...styles.btn, background: '#0e7490', flex: 1 }} onClick={() => { generateStockReport(); setMenuOpen(false) }}>📋 SOH PDF</button>
-              <button style={{ ...styles.btn, background: '#065f46', flex: 1 }} onClick={() => { generateSalesReport(); setMenuOpen(false) }}>📈 Sales PDF</button>
+              <button style={{ ...styles.btn, background: '#065f46', flex: 1 }} onClick={() => { setSalesPdfModal(true); setMenuOpen(false) }}>📈 Sales Report</button>
             </div>
           </div>
 
@@ -1079,6 +1142,64 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
           </div>
         </header>
+
+
+        {/* Sales Report Period Modal */}
+        {salesPdfModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 440, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📈 Sales Report</div>
+                <button onClick={() => setSalesPdfModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 10 }}>Period</div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 20 }}>
+                {[
+                  { value: 'thisMonth',     label: 'This Month' },
+                  { value: 'lastMonth',     label: 'Last Month' },
+                  { value: 'last3months',   label: 'Last 3 Months' },
+                  { value: 'financialYear', label: 'Financial Year (May – Apr)' },
+                  { value: 'custom',        label: 'Custom Range' },
+                ].map(opt => (
+                  <label key={opt.value} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px', border: `2px solid ${salesPdfPeriod === opt.value ? '#0f172a' : '#e2e8f0'}`, borderRadius: 8, cursor: 'pointer', background: salesPdfPeriod === opt.value ? '#f8fafc' : '#fff', fontWeight: salesPdfPeriod === opt.value ? 700 : 400 }}>
+                    <input type="radio" name="salesPdfPeriod" value={opt.value}
+                      checked={salesPdfPeriod === opt.value}
+                      onChange={() => setSalesPdfPeriod(opt.value)}
+                      style={{ accentColor: '#0f172a' }} />
+                    {opt.label}
+                  </label>
+                ))}
+              </div>
+
+              {salesPdfPeriod === 'custom' && (
+                <div style={{ display: 'flex', gap: 12, marginBottom: 20, alignItems: 'center' }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>From</div>
+                    <input type="date" value={salesPdfFrom} onChange={e => setSalesPdfFrom(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4, fontWeight: 600 }}>To</div>
+                    <input type="date" value={salesPdfTo} onChange={e => setSalesPdfTo(e.target.value)}
+                      style={{ width: '100%', padding: '8px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }} />
+                  </div>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: 10, marginTop: 4 }}>
+                <button onClick={() => generateSalesReport(false)} disabled={salesPdfLoading}
+                  style={{ flex: 1, padding: '12px 0', background: salesPdfLoading ? '#94a3b8' : '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salesPdfLoading ? 'not-allowed' : 'pointer' }}>
+                  {salesPdfLoading ? 'Loading...' : '🖨️ Print / PDF'}
+                </button>
+                <button onClick={() => generateSalesReport(true)} disabled={salesPdfLoading}
+                  style={{ flex: 1, padding: '12px 0', background: salesPdfLoading ? '#94a3b8' : '#065f46', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: salesPdfLoading ? 'not-allowed' : 'pointer' }}>
+                  {salesPdfLoading ? 'Loading...' : '📊 Export Excel'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {error && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
 
@@ -2690,7 +2811,7 @@ function HelpTab() {
       items: [
         { q: 'Print Order Sheet', a: 'Click Print Order Sheet → choose a supplier to open a print-ready order form. Use your browser\'s Print dialog or Save as PDF.' },
         { q: '📋 SOH PDF', a: 'Generates a Stock on Hand report from current Square data — all items by category with status and order quantities. Print dialog opens automatically.' },
-        { q: '📈 Sales PDF', a: 'Generates a Monthly Sales Report for the previous completed month — category breakdown, top 10 sellers, revenue and prior month comparisons. Best run on the 1st of each month.' },
+        { q: '📈 Sales Report', a: 'Click 📈 Sales Report in the header to choose a period: This Month, Last Month, Last 3 Months, Financial Year (May–Apr), or a custom date range. Then print/save as PDF or export to Excel. The report includes a category breakdown, top 10 sellers, unit counts and revenue comparisons to the prior equivalent period.' },
         { q: 'Export Stocktake', a: 'Downloads an Excel spreadsheet for quarterly stocktakes. Count columns for Cool Room, Store Room and Bar. For spirits, enter decimal bottles (e.g. 4.5) — the sheet calculates nips automatically and shows the variance against Square.' },
       ]
     },
