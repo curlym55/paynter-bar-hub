@@ -502,129 +502,6 @@ export default function Home() {
 
 </body></html>`
 
-    // ── Excel export ──────────────────────────────────────────────────────
-    if (exportXlsx) {
-      const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-      document.head.appendChild(script)
-      await new Promise(r => { script.onload = r })
-      const XLSX = window.XLSX
-
-      // ── Style helpers ────────────────────────────────────────────────────
-      const NAVY  = '0F172A'
-      const TEAL  = '0E7490'
-      const WHITE = 'FFFFFF'
-      const LGREY = 'F1F5F9'
-      const RED   = 'DC2626'
-      const AMBER = 'CA8A04'
-      const GREEN = '16A34A'
-      const BLUE  = '2563EB'
-
-      const sTitle  = { font: { bold: true, sz: 16, color: { rgb: NAVY } } }
-      const sMeta   = { font: { sz: 10, color: { rgb: '64748B' } } }
-      const sMetaB  = { font: { bold: true, sz: 10, color: { rgb: NAVY } } }
-      const sSummHdr = {
-        font: { bold: true, sz: 11, color: { rgb: WHITE } },
-        fill: { fgColor: { rgb: NAVY } },
-        border: { bottom: { style: 'thin', color: { rgb: TEAL } } }
-      }
-      const sCatHdr = {
-        font: { bold: true, sz: 10, color: { rgb: '374151' } },
-        fill: { fgColor: { rgb: LGREY } },
-        border: { top: { style: 'medium', color: { rgb: 'CBD5E1' } }, bottom: { style: 'thin', color: { rgb: 'CBD5E1' } } }
-      }
-      const sColHdr = {
-        font: { bold: true, sz: 10, color: { rgb: WHITE } },
-        fill: { fgColor: { rgb: TEAL } },
-        alignment: { horizontal: 'center' },
-        border: { bottom: { style: 'medium', color: { rgb: NAVY } } }
-      }
-      const sColHdrL = { ...sColHdr, alignment: { horizontal: 'left' } }
-
-      const statusStyle = (priority) => {
-        const col = priority === 'CRITICAL' ? RED : priority === 'LOW' ? AMBER : GREEN
-        return { font: { bold: true, sz: 10, color: { rgb: col } }, alignment: { horizontal: 'center' } }
-      }
-      const rowStyle = (priority, idx) => {
-        const bg = priority === 'CRITICAL' ? 'FFF5F5' : priority === 'LOW' ? 'FFFBEB' : idx % 2 === 0 ? WHITE : 'F8FAFC'
-        return { fill: { fgColor: { rgb: bg } }, font: { sz: 10 }, alignment: { horizontal: 'left' } }
-      }
-      const numStyle = (priority, idx) => ({ ...rowStyle(priority, idx), alignment: { horizontal: 'center' } })
-
-      const cell = (v, s) => ({ v, s, t: typeof v === 'number' ? 'n' : 's' })
-      const empty = (s = {}) => ({ v: '', s })
-
-      // ── Summary stats row ─────────────────────────────────────────────────
-      const summaryRows = [
-        [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
-        [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
-        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(\`Sales avg: \${daysBack} days  |  Target: \${targetWeeks} weeks stock\`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
-        [],
-        [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
-        [
-          cell(\`\${items.length}  Total Items\`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${critItems.length}  Critical\`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${lowItems.length}  Low Stock\`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${orderItems.length}  To Order\`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
-          empty(), empty(), empty()
-        ],
-        [],
-        // Column headers
-        [
-          cell('Item', sColHdrL),
-          cell('On Hand', sColHdr),
-          cell('Wkly Avg', sColHdr),
-          cell('Target', sColHdr),
-          cell('Status', sColHdr),
-          cell('Order Qty', sColHdr),
-          cell('Supplier', sColHdrL),
-        ],
-      ]
-
-      // ── Data rows by category ─────────────────────────────────────────────
-      const dataRows = []
-      for (const cat of sortedCats) {
-        const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name))
-        // Category header row
-        dataRows.push([
-          cell(\`\${cat.toUpperCase()}  (\${catItems.length} items)\`, sCatHdr),
-          empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr)
-        ])
-        catItems.forEach((item, idx) => {
-          const rs = rowStyle(item.priority, idx)
-          const ns = numStyle(item.priority, idx)
-          const orderQty = item.isSpirit
-            ? (item.nipsToOrder > 0 ? \`\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)\` : '—')
-            : (item.orderQty > 0 ? String(item.orderQty) : '—')
-          dataRows.push([
-            cell(item.name, rs),
-            cell(item.onHand, ns),
-            cell(item.weeklyAvg, ns),
-            cell(item.targetStock, ns),
-            cell(item.priority, statusStyle(item.priority)),
-            cell(orderQty, { ...ns, font: { ...ns.font, bold: item.orderQty > 0 } }),
-            cell(item.supplier || '', { ...rs, font: { sz: 10, color: { rgb: '64748B' } } }),
-          ])
-        })
-        dataRows.push([]) // spacer
-      }
-
-      const allRows = [...summaryRows, ...dataRows]
-      const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 }]
-      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
-      ]
-
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      XLSX.writeFile(wb, \`PaynterBar_SOH_\${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx\`)
-      return
-    }
 
     // ── PDF / Print ────────────────────────────────────────────────────────
     const w = window.open('', '_blank')
@@ -799,14 +676,14 @@ export default function Home() {
         [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
         [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
         [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(\`Sales avg: \${daysBack} days  |  Target: \${targetWeeks} weeks stock\`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: \${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
         [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
         [
-          cell(\`\${items.length}  Total Items\`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${critItems.length}  Critical\`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${lowItems.length}  Low Stock\`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${orderItems.length}  To Order\`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`\${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
+          cell(`\${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
+          cell(`\${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
+          cell(`\${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
@@ -828,14 +705,14 @@ export default function Home() {
         const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name))
         // Category header row
         dataRows.push([
-          cell(\`\${cat.toUpperCase()}  (\${catItems.length} items)\`, sCatHdr),
+          cell(`\${cat.toUpperCase()}  (\${catItems.length} items)`, sCatHdr),
           empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr)
         ])
         catItems.forEach((item, idx) => {
           const rs = rowStyle(item.priority, idx)
           const ns = numStyle(item.priority, idx)
           const orderQty = item.isSpirit
-            ? (item.nipsToOrder > 0 ? \`\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)\` : '—')
+            ? (item.nipsToOrder > 0 ? `\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)` : '—')
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
@@ -862,7 +739,7 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      XLSX.writeFile(wb, \`PaynterBar_SOH_\${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx\`)
+      XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
 
@@ -1261,14 +1138,14 @@ export default function Home() {
         [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
         [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
         [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(\`Sales avg: \${daysBack} days  |  Target: \${targetWeeks} weeks stock\`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: \${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
         [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
         [
-          cell(\`\${items.length}  Total Items\`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${critItems.length}  Critical\`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${lowItems.length}  Low Stock\`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
-          cell(\`\${orderItems.length}  To Order\`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`\${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
+          cell(`\${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
+          cell(`\${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
+          cell(`\${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
@@ -1290,14 +1167,14 @@ export default function Home() {
         const catItems = byCategory[cat].sort((a, b) => a.name.localeCompare(b.name))
         // Category header row
         dataRows.push([
-          cell(\`\${cat.toUpperCase()}  (\${catItems.length} items)\`, sCatHdr),
+          cell(`\${cat.toUpperCase()}  (\${catItems.length} items)`, sCatHdr),
           empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr), empty(sCatHdr)
         ])
         catItems.forEach((item, idx) => {
           const rs = rowStyle(item.priority, idx)
           const ns = numStyle(item.priority, idx)
           const orderQty = item.isSpirit
-            ? (item.nipsToOrder > 0 ? \`\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)\` : '—')
+            ? (item.nipsToOrder > 0 ? `\${item.nipsToOrder} nips (\${item.bottlesToOrder} btl)` : '—')
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
@@ -1324,7 +1201,7 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      XLSX.writeFile(wb, \`PaynterBar_SOH_\${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx\`)
+      XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
 
