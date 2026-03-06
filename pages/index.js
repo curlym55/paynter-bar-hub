@@ -863,7 +863,7 @@ export default function Home() {
     setTimeout(() => w.print(), 600)
   }
 
-  function printOrderSheetfunction printOrderSheet(supplier) {
+  function printOrderSheet(supplier) {
     const orderItems = items.filter(i => i.supplier === supplier && i.orderQty > 0)
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = orderItems.map(item => `
