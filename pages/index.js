@@ -156,6 +156,12 @@ export default function Home() {
         start = new Date(now); start.setMonth(start.getMonth() - 3); start.setHours(0,0,0,0)
         compareEnd   = new Date(start.getTime() - 1)
         compareStart = new Date(compareEnd); compareStart.setMonth(compareStart.getMonth() - 3); compareStart.setHours(0,0,0,0)
+      } else if (period === 'financialYear') {
+        const fyStart = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1
+        start = new Date(fyStart, 4, 1); start.setHours(0,0,0,0)
+        end   = new Date(now)
+        compareStart = new Date(fyStart - 1, 4, 1); compareStart.setHours(0,0,0,0)
+        compareEnd   = new Date(start.getTime() - 1)
       } else if (period === 'custom' && custom.start && custom.end) {
         start = new Date(custom.start); start.setHours(0,0,0,0)
         end   = new Date(custom.end);   end.setHours(23,59,59,999)
@@ -3251,7 +3257,7 @@ function SalesView({ period, setPeriod, custom, setCustom, report, loading, erro
     <div className="view-wrap" style={{ padding: '24px 32px' }}>
       {/* Period controls */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, background: '#fff', padding: '10px 20px', borderBottom: '1px solid #e2e8f0' }}>
-        {[['month','This Month'],['lastmonth','Last Month'],['3months','Last 3 Months'],['custom','Custom Range']].map(([val, label]) => (
+        {[['month','This Month'],['lastmonth','Last Month'],['3months','Last 3 Months'],['financialYear','Financial Year (May – Apr)'],['custom','Custom Range']].map(([val, label]) => (
           <button key={val}
             style={{ ...styles.tab, ...(period === val ? styles.tabActive : {}) }}
             onClick={() => { setPeriod(val); if (val !== 'custom') onLoad(val, custom) }}>
