@@ -45,9 +45,6 @@ export default function Home() {
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
   const [sohModal, setSohModal]               = useState(false)
-  const [salesPdfPeriod, setSalesPdfPeriod] = useState('lastMonth')
-  const [salesPdfFrom, setSalesPdfFrom]   = useState('')
-  const [salesPdfTo, setSalesPdfTo]       = useState('')
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
@@ -764,40 +761,42 @@ export default function Home() {
 
     let start, end, periodLabel, compareStart, compareEnd
 
-    if (salesPdfPeriod === 'thisMonth') {
+    // Use the period currently selected in the Sales tab
+    if (salesPeriod === 'month') {
       start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
-      end   = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-      periodLabel = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
+      end   = new Date(now); end.setHours(23,59,59,999)
+      periodLabel = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' }) + ' (MTD)'
       compareEnd   = new Date(start.getTime() - 1)
       compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth(), 1)
-    } else if (salesPdfPeriod === 'lastMonth') {
+    } else if (salesPeriod === 'lastmonth') {
       end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
       start = new Date(end.getFullYear(), end.getMonth(), 1, 0, 0, 0)
       periodLabel = start.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
       compareEnd   = new Date(start.getTime() - 1)
       compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth(), 1)
-    } else if (salesPdfPeriod === 'last3months') {
-      end   = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
-      start = new Date(end.getFullYear(), end.getMonth() - 2, 1, 0, 0, 0)
+    } else if (salesPeriod === '3months') {
+      end   = new Date(now); end.setHours(23,59,59,999)
+      start = new Date(now); start.setMonth(start.getMonth() - 3); start.setHours(0,0,0,0)
       periodLabel = `${start.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })} – ${end.toLocaleDateString('en-AU', { month: 'short', year: 'numeric' })}`
       compareEnd   = new Date(start.getTime() - 1)
-      compareStart = new Date(compareEnd.getFullYear(), compareEnd.getMonth() - 2, 1)
-    } else if (salesPdfPeriod === 'financialYear') {
-      // Financial year: May 1 to Apr 30
+      compareStart = new Date(compareEnd); compareStart.setMonth(compareStart.getMonth() - 3); compareStart.setHours(0,0,0,0)
+    } else if (salesPeriod === 'financialYear') {
       const fyStart = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1
-      start = new Date(fyStart, 4, 1, 0, 0, 0)      // May 1
-      end   = new Date(fyStart + 1, 3, 30, 23, 59, 59) // Apr 30
-      periodLabel = `Financial Year ${fyStart}–${fyStart + 1} (May–Apr)`
+      start = new Date(fyStart, 4, 1, 0, 0, 0)
+      end   = new Date(now); end.setHours(23,59,59,999)
+      periodLabel = `Financial Year ${fyStart}–${String(fyStart + 1).slice(2)} (May–Apr)`
       compareStart = new Date(fyStart - 1, 4, 1, 0, 0, 0)
-      compareEnd   = new Date(fyStart, 3, 30, 23, 59, 59)
-    } else if (salesPdfPeriod === 'custom') {
-      if (!salesPdfFrom || !salesPdfTo) { setSalesPdfLoading(false); alert('Please select a from and to date'); return }
-      start = new Date(salesPdfFrom + 'T00:00:00+10:00')
-      end   = new Date(salesPdfTo   + 'T23:59:59+10:00')
-      periodLabel = `${new Date(salesPdfFrom).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(salesPdfTo).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
+      compareEnd   = new Date(start.getTime() - 1)
+    } else if (salesPeriod === 'custom') {
+      if (!salesCustom?.start || !salesCustom?.end) { setSalesPdfLoading(false); alert('Please select a custom date range in the Sales tab first'); return }
+      start = new Date(salesCustom.start + 'T00:00:00'); start.setHours(0,0,0,0)
+      end   = new Date(salesCustom.end   + 'T00:00:00'); end.setHours(23,59,59,999)
+      periodLabel = `${new Date(salesCustom.start).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })} – ${new Date(salesCustom.end).toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}`
       const diffMs = end - start
       compareEnd   = new Date(start.getTime() - 1)
       compareStart = new Date(compareEnd.getTime() - diffMs)
+    } else {
+      setSalesPdfLoading(false); return
     }
 
     const params = new URLSearchParams({
@@ -824,7 +823,7 @@ export default function Home() {
     const generated = now.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     const fmtRev = n => n ? `$${Number(n).toFixed(2)}` : '—'
     const fmtChg = n => n == null ? '—' : (n >= 0 ? '+' : '') + n + '%'
-    const prevLabel = salesPdfPeriod === 'financialYear' ? 'Prior FY' : salesPdfPeriod === 'last3months' ? 'Prior 3 Mo' : 'Prior Period'
+    const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : 'Prior Period'
 
     if (exportXlsx) {
       // ── Excel export ──────────────────────────────────────────────────────
