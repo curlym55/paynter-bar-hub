@@ -1405,6 +1405,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               <div className="desktop-nav" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
                 <button style={{ ...styles.btn, background: mainTab === 'home' ? '#1e3a5f' : '#334155' }} onClick={() => setMainTab('home')}>🏠 Home</button>
                 <button style={{ ...styles.btn, background: '#0e7490' }} onClick={() => setSohModal(true)}>📋 SOH Report</button>
+                <button style={{ ...styles.btn, background: mainTab === 'sales' ? '#7c3aed' : '#4b5563' }} onClick={() => { const n = mainTab === 'sales' ? 'reorder' : 'sales'; setMainTab(n); if (n === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom) }}>{mainTab === 'sales' ? '← Back' : '📊 Sales'}</button>
                 <button style={{ ...styles.btn, background: mainTab === 'trends' ? '#b45309' : '#92400e' }} onClick={() => { const n = mainTab === 'trends' ? 'reorder' : 'trends'; setMainTab(n); if (n === 'trends' && !trendData) loadTrendData() }}>{mainTab === 'trends' ? '← Back' : '📈 Trends'}</button>
 
                 <button style={{ ...styles.btn, background: mainTab === 'bestsellers' ? '#b45309' : '#78350f' }} onClick={() => { const n = mainTab === 'bestsellers' ? 'reorder' : 'bestsellers'; setMainTab(n); if (n === 'bestsellers') loadSellersData() }}>{mainTab === 'bestsellers' ? '← Back' : '🏆 Sellers'}</button>
