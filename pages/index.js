@@ -3570,11 +3570,11 @@ function StocktakeView({ items, readOnly, onExport }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
 
   // counts keyed by item name: { coolRoom, storeRoom, bar }
-  const [counts, setCounts] = React.useState({})
-  const [filterCat, setFilterCat] = React.useState('All')
-  const [mobileMode, setMobileMode] = React.useState(false)
-  const [mobileIdx, setMobileIdx] = React.useState(0)
-  const [showDiffs, setShowDiffs] = React.useState(false)
+  const [counts, setCounts] = useState({})
+  const [filterCat, setFilterCat] = useState('All')
+  const [mobileMode, setMobileMode] = useState(false)
+  const [mobileIdx, setMobileIdx] = useState(0)
+  const [showDiffs, setShowDiffs] = useState(false)
 
   const setCount = (name, field, val) => {
     const num = val === '' ? '' : parseFloat(val) || 0
