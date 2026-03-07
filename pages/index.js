@@ -1583,8 +1583,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   <button style={{ ...styles.btn, background: '#0f172a', fontSize: 12, padding: '6px 14px' }}
                     onClick={() => printOrderSheet(view)}>Print {view} Order</button>
                 )}
-                <button style={{ ...styles.btn, background: '#16a34a', fontSize: 12, padding: '6px 14px' }}
-                  onClick={exportStocktake}>Export Stocktake</button>
                 <div style={{ position: 'relative' }}>
                   <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
                     onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>Print Order Sheet</button>
