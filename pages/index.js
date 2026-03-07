@@ -3698,6 +3698,115 @@ function StocktakeView({ items, readOnly, onExport }) {
     document.head.appendChild(script)
   }
 
+  const printBlankSheet = () => {
+    const dateStr = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    let lastCat = null
+    let rows = ''
+    sortedItems.forEach((item, idx) => {
+      if (item.category !== lastCat) {
+        lastCat = item.category
+        rows += `<tr class="cat-row"><td colspan="7">${item.category}</td></tr>`
+      }
+      const shade = idx % 2 === 0 ? '#fff' : '#f8fafc'
+      rows += `<tr style="background:${shade}">
+        <td class="item-name">${item.name}</td>
+        <td class="input-cell">${item.isSpirit ? '<span class="hint">btls (0.5=half)</span>' : ''}</td>
+        <td class="input-cell"></td>
+        <td class="input-cell"></td>
+        <td class="total-cell"></td>
+        <td class="sq-cell">${item.onHand}</td>
+        <td class="diff-cell"></td>
+      </tr>`
+    })
+
+    const html = `<!DOCTYPE html><html><head><title>Stocktake — Paynter Bar</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; font-size: 11px; color: #1f2937; background: #fff; }
+  .page { padding: 20px 24px; }
+  .header { display: flex; justify-content: space-between; align-items: flex-end; border-bottom: 3px solid #0f172a; padding-bottom: 10px; margin-bottom: 6px; }
+  .header-left h1 { font-size: 18px; font-weight: 700; color: #0f172a; }
+  .header-left p { font-size: 10px; color: #64748b; margin-top: 2px; }
+  .header-right { font-size: 10px; color: #64748b; text-align: right; line-height: 1.7; }
+  .header-right strong { font-size: 13px; color: #0f172a; display: block; }
+  .instructions { background: #f1f5f9; border-radius: 6px; padding: 7px 12px; margin-bottom: 10px; font-size: 10px; color: #475569; line-height: 1.6; }
+  table { width: 100%; border-collapse: collapse; }
+  th { background: #0f172a; color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; }
+  th.item-col { text-align: left; width: 34%; }
+  th.input-col { text-align: center; width: 11%; }
+  th.total-col { text-align: center; width: 9%; background: #1e3a5f; }
+  th.sq-col { text-align: center; width: 9%; }
+  th.diff-col { text-align: center; width: 9%; background: #1e3a5f; }
+  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
+  td.item-name { font-size: 11px; font-weight: 500; }
+  td.input-cell { text-align: center; border-left: 1px solid #e2e8f0; }
+  td.total-cell { text-align: center; background: #f0f9ff; border-left: 2px solid #bae6fd; font-weight: 700; }
+  td.sq-cell { text-align: center; color: #64748b; font-family: monospace; }
+  td.diff-cell { text-align: center; background: #fefce8; border-left: 2px solid #fef08a; }
+  .write-box { display: inline-block; width: 52px; height: 20px; border-bottom: 1.5px solid #94a3b8; }
+  tr.cat-row td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #374151; padding: 6px 8px; border-top: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; }
+  .hint { font-size: 8px; color: #94a3b8; display: block; margin-top: 1px; }
+  .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
+  .sign-row { display: flex; gap: 40px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
+  .sign-block { flex: 1; }
+  .sign-block .label { font-size: 9px; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 20px; }
+  .sign-block .line { border-bottom: 1px solid #94a3b8; }
+  @media print {
+    body { font-size: 10px; }
+    .page { padding: 12px 16px; }
+    tr { page-break-inside: avoid; }
+    tr.cat-row { page-break-before: auto; }
+    .no-print { display: none; }
+  }
+</style>
+</head><body><div class="page">
+  <div class="header">
+    <div class="header-left">
+      <h1>Stocktake Sheet</h1>
+      <p>Paynter Bar — GemLife Palmwoods</p>
+    </div>
+    <div class="header-right">
+      <strong>${dateStr}</strong>
+      Completed by: _______________________<br>
+      Trading session: __________________
+    </div>
+  </div>
+  <div class="instructions">
+    <strong>Instructions:</strong>&nbsp;
+    Count stock in each location and write the count in the box. For spirits, enter bottle count (use decimals for part bottles, e.g. 4.5). Add Cool Room + Store Room + Bar for Total. Variance = Total − Square.
+  </div>
+  <table>
+    <thead>
+      <tr>
+        <th class="item-col">Item</th>
+        <th class="input-col">❄️ Cool Room</th>
+        <th class="input-col">📦 Store Room</th>
+        <th class="input-col">🍺 Bar</th>
+        <th class="total-col">Total</th>
+        <th class="sq-col">Square</th>
+        <th class="diff-col">Variance</th>
+      </tr>
+    </thead>
+    <tbody>${rows}</tbody>
+  </table>
+  <div class="sign-row">
+    <div class="sign-block"><div class="label">Counted by</div><div class="line"></div></div>
+    <div class="sign-block"><div class="label">Checked by</div><div class="line"></div></div>
+    <div class="sign-block"><div class="label">Date completed</div><div class="line"></div></div>
+  </div>
+  <div class="footer">
+    <span>Paynter Bar — Stocktake Sheet — Generated ${dateStr}</span>
+    <span>Square On Hand figures current at time of printing</span>
+  </div>
+</div></body></html>`
+
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => w.print(), 500)
+  }
+
   const resetAll = () => { if (window.confirm('Clear all counts?')) setCounts({}) }
 
   // ── MOBILE VIEW ───────────────────────────────────────────────────────────────
@@ -3822,6 +3931,10 @@ function StocktakeView({ items, readOnly, onExport }) {
         <button onClick={exportToExcel}
           style={{ padding: '7px 14px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
           📊 Export Excel
+        </button>
+        <button onClick={printBlankSheet}
+          style={{ padding: '7px 14px', background: '#0e7490', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+          🖨️ Print Blank Sheet
         </button>
         <button onClick={resetAll}
           style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
