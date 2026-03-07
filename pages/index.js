@@ -3673,14 +3673,14 @@ function StocktakeView({ items, readOnly, onExport }) {
         rows.push([
           cell(item.name, s),
           cell(item.category, { ...s, font: { sz: 10, color: { rgb: '64748B' } } }),
-          cell(cr !== '' ? cr : null, ns),
-          cell(sr !== '' ? sr : null, ns),
-          cell(br !== '' ? br : null, ns),
+          cell(cr !== '' ? cr : 0, ns),
+          cell(sr !== '' ? sr : 0, ns),
+          cell(br !== '' ? br : 0, ns),
           cell(null, ns, `C${rowNum}+D${rowNum}+E${rowNum}`),
           cell(nipsPerBottle !== '' ? nipsPerBottle : null, { ...ns, numFmt: '0.0' }),
-          item.isSpirit ? cell(null, ns, `F${rowNum}*G${rowNum}`) : cell(null, ns),
+          item.isSpirit ? cell(null, ns, `IFERROR(F${rowNum}*G${rowNum},0)`) : cell(null, ns),
           cell(item.onHand, ns),
-          item.isSpirit ? cell(null, { ...ns, font: { sz: 10, bold: true } }, `H${rowNum}-I${rowNum}`) : cell(null, { ...ns, font: { sz: 10, bold: true } }, `F${rowNum}-I${rowNum}`),
+          item.isSpirit ? cell(null, { ...ns, font: { sz: 10, bold: true } }, `IFERROR(H${rowNum}-I${rowNum},F${rowNum}-I${rowNum})`) : cell(null, { ...ns, font: { sz: 10, bold: true } }, `F${rowNum}-I${rowNum}`),
         ])
       })
 
