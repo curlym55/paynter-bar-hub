@@ -3705,15 +3705,17 @@ function StocktakeView({ items, readOnly, onExport }) {
     sortedItems.forEach((item, idx) => {
       if (item.category !== lastCat) {
         lastCat = item.category
-        rows += `<tr class="cat-row"><td colspan="7">${item.category}</td></tr>`
+        rows += `<tr class="cat-row"><td colspan="8">${item.category}</td></tr>`
       }
       const shade = idx % 2 === 0 ? '#fff' : '#f8fafc'
+      const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : ''
       rows += `<tr style="background:${shade}">
-        <td class="item-name">${item.name}</td>
-        <td class="input-cell">${item.isSpirit ? '<span class="hint">btls (0.5=half)</span>' : ''}</td>
+        <td class="item-name">${item.name}${item.isSpirit ? '<span class="hint">enter bottles (0.5 = half bottle)</span>' : ''}</td>
+        <td class="input-cell"></td>
         <td class="input-cell"></td>
         <td class="input-cell"></td>
         <td class="total-cell"></td>
+        <td class="nips-cell">${nipsPerBottle !== '' ? `<span class="nips-ref">${nipsPerBottle}</span>` : ''}</td>
         <td class="sq-cell">${item.onHand}</td>
         <td class="diff-cell"></td>
       </tr>`
@@ -3732,11 +3734,12 @@ function StocktakeView({ items, readOnly, onExport }) {
   .instructions { background: #f1f5f9; border-radius: 6px; padding: 7px 12px; margin-bottom: 10px; font-size: 10px; color: #475569; line-height: 1.6; }
   table { width: 100%; border-collapse: collapse; }
   th { background: #0f172a; color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; }
-  th.item-col { text-align: left; width: 34%; }
-  th.input-col { text-align: center; width: 11%; }
-  th.total-col { text-align: center; width: 9%; background: #1e3a5f; }
-  th.sq-col { text-align: center; width: 9%; }
-  th.diff-col { text-align: center; width: 9%; background: #1e3a5f; }
+  th.item-col { text-align: left; width: 32%; }
+  th.input-col { text-align: center; width: 10%; }
+  th.total-col { text-align: center; width: 8%; background: #1e3a5f; }
+  th.nips-col { text-align: center; width: 8%; background: #134e4a; }
+  th.sq-col { text-align: center; width: 8%; }
+  th.diff-col { text-align: center; width: 8%; background: #1e3a5f; }
   td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
   td.item-name { font-size: 11px; font-weight: 500; }
   td.input-cell { text-align: center; border-left: 1px solid #e2e8f0; }
@@ -3745,6 +3748,8 @@ function StocktakeView({ items, readOnly, onExport }) {
   td.diff-cell { text-align: center; background: #fefce8; border-left: 2px solid #fef08a; }
   .write-box { display: inline-block; width: 52px; height: 20px; border-bottom: 1.5px solid #94a3b8; }
   tr.cat-row td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #374151; padding: 6px 8px; border-top: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.nips-cell { text-align: center; color: #0f766e; font-family: monospace; font-weight: 700; font-size: 11px; background: #f0fdfa; border-left: 1px solid #99f6e4; }
+  .nips-ref { display: inline-block; background: #ccfbf1; border-radius: 4px; padding: 1px 5px; font-size: 10px; }
   .hint { font-size: 8px; color: #94a3b8; display: block; margin-top: 1px; }
   .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
   .sign-row { display: flex; gap: 40px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
@@ -3782,7 +3787,8 @@ function StocktakeView({ items, readOnly, onExport }) {
         <th class="input-col">❄️ Cool Room</th>
         <th class="input-col">📦 Store Room</th>
         <th class="input-col">🍺 Bar</th>
-        <th class="total-col">Total</th>
+        <th class="total-col">Total Btls</th>
+        <th class="nips-col">Nips/Btl</th>
         <th class="sq-col">Square</th>
         <th class="diff-col">Variance</th>
       </tr>
