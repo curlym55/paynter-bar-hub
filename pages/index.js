@@ -1884,7 +1884,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           Paynter Bar Hub — GemLife Palmwoods | Data from Square POS | {items.length} items tracked
         </footer>
       </div>{/* end main column */}
-      </div>{/* end page */}
     </div>{/* end styles.page */}
     </>
   )
