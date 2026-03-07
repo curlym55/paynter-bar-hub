@@ -1883,7 +1883,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         <footer style={styles.footer}>
           Paynter Bar Hub — GemLife Palmwoods | Data from Square POS | {items.length} items tracked
         </footer>
-      </div>
+      </div>{/* end main column */}
+      </div>{/* end page */}
+    </div>{/* end styles.page */}
     </>
   )
 }
@@ -4086,7 +4088,5 @@ function StocktakeView({ items, readOnly, onExport }) {
         For spirits: enter bottle count (decimals ok, e.g. 4.5 for a half-used bottle). Nips calculated automatically. Non-spirit items: enter unit count.
       </div>
     </div>
-        </div>{/* end main column */}
-      </div>{/* end page */}
   )
 }
