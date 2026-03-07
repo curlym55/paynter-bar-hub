@@ -3028,9 +3028,9 @@ function HelpTab() {
       icon: '🏠',
       title: 'Dashboard',
       items: [
-        { q: 'Home screen', a: 'The Dashboard is the home screen of the app. It shows live stock status at a glance — Critical items, Low Stock, items needing ordering, and when data was last refreshed from Square.' },
-        { q: 'Stock status cards', a: 'The Critical, Low Stock and To Order cards are clickable — tap any of them to jump straight to the Reorder Planner filtered to those items.' },
-        { q: 'Feature tiles', a: 'All features of the app are accessible from the Dashboard via clickable tiles. The Volunteer Roster tile opens in a new tab.' },
+        { q: 'Home screen', a: 'The Dashboard is the home screen. It shows live stock status at a glance — Critical items, Low Stock, items to order, and when data was last refreshed from Square.' },
+        { q: 'Status cards', a: 'The Critical, Low Stock and To Order cards are clickable — tap any of them to jump straight to the Reorder Planner filtered to those items.' },
+        { q: 'Feature tiles', a: 'All app features are accessible from the Dashboard via clickable tiles. The Volunteer Roster tile opens in a new tab.' },
         { q: 'Refreshing data', a: 'Click Refresh in the top-right header to pull the latest stock levels, prices and sales data from Square POS. The Dashboard shows how long ago data was last refreshed.' },
       ]
     },
@@ -3038,9 +3038,10 @@ function HelpTab() {
       icon: '🔐',
       title: 'Getting Started',
       items: [
-        { q: 'Logging in', a: 'Enter your PIN on the login screen. Your session stays active until you close the browser tab. The app works on any device — phone, tablet or laptop.' },
-        { q: 'Refreshing data', a: 'Click Refresh in the top-right to pull the latest stock levels and sales from Square POS. Always reflects what Square knows right now.' },
+        { q: 'Logging in', a: 'Enter your PIN on the login screen. Committee PIN gives full access. The read-only PIN gives view-only access. Your session stays active until you close the browser tab.' },
+        { q: 'Refreshing data', a: 'Click Refresh in the top-right to pull the latest stock levels and sales from Square POS. Always reflects current Square data.' },
         { q: 'Sales period', a: 'The 30d / 60d / 90d buttons set how many days of sales history are used to calculate weekly averages. 90 days gives the most stable average; 30 days is more responsive to recent trends.' },
+        { q: 'Navigation', a: 'On desktop, all tabs appear as buttons in the top-right header. On mobile, tap the ☰ menu icon to access all features.' },
       ]
     },
     {
@@ -3049,11 +3050,22 @@ function HelpTab() {
       items: [
         { q: 'Reading the table', a: 'Each row shows current stock (On Hand), weekly average sales, target stock level, and how much to order. Red = CRITICAL (below target), yellow = LOW, green = OK.' },
         { q: 'Order Qty vs Bottles', a: 'For spirits and fortified wines, Order Qty shows nips needed and Bottles shows full bottles to buy (rounded up). For all other items, Order Qty shows units to order.' },
-        { q: 'Target Weeks', a: 'Click the number in the header stats bar to change how many weeks of stock to hold. Default is 6 weeks. Affects all items\' target stock calculations.' },
+        { q: 'Target Weeks', a: 'Click the number in the header stats bar to change how many weeks of stock to hold. Default is 6 weeks. Affects all items target stock calculations.' },
         { q: 'Filtering to order items', a: 'Tick \"Order items only\" in the controls bar to hide items that don\'t need ordering — useful when preparing orders.' },
-        { q: 'Supplier tabs', a: 'Click Dan Murphys, Coles Woolies or ACW to filter the table to just that supplier. Use + Supplier to add a new supplier.' },
-        { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically to the cloud and are shared with all management team members.' },
+        { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. Use + Supplier to add a new supplier.' },
+        { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all committee members.' },
         { q: 'Adding notes', a: 'Click the Notes column for any item to add a note (e.g. \"Discontinued\", \"Check price\"). Notes are saved and visible to all.' },
+        { q: 'Print Order Sheet', a: 'Click Print Order Sheet then choose a supplier to open a formatted, print-ready order form for that supplier. Use your browser Print dialog or Save as PDF.' },
+      ]
+    },
+    {
+      icon: '📬',
+      title: 'On Order Tracking',
+      items: [
+        { q: 'What it does', a: 'When you place an order, click Mark as Ordered next to items in the Reorder Planner. They move off the \"To Order\" count and into the \"On Order\" banner so you know what\'s been actioned.' },
+        { q: 'On Order banner', a: 'Ordered items appear in a grouped banner at the top of the Reorder Planner, organised by supplier. Each supplier group shows the order date and which items were ordered.' },
+        { q: 'Marking delivery received', a: 'When stock arrives, click ✓ [Supplier] Received in the On Order banner. This clears all items for that supplier from the On Order list in one step.' },
+        { q: 'To Order vs On Order', a: '\"To Order\" count in the stats bar only shows items not yet actioned. \"On Order\" shows items that have been ordered but not yet received. The two counts are mutually exclusive.' },
       ]
     },
     {
@@ -3062,7 +3074,7 @@ function HelpTab() {
       items: [
         { q: 'How spirits are tracked', a: 'Square tracks spirits in nips (30ml standard, 60ml for Baileys, Galway Pipe Port and Penfolds Club Port). All calculations — weekly average, target stock, order quantities — stay in nips throughout.' },
         { q: 'Bottle Size column', a: 'Set to 700ml, 750ml or 1000ml per item. Determines how many nips per bottle (e.g. 700ml ÷ 30ml = 23.3 nips). Affects order quantities and stocktake calculations.' },
-        { q: 'Nip Size column', a: 'Most spirits are 30ml. Baileys Irish Cream, Galway Pipe Port and Penfolds Club Port are served as 60ml nips. Must be set correctly for accurate order quantities and stocktake counts.' },
+        { q: 'Nip Size column', a: 'Most spirits are 30ml. Baileys Irish Cream, Galway Pipe Port and Penfolds Club Port are served as 60ml nips. Must be set correctly for accurate order quantities.' },
         { q: 'Order quantities', a: 'Shows nips needed to reach target stock. Bottles column shows full bottles to buy (always rounded up). Example: need 70 nips from 700ml bottle → Order Qty 70, Bottles 3.' },
       ]
     },
@@ -3071,91 +3083,124 @@ function HelpTab() {
       title: 'Pricing Mode',
       items: [
         { q: 'Enabling pricing', a: 'Click $ Pricing in the controls bar to reveal Buy Price, Sell Price and Margin % columns. This view is only available to committee members.' },
-        { q: 'Sell prices from Square', a: 'Sell prices are imported automatically from your Square catalogue. Items marked \"from Square\" have been auto-populated. All price changes must be made in Square — this keeps Square as the single source of truth.' },
+        { q: 'Sell prices from Square', a: 'Sell prices are imported automatically from your Square catalogue. All price changes must be made in Square — this keeps Square as the single source of truth.' },
         { q: 'Margin calculation', a: 'Margin % = (Sell − Buy) ÷ Sell × 100. Green = 40%+, amber = 20–40%, red = below 20%. Requires both buy and sell price to be set.' },
         { q: 'Buy prices', a: 'Click the Buy Price cell for any item and type the cost price. Saved to the cloud and shared across all management team sessions.' },
       ]
     },
     {
       icon: '📊',
-      title: 'Sales Report',
+      title: 'Sales Tab',
       items: [
-        { q: 'Opening the report', a: 'Click 📊 Sales Report in the top-right header. Data is fetched live from Square\'s Orders API — allow a few seconds to load.' },
-        { q: 'Period selector', a: 'Choose This Month, Last Month, Last 3 Months, or a Custom date range. Each period automatically compares against the equivalent prior period.' },
-        { q: 'Category breakdown', a: 'Click any category tile to filter the item table to just that category. Click again (or ALL) to reset.' },
-        { q: 'Revenue figures', a: 'Revenue comes directly from Square\'s transaction records — the actual price charged at time of sale, not a calculation from current prices.' },
+        { q: 'Opening', a: 'Click 📊 Sales in the top-right header. Data is fetched live from Square\'s Orders API — allow a few seconds to load.' },
+        { q: 'Period selector', a: 'Five periods available: This Month (month to date), Last Month (prior completed month), Last 3 Months (rolling window), Financial Year (May 1 – Apr 30, auto-calculated), and Custom Range (pick any start and end date). Each period automatically compares against the equivalent prior period.' },
+        { q: 'Category breakdown', a: 'The category bar shows units and revenue per category. Click any tile to filter the item table to that category. Click again (or ALL) to reset.' },
+        { q: 'Revenue figures', a: 'Revenue comes directly from Square transaction records — the actual price charged at time of sale.' },
         { q: 'Sort order', a: 'Toggle between By Units and By Revenue using the buttons above the item table.' },
+        { q: 'Print / PDF export', a: 'Once data is loaded, click 🖨️ Print / PDF to open a formatted A4 report for the current period. Includes summary, category breakdown and full item list with prior period comparisons.' },
+        { q: 'Excel export', a: 'Click 📊 Excel to download a formatted spreadsheet for the current period. Includes colour-coded headings, category breakdown, % of total, change % and revenue columns.' },
       ]
     },
     {
       icon: '🏆',
       title: 'Best & Worst Sellers',
       items: [
-        { q: 'Opening the report', a: 'Click 🏆 Sellers in the top-right header. The report fetches 90 days of Orders API data from Square — allow a few seconds to load.' },
+        { q: 'Opening', a: 'Click 🏆 Sellers in the top-right header. The report fetches 90 days of Orders API data from Square — allow a few seconds to load.' },
         { q: 'Top 10 Sellers', a: 'Ranked by weekly average from Square inventory data, with a bar chart showing relative performance. Your most reliable, high-volume items.' },
-        { q: 'Slow Sellers', a: 'The bottom 25% of items that are selling but very slowly over the last 90 days. Useful for identifying items to reduce ordering on or consider dropping from the range.' },
-        { q: 'Not Selling', a: 'Items with stock on hand but zero sales recorded in the last 90 days via Square Orders API. Strong candidates for discontinuing or running down stock.' },
-        { q: 'Data source', a: 'The right column (Slow Sellers and Not Selling) uses the Square Orders API — the same reliable source as the Sales Report. The Top 10 uses weekly averages from inventory movement data.' },
-      ]
-    },
-    {
-      icon: '👥',
-      title: 'Volunteer Roster',
-      items: [
-        { q: 'Opening the roster', a: 'Click 👥 Roster in the top-right header to open the volunteer roster app in a new tab. The roster runs independently at paynter-bar-roster.vercel.app.' },
-        { q: 'How they connect', a: 'The two apps are separate — the roster link is just a shortcut for convenience. Any changes to the roster are made within the roster app itself.' },
+        { q: 'Slow Sellers', a: 'The bottom 25% of items that are selling but very slowly over the last 90 days. Useful for identifying items to reduce ordering on or consider dropping.' },
+        { q: 'Not Selling', a: 'Items with stock on hand but zero sales recorded in the last 90 days. Strong candidates for discontinuing or running down stock.' },
       ]
     },
     {
       icon: '📈',
       title: 'Quarterly Trends',
       items: [
-        { q: 'Opening trends', a: 'Click 📈 Trends in the top-right header. The chart loads the last 4 completed calendar quarters automatically.' },
-        { q: 'Reading the charts', a: 'Each category gets its own bar chart showing units sold per quarter. A trend indicator (▲ up, ▼ down, → stable) shows the direction from the earliest to most recent quarter.' },
-        { q: 'Summary panel', a: 'The top panel shows total units sold across all categories for each quarter, with a mini bar chart for a quick visual comparison.' },
+        { q: 'Opening', a: 'Click 📈 Trends in the top-right header. The chart loads the last 4 completed calendar quarters automatically.' },
+        { q: 'Reading the charts', a: 'Each category gets its own bar chart showing units sold per quarter. A trend indicator (▲ up, ▼ down, → stable) shows the direction from earliest to most recent quarter.' },
+        { q: 'Summary panel', a: 'The top panel shows total units sold across all categories for each quarter with a mini bar chart for quick visual comparison.' },
         { q: 'Revenue data', a: 'Where available from Square, revenue figures are shown alongside unit counts for each quarter and category.' },
+      ]
+    },
+    {
+      icon: '🗑️',
+      title: 'Wastage Log',
+      items: [
+        { q: 'Recording wastage', a: 'Click 🗑️ Wastage in the header to open the Wastage Log. Select the item, quantity, unit, reason (breakage, spoilage, expired, other) and an optional note. Click Record to save.' },
+        { q: 'Editing entries', a: 'Committee members can click the ✏️ edit button on any row to modify an entry inline — change the date, item, quantity, reason, note or recorded-by name. Click ✓ to save or ✕ to cancel.' },
+        { q: 'Deleting entries', a: 'Click the ✕ delete button on any row to permanently remove a wastage entry. Committee access only.' },
+        { q: 'Filtering by date', a: 'Use the date range pickers at the top to filter the log to a specific period. Leave blank to see all entries.' },
+        { q: 'Summary strip', a: 'The coloured cards at the top show total wastage counts broken down by reason across the filtered period.' },
+        { q: 'Notes print', a: 'The 🖨️ Print button exports the currently filtered wastage entries as a formatted A4 table.' },
+      ]
+    },
+    {
+      icon: '📝',
+      title: 'Notes',
+      items: [
+        { q: 'What notes are for', a: 'The Notes tab is a shared log for bar committee communications — handover notes, supplier follow-ups, operational reminders, anything the committee needs to track.' },
+        { q: 'Adding a note', a: 'Select an item (or leave as General), type your note and click Save. Notes are timestamped and saved with your name.' },
+        { q: 'Editing notes', a: 'Committee members can click ✏️ to edit any note inline. Click ✓ to save or ✕ to cancel.' },
+        { q: 'Filtering', a: 'Use the date range pickers to filter to a specific period, or use the item dropdown to filter notes for a specific product.' },
+        { q: 'Print', a: 'Click 🖨️ Print to export the currently filtered notes as a formatted A4 table — useful for handover documentation.' },
       ]
     },
     {
       icon: '🏷️',
       title: 'Price List',
       items: [
-        { q: 'Opening the price list', a: 'Click 🏷️ Price List in the top-right header. The editor shows all items grouped by category with their current Square prices.' },
-        { q: 'Showing and hiding items', a: 'Click the Shown/Hidden toggle next to any item to include or exclude it from the printed price list. Items with zero stock in Square are automatically excluded. Hidden items are shown faded in the editor.' },
-        { q: 'Prices', a: 'All prices come directly from Square. To change a price, update it in Square and click Refresh. Wine items with both a Glass and Bottle price in Square will show both, with Glass listed first.' },
-        { q: 'Printing the price list', a: 'Click 🖨️ Print Price List to open a two-page A4 portrait document — categories split across both pages in a two-column card layout. In the print dialog set paper to A4, margins to None and scale to 100%.' },
+        { q: 'Opening', a: 'Click 🏷️ Price List in the top-right header. The editor shows all items grouped by category with their current Square prices.' },
+        { q: 'Showing and hiding items', a: 'Click the Shown/Hidden toggle next to any item to include or exclude it from the printed price list. Items with zero stock in Square are automatically excluded.' },
+        { q: 'Prices', a: 'All prices come from Square. To change a price, update it in Square and click Refresh. Wine items with both a Glass and Bottle price show both, with Glass listed first.' },
+        { q: 'Printing', a: 'Click 🖨️ Print Price List to open a two-page A4 portrait document in a two-column card layout. In the print dialog set paper to A4, margins to None and scale to 100%.' },
         { q: 'Edit access', a: 'The Shown/Hidden toggle is only available to committee members. Read-only users can view the price list but cannot make changes.' },
       ]
     },
     {
-      icon: '🖨️',
-      title: 'Printing & Exports',
+      icon: '📋',
+      title: 'SOH Report',
       items: [
-        { q: 'Print Order Sheet', a: 'Click Print Order Sheet → choose a supplier to open a print-ready order form. Use your browser\'s Print dialog or Save as PDF.' },
-        { q: '📋 SOH PDF', a: 'Generates a Stock on Hand report from current Square data — all items by category with status and order quantities. Print dialog opens automatically.' },
-        { q: '📈 Sales Report', a: 'Click 📈 Sales Report in the header to choose a period: This Month, Last Month, Last 3 Months, Financial Year (May–Apr), or a custom date range. Then print/save as PDF or export to Excel. The report includes a category breakdown, top 10 sellers, unit counts and revenue comparisons to the prior equivalent period.' },
-        { q: 'Export Stocktake', a: 'Downloads an Excel spreadsheet for quarterly stocktakes. Count columns for Cool Room, Store Room and Bar. For spirits, enter decimal bottles (e.g. 4.5) — the sheet calculates nips automatically and shows the variance against Square.' },
+        { q: 'Opening', a: 'Click 📋 SOH Report in the top-right header. A small modal appears with two export options.' },
+        { q: '🖨️ Print / PDF', a: 'Opens a formatted A4 Stock on Hand report in a new tab — all items by category with On Hand qty, weekly average, target stock, order status and supplier. Print or save as PDF from the browser dialog.' },
+        { q: '📊 Excel', a: 'Downloads a formatted Excel spreadsheet of the current SOH data. Includes a summary block (total items, critical, low stock, to order counts), colour-coded category headers, and per-item rows with status highlighted in red/amber/green.' },
+        { q: 'Data source', a: 'The SOH report reflects whatever is currently loaded in the Reorder Planner — always click Refresh first to ensure data is current.' },
+      ]
+    },
+    {
+      icon: '📤',
+      title: 'Other Exports',
+      items: [
+        { q: 'Print Order Sheet', a: 'In the Reorder Planner, click Print Order Sheet and choose a supplier to open a formatted, print-ready order form for that supplier.' },
+        { q: 'Stocktake Export', a: 'Downloads an Excel spreadsheet for quarterly stocktakes. Count columns for Cool Room, Store Room and Bar. For spirits, enter decimal bottles (e.g. 4.5) — the sheet calculates nips automatically and shows the variance against Square.' },
+        { q: 'Notes Print', a: 'In the Notes tab, click 🖨️ Print to export the current filtered notes as a formatted A4 table.' },
+        { q: 'Wastage Print', a: 'In the Wastage Log, click 🖨️ Print to export the current filtered wastage entries as a formatted A4 table.' },
+      ]
+    },
+    {
+      icon: '👥',
+      title: 'Volunteer Roster',
+      items: [
+        { q: 'Opening', a: 'Click 👥 Roster in the top-right header to open the volunteer roster app in a new tab. The roster runs independently at paynter-bar-roster.vercel.app.' },
+        { q: 'How they connect', a: 'The two apps are separate — the roster link is a shortcut for convenience. All roster changes are made within the roster app itself.' },
       ]
     },
     {
       icon: '⚙️',
       title: 'Settings & Administration',
       items: [
-        { q: 'Shared settings', a: 'All settings (categories, suppliers, pack sizes, bottle/nip sizes, prices, notes, target weeks, price list visibility) are saved to the cloud. Any management team member sees the same settings on any device.' },
-        { q: 'Adding suppliers', a: 'Use the + Supplier button in the controls bar. Assign items to suppliers by clicking the Supplier column inline.' },
+        { q: 'Shared settings', a: 'All settings (categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility) are saved to the cloud and shared instantly across all management sessions.' },
+        { q: 'Adding suppliers', a: 'Use the + Supplier button in the controls bar of the Reorder Planner. Assign items to suppliers by clicking the Supplier column inline.' },
         { q: 'Item categories', a: 'Available categories: Beer, Cider, PreMix, White Wine, Red Wine, Rose, Sparkling, Fortified & Liqueurs, Spirits, Soft Drinks, Snacks. Spirits and Fortified & Liqueurs items get the bottle and nip size columns.' },
-        { q: 'Square POS connection', a: 'The app connects to your Square account via API. Stock levels, sales and prices update on every Refresh. Square is always the source of truth — all transactions and price changes are made in Square.' },
+        { q: 'Square POS connection', a: 'The app connects to Square via API. Stock levels, sales and prices update on every Refresh. Square is always the source of truth — all transactions and price changes are made in Square.' },
       ]
     },
     {
       icon: '👁',
       title: 'Access Levels',
       items: [
-        { q: 'Committee access', a: 'Full access to all features including editing item settings, categories, suppliers, pack sizes, bottle and nip sizes, buy prices, notes, target weeks, and price list visibility toggles. Can also export the stocktake spreadsheet and add suppliers.' },
-        { q: 'Homeowners committee access', a: 'Read-only access. All data is visible — stock levels, order quantities, sales reports, trends, price list and PDF reports — but nothing can be edited. A READ ONLY badge appears in the header.' },
-        { q: 'What read-only users can view', a: 'Stock on hand, weekly averages, order quantities, item status, sales reports, quarterly trends, best & worst sellers, category breakdowns, price list, SOH PDF and Sales PDF reports.' },
-        { q: 'What read-only users cannot do', a: 'Edit any item settings, change prices, toggle price list visibility, export the stocktake spreadsheet, add suppliers, or change target weeks.' },
+        { q: 'Committee PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
+        { q: 'Read-only PIN (homeowners)', a: 'View-only access. All data is visible — stock levels, order quantities, sales reports, trends, price list, SOH and sales exports — but nothing can be edited. A READ ONLY badge appears in the header.' },
         { q: 'Pricing visibility', a: 'Buy prices and the $ Pricing view are only visible to committee members — hidden entirely for read-only users to keep cost prices confidential.' },
+        { q: 'Wastage and Notes', a: 'Read-only users can view the Wastage Log and Notes tab but cannot add, edit or delete entries.' },
       ]
     },
   ]
