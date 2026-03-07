@@ -61,6 +61,8 @@ export default function Home() {
   const [notesLog, setNotesLog]         = useState([])
   const [notesLoaded, setNotesLoaded]   = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': true, 'Sales & Analytics': true, 'Operations': false, 'Help': true })
   const [orderedItems, setOrderedItems] = useState({})
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
@@ -1373,15 +1375,13 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         <meta name="viewport" content="width=device-width, initial-scale=1" />
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <style>{`
-          .desktop-nav { display: flex !important; }
-          .mobile-nav  { display: none  !important; }
+          .sidebar { display: flex !important; }
+          .mobile-menu-btn { display: none !important; }
           .dash-stats   { grid-template-columns: repeat(5, 1fr) !important; }
           .dash-features { grid-template-columns: repeat(4, 1fr) !important; }
           @media (max-width: 768px) {
-            .desktop-nav  { display: none  !important; }
-            .mobile-nav   { display: block !important; }
-            .header-inner { padding: 12px 16px 10px !important; }
-            .header-title { font-size: 18px !important; }
+            .sidebar      { display: none  !important; }
+            .mobile-menu-btn { display: block !important; }
             .stats-bar    { padding: 0 16px !important; }
             .stat-cell    { padding: 10px 14px !important; }
             .stat-num     { font-size: 18px !important; }
@@ -1395,75 +1395,134 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         `}</style>
       </Head>
       <div style={styles.page}>
-        <header style={styles.header}>
-          <div className="header-inner" style={styles.headerInner}>
-            <div>
-              <div style={styles.headerTop}>
-                {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em' }}>READ ONLY</span>}
-                <span style={styles.logoSub}>GemLife Palmwoods</span>
+        {/* ── SIDEBAR ─────────────────────────────────────────── */}
+        {(() => {
+          const SC = sidebarCollapsed
+          const groups = [
+            { label: 'Overview', icon: '🏠', items: [
+              { icon: '🏠', label: 'Dashboard', tab: 'home', action: () => setMainTab('home') },
+            ]},
+            { label: 'Stock', icon: '📦', items: [
+              { icon: '📦', label: 'Reorder Planner', tab: 'reorder', action: () => setMainTab('reorder') },
+              { icon: '📋', label: 'Stocktake', tab: 'stocktake', action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+            ]},
+            { label: 'Sales & Analytics', icon: '📊', items: [
+              { icon: '📊', label: 'Sales Report', tab: 'sales', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+              { icon: '📈', label: 'Quarterly Trends', tab: 'trends', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
+              { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
+            ]},
+            { label: 'Operations', icon: '🗑️', items: [
+              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage'&&!wastageLoaded) loadWastageLog() } },
+              { icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } },
+              { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+              { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank') },
+            ]},
+            { label: 'Reports', icon: '📋', items: [
+              { icon: '📋', label: 'SOH Report', tab: 'soh', action: () => setSohModal(true) },
+            ]},
+            { label: 'Help', icon: '❓', items: [
+              { icon: '❓', label: 'Help & Guide', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
+            ]},
+          ]
+          return (
+            <aside className="sidebar" style={{
+              width: SC ? 52 : 210, minWidth: SC ? 52 : 210,
+              background: '#0f172a', display: 'flex', flexDirection: 'column',
+              transition: 'width 0.2s ease, min-width 0.2s ease',
+              boxShadow: '2px 0 10px rgba(0,0,0,0.2)', zIndex: 200, overflowX: 'hidden',
+            }}>
+              {/* Brand */}
+              <div style={{ padding: SC ? '14px 0' : '16px 14px 12px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: 9, justifyContent: SC ? 'center' : 'flex-start', flexShrink: 0 }}>
+                <div style={{ width: 30, height: 30, background: '#0e7490', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🍺</div>
+                {!SC && <div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9', lineHeight: 1.2, whiteSpace: 'nowrap' }}>Paynter Bar</div>
+                  <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>GemLife Palmwoods</div>
+                </div>}
               </div>
-              <h1 className="header-title" style={styles.title}>{mainTab === 'sales' ? 'Sales Report' : mainTab === 'trends' ? 'Quarterly Trends' : mainTab === 'help' ? 'Help & Guide' : mainTab === 'pricelist' ? 'Price List' : mainTab === 'bestsellers' ? 'Best & Worst Sellers' : mainTab === 'home' ? 'Dashboard' : mainTab === 'stocktake' ? 'Stocktake' : 'Reorder Planner'}</h1>
+              {/* Nav groups */}
+              <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
+                {groups.map(group => (
+                  <div key={group.label}>
+                    <button onClick={() => !SC && setSidebarOpenGroups(g => ({ ...g, [group.label]: !g[group.label] }))}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: SC ? '7px 0' : '6px 12px', background: 'none', border: 'none', cursor: 'pointer', justifyContent: SC ? 'center' : 'space-between', color: '#94a3b8' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{group.icon}</span>
+                        {!SC && <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', whiteSpace: 'nowrap' }}>{group.label}</span>}
+                      </div>
+                      {!SC && <span style={{ fontSize: 9, color: '#475569', transition: 'transform 0.15s', transform: sidebarOpenGroups[group.label] ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>}
+                    </button>
+                    {(SC || sidebarOpenGroups[group.label]) && group.items.map(item => {
+                      const isActive = mainTab === item.tab || (item.tab === 'reorder' && mainTab === 'reorder')
+                      return (
+                        <button key={item.tab} onClick={() => { item.action(); setMenuOpen(false) }}
+                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '8px 0' : '7px 12px 7px 20px', background: isActive ? '#1e3a5f' : 'none', border: 'none', borderLeft: isActive && !SC ? '3px solid #0e7490' : '3px solid transparent', cursor: 'pointer', color: isActive ? '#e2e8f0' : '#94a3b8', fontSize: 12, fontWeight: isActive ? 600 : 400, justifyContent: SC ? 'center' : 'flex-start', transition: 'background 0.1s' }}>
+                          <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                          {!SC && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
+                        </button>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+              {/* Collapse toggle */}
+              <div style={{ borderTop: '1px solid #1e293b', flexShrink: 0 }}>
+                <button onClick={() => setSidebarCollapsed(c => !c)}
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '10px 0' : '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
+                  <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{SC ? '»' : '«'}</span>
+                  {!SC && <span>Collapse</span>}
+                </button>
+                {readOnly && !SC && <div style={{ padding: '6px 14px 10px', fontSize: 10, color: '#64748b', textAlign: 'center' }}>👁 Read only</div>}
+              </div>
+            </aside>
+          )
+        })()}
+
+        {/* ── MAIN COLUMN ─────────────────────────────────────── */}
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
+
+        {/* Top bar */}
+        <header style={{ background: '#0f172a', color: '#fff', flexShrink: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', gap: 12 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {/* Mobile hamburger */}
+              <button className="mobile-menu-btn" onClick={() => setMenuOpen(o => !o)}
+                style={{ display: 'none', background: menuOpen ? '#475569' : '#334155', color: '#fff', border: 'none', borderRadius: 7, padding: '6px 12px', fontSize: 18, cursor: 'pointer', lineHeight: 1 }}>
+                {menuOpen ? '✕' : '☰'}
+              </button>
+              <div>
+                {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
+                <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : '📦 Reorder Planner'}
+                </h1>
+              </div>
             </div>
-            <div style={styles.headerRight}>
-              {lastUpdated && <span style={styles.lastUpdated}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
-              {/* Desktop nav */}
-              <div className="desktop-nav" style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-                <button style={{ ...styles.btn, background: mainTab === 'home' ? '#1e3a5f' : '#334155' }} onClick={() => setMainTab('home')}>🏠 Home</button>
-                <button style={{ ...styles.btn, background: '#0e7490' }} onClick={() => setSohModal(true)}>📋 SOH Report</button>
-                <button style={{ ...styles.btn, background: mainTab === 'sales' ? '#7c3aed' : '#4b5563' }} onClick={() => { const n = mainTab === 'sales' ? 'reorder' : 'sales'; setMainTab(n); if (n === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom) }}>{mainTab === 'sales' ? '← Back' : '📊 Sales'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'trends' ? '#b45309' : '#92400e' }} onClick={() => { const n = mainTab === 'trends' ? 'reorder' : 'trends'; setMainTab(n); if (n === 'trends' && !trendData) loadTrendData() }}>{mainTab === 'trends' ? '← Back' : '📈 Trends'}</button>
-
-                <button style={{ ...styles.btn, background: mainTab === 'bestsellers' ? '#b45309' : '#78350f' }} onClick={() => { const n = mainTab === 'bestsellers' ? 'reorder' : 'bestsellers'; setMainTab(n); if (n === 'bestsellers') loadSellersData() }}>{mainTab === 'bestsellers' ? '← Back' : '🏆 Sellers'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'pricelist' ? '#be185d' : '#9d174d' }} onClick={() => setMainTab(t => t === 'pricelist' ? 'reorder' : 'pricelist')}>{mainTab === 'pricelist' ? '← Back' : '🏷️ Price List'}</button>
-                <button style={{ ...styles.btn, background: '#0f766e' }} onClick={() => window.open('https://paynter-bar-roster.vercel.app/', '_blank')}>👥 Roster</button>
-                <button style={{ ...styles.btn, background: mainTab === 'wastage' ? '#b45309' : '#92400e' }} onClick={() => { const n = mainTab === 'wastage' ? 'reorder' : 'wastage'; setMainTab(n); if (n === 'wastage' && !wastageLoaded) loadWastageLog() }}>{mainTab === 'wastage' ? '← Back' : '🗑️ Wastage'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'notes' ? '#5b21b6' : '#7c3aed' }} onClick={() => { const n = mainTab === 'notes' ? 'reorder' : 'notes'; setMainTab(n); if (n === 'notes' && !notesLoaded) loadNotes() }}>{mainTab === 'notes' ? '← Back' : '📝 Notes'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'stocktake' ? '#0f766e' : '#134e4a' }} onClick={() => setMainTab(t => t === 'stocktake' ? 'reorder' : 'stocktake')}>{mainTab === 'stocktake' ? '← Back' : '📋 Stocktake'}</button>
-                <button style={{ ...styles.btn, background: mainTab === 'help' ? '#1e293b' : '#475569' }} onClick={() => setMainTab(t => t === 'help' ? 'reorder' : 'help')}>{mainTab === 'help' ? '← Back' : '❓ Help'}</button>
-                <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}) }} onClick={() => loadItems(true)} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh'}</button>
-                {readOnly && <span style={{ fontSize: 11, color: '#94a3b8', alignSelf: 'center' }}>👁 View only</span>}
-              </div>
-
-              {/* Mobile nav — hamburger + inline dropdown below header */}
-              <div className="mobile-nav">
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  {readOnly && <span style={{ fontSize: 10, color: '#94a3b8' }}>👁</span>}
-                  <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '8px 12px' }} onClick={() => loadItems(true)} disabled={refreshing}>{refreshing ? '...' : '🔄'}</button>
-                  <button onClick={() => setMenuOpen(o => !o)}
-                    style={{ background: menuOpen ? '#475569' : '#334155', color: '#fff', border: 'none', borderRadius: 8, padding: '8px 16px', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>
-                    {menuOpen ? '✕' : '☰'}
-                  </button>
-                </div>
-              </div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              {lastUpdated && <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" }}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
+              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => loadItems(true)} disabled={refreshing}>{refreshing ? 'Refreshing...' : '🔄 Refresh'}</button>
             </div>
           </div>
-          {/* Mobile dropdown — simple block below header, no fixed/absolute */}
+
+          {/* Mobile dropdown menu */}
           <div style={{ display: menuOpen ? 'block' : 'none', background: '#1e293b', borderTop: '1px solid #334155' }}>
             {[
-              { label: '🏠 Home',                action: () => setMainTab('home'),        active: mainTab === 'home' },
-              { label: '📊 Sales Report',        action: () => { const n = mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
-              { label: '📈 Trends',              action: () => { const n = mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
-              { label: '🏆 Best & Worst Sellers',action: () => { const n = mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
+              { label: '🏠 Dashboard',           action: () => setMainTab('home'),        active: mainTab === 'home' },
+              { label: '📦 Reorder Planner',     action: () => setMainTab('reorder'),     active: mainTab === 'reorder' },
+              { label: '📋 Stocktake',           action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake'), active: mainTab === 'stocktake' },
+              { label: '📊 Sales Report',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
+              { label: '📈 Quarterly Trends',    action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
+              { label: '🏆 Best & Worst Sellers',action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
+              { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage'&&!wastageLoaded) loadWastageLog() }, active: mainTab === 'wastage' },
+              { label: '📝 Notes',               action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' },
               { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
-              { label: '🗑️ Wastage Log',         action: () => { const n = mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage'&&!wastageLoaded) loadWastageLog() }, active: mainTab === 'wastage' },
-              { label: '📝 Notes',               action: () => { const n = mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' },
-              { label: '📋 Stocktake',             action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake'), active: mainTab === 'stocktake' },
-              { label: '❓ Help',                action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
               { label: '👥 Roster',              action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank'), active: false },
+              { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
+              { label: '❓ Help & Guide',        action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
             ].map(({ label, action, active }) => (
               <button key={label} onClick={() => { action(); setMenuOpen(false) }}
-                style={{ display: 'block', width: '100%', textAlign: 'left',
-                  background: active ? '#2d4a6e' : 'transparent',
-                  color: active ? '#60a5fa' : '#e2e8f0',
-                  border: 'none', borderBottom: '1px solid #2d3748',
-                  padding: '15px 20px', fontSize: 16,
-                  fontWeight: active ? 700 : 400, cursor: 'pointer' }}>
+                style={{ display: 'block', width: '100%', textAlign: 'left', background: active ? '#2d4a6e' : 'transparent', color: active ? '#60a5fa' : '#e2e8f0', border: 'none', borderBottom: '1px solid #2d3748', padding: '14px 20px', fontSize: 15, fontWeight: active ? 700 : 400, cursor: 'pointer' }}>
                 {label}
               </button>
             ))}
-            <div style={{ display: 'flex', gap: 8, padding: '12px 16px', borderTop: '1px solid #475569' }}>
-              <button style={{ ...styles.btn, background: '#0e7490', flex: 1 }} onClick={() => { setSohModal(true); setMenuOpen(false) }}>📋 SOH Report</button>
-            </div>
           </div>
 
           <div className="stats-bar" style={styles.statsBar}>
@@ -1498,7 +1557,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
           </div>
         </header>
-
 
         {sohModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
@@ -3524,7 +3582,7 @@ function EditText({ value, onChange, saving, placeholder, readOnly }) {
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
 const styles = {
-  page:          { minHeight: '100vh', background: '#f1f5f9', fontFamily: "'IBM Plex Sans', sans-serif", overflowX: 'hidden' },
+  page:          { minHeight: '100vh', background: '#f1f5f9', fontFamily: "'IBM Plex Sans', sans-serif", overflowX: 'hidden', display: 'flex', flexDirection: 'row' },
   loadWrap:      { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f1f5f9' },
   loadBox:       { textAlign: 'center' },
   spinner:       { width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #1f4e79', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' },
@@ -3552,7 +3610,7 @@ const styles = {
   supplierInput: { fontSize: 13, border: '1px solid #3b82f6', borderRadius: 6, padding: '6px 10px', fontFamily: "'IBM Plex Sans', sans-serif", width: 160 },
   dropdown:      { position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, minWidth: 200 },
   dropItem:      { display: 'block', width: '100%', padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#374151', fontFamily: "'IBM Plex Sans', sans-serif" },
-  tableWrap:     { overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 220px)' },
+  tableWrap:     { overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' },
   table:         { width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#fff' },
   thead:         { background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 },
   th:            { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' },
@@ -4028,5 +4086,7 @@ function StocktakeView({ items, readOnly, onExport }) {
         For spirits: enter bottle count (decimals ok, e.g. 4.5 for a half-used bottle). Nips calculated automatically. Non-spirit items: enter unit count.
       </div>
     </div>
+        </div>{/* end main column */}
+      </div>{/* end page */}
   )
 }
