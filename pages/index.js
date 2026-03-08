@@ -243,34 +243,41 @@ export default function Home() {
   }
 
   function generatePoExcel(supplier, poItems) {
-    const script = document.createElement('script')
-    script.src = 'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js'
-    script.onload = () => {
-      const XLSX = window.XLSX
-      const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
-      const expectedDate = tomorrow.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
-      const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.xlsx`
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+    const expectedDate = tomorrow.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
 
-      // Match template structure exactly: metadata rows, then item header, then items
-      const rows = [
-        ['Vendor',      supplier,                                         null, null, null, null, null, null],
-        ['Ship to',     "GemLife Palmwoods Home Owners' Association Inc.", null, null, null, null, null, null],
-        ['Expected On', expectedDate,                                      null, null, null, null, null, null],
-        ['Notes',       '',                                                null, null, null, null, null, null],
-        ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
-      ]
-      for (const item of poItems) {
-        const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
-        const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-        rows.push([item.name, 'Regular', item.sku || null, null, null, null, qty, unitCost])
-      }
+    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"') || String(v).includes("'")) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Sheet0')
-      XLSX.writeFile(wb, filename)
+    // Items first (matching Square's own export format), vendor metadata below
+    const rows = [
+      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
+    ]
+    for (const item of poItems) {
+      const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
+      const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
+      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
     }
-    document.head.appendChild(script)
+    // Blank row then vendor metadata — same structure as Square's own PO export
+    rows.push([])
+    rows.push(['Vendor',      supplier])
+    rows.push(['Account number', ''])
+    rows.push(['Address',     ''])
+    rows.push(['Contact',     ''])
+    rows.push(['Phone Number',''])
+    rows.push(['Email',       ''])
+    rows.push([])
+    rows.push(['Ship To',     "GemLife Palmwoods Home Owners' Association Inc."])
+    rows.push(['Expected On', expectedDate])
+    rows.push(['Ordered By',  'Paynter Bar'])
+    rows.push(['Notes',       ''])
+
+    const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
   }
 
   async function loadNotes() {
