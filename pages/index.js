@@ -3627,11 +3627,18 @@ function StocktakeView({ items, readOnly, onExport }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
 
   // counts keyed by item name: { coolRoom, storeRoom, bar }
-  const [counts, setCounts] = useState({})
+  const [counts, setCounts] = useState(() => {
+    try { const s = localStorage.getItem('stocktake_counts'); return s ? JSON.parse(s) : {} } catch { return {} }
+  })
   const [filterCat, setFilterCat] = useState('All')
   const [mobileMode, setMobileMode] = useState(false)
   const [mobileIdx, setMobileIdx] = useState(0)
   const [showDiffs, setShowDiffs] = useState(false)
+
+  // Persist counts whenever they change
+  useEffect(() => {
+    try { localStorage.setItem('stocktake_counts', JSON.stringify(counts)) } catch {}
+  }, [counts])
 
   const setCount = (name, field, val) => {
     const num = val === '' ? '' : parseFloat(val) || 0
@@ -3716,7 +3723,7 @@ function StocktakeView({ items, readOnly, onExport }) {
       ])
 
       let lastCat = null
-      filteredItems.forEach((item, idx) => {
+      sortedItems.forEach((item, idx) => {
         if (item.category !== lastCat) {
           lastCat = item.category
           rows.push([cell(item.category.toUpperCase(), catStyle), ...Array(9).fill(cell('', catStyle))])
@@ -3872,7 +3879,7 @@ function StocktakeView({ items, readOnly, onExport }) {
     setTimeout(() => w.print(), 500)
   }
 
-  const resetAll = () => { if (window.confirm('Clear all counts?')) setCounts({}) }
+  const resetAll = () => { if (window.confirm('Clear all counts?')) { setCounts({}); try { localStorage.removeItem('stocktake_counts') } catch {} } }
 
   // ── MOBILE VIEW ───────────────────────────────────────────────────────────────
   if (mobileMode) {
