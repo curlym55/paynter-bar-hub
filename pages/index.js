@@ -4107,8 +4107,74 @@ function StocktakeView({ items, readOnly, onExport }) {
       ws['!cols'] = [{ wch: 38 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 10 }]
       ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
       ws['!merges'] = merges
+      // ── Sheet 2: Flat filterable data ──────────────────────────────────
+      const flatRows = []
+      const fhStyle = {
+        font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+        fill: { fgColor: { rgb: NAVY } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: { bottom: { style: 'medium', color: { rgb: TEAL } } }
+      }
+      const fhStyleL = { ...fhStyle, alignment: { horizontal: 'left' } }
+      flatRows.push([
+        cell('Date',           fhStyleL),
+        cell('Time',           fhStyle),
+        cell('Item',           fhStyleL),
+        cell('Category',       fhStyleL),
+        cell('Square Qty Set', fhStyle),
+        cell('Conversion',     fhStyleL),
+        cell('Synced',         fhStyle),
+        cell('Skipped',        fhStyle),
+        cell('Failed',         fhStyle),
+      ])
+
+      for (const day of history) {
+        const dateLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', {
+          day: '2-digit', month: '2-digit', year: 'numeric'
+        })
+        for (const snap of day.snapshots) {
+          const timeStr = new Date(snap.ts).toLocaleTimeString('en-AU', {
+            timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit'
+          })
+          const snapItems = snap.items || []
+          if (snapItems.length === 0) {
+            // Row for syncs with no items (all skipped)
+            flatRows.push([
+              cell(dateLabel, {}), cell(timeStr, {}),
+              cell('(no items synced)', { font: { color: { rgb: '94A3B8' }, italic: true } }),
+              cell('', {}), cell('', {}), cell('', {}),
+              cell(snap.synced,  {}), cell(snap.skipped, {}), cell(snap.failed || 0, {}),
+            ])
+          } else {
+            snapItems.forEach((item, idx) => {
+              const shade = idx % 2 === 0 ? WHITE : 'F8FAFC'
+              const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
+              const sc = { ...s, alignment: { horizontal: 'center' } }
+              flatRows.push([
+                cell(dateLabel,      s),
+                cell(timeStr,        sc),
+                cell(item.name,      s),
+                cell(item.category || '', { ...s, font: { sz: 10, color: { rgb: '64748B' } } }),
+                cell(item.sqQty,     { ...sc, font: { sz: 10, bold: true, color: { rgb: '16A34A' } } }),
+                cell(item.note || '1:1', { ...s, font: { sz: 9, color: { rgb: '64748B' } } }),
+                cell(idx === 0 ? snap.synced  : '', sc),
+                cell(idx === 0 ? snap.skipped : '', sc),
+                cell(idx === 0 ? (snap.failed || 0) : '', sc),
+              ])
+            })
+          }
+        }
+      }
+
+      const ws2 = XLSX.utils.aoa_to_sheet(flatRows)
+      ws2['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 36 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 8 }]
+      ws2['!rows'] = flatRows.map((_, i) => i === 0 ? { hpt: 22 } : { hpt: 18 })
+      // AutoFilter on header row covering all columns
+      ws2['!autofilter'] = { ref: `A1:I1` }
+
       const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Sync History')
+      XLSX.utils.book_append_sheet(wb, ws,  'Summary')
+      XLSX.utils.book_append_sheet(wb, ws2, 'Data')
       XLSX.writeFile(wb, `Paynter-Bar-Stocktake-History-${new Date().toISOString().split('T')[0]}.xlsx`)
     }
     document.head.appendChild(script)
