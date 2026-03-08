@@ -33,6 +33,7 @@ export default async function handler(req, res) {
         sellPrice,
         squareSellPrice: item.squareSellPrice ?? null,
         sellUnit:        settings.sellUnit || null,
+        sellPriceBottle: settings.sellPriceBottle || '',
       }
     })
 

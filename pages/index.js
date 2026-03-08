@@ -1837,11 +1837,14 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          const buy  = item.buyPrice  !== '' && item.buyPrice  != null ? Number(item.buyPrice)  : null
-                          const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
+                          const buy  = item.buyPrice       !== '' && item.buyPrice       != null ? Number(item.buyPrice)       : null
+                          const sellGlass  = item.sellPrice      !== '' && item.sellPrice      != null ? Number(item.sellPrice)      : null
+                          const sellBottle = item.sellPriceBottle !== '' && item.sellPriceBottle != null ? Number(item.sellPriceBottle) : null
+                          // Active sell value depends on mode
+                          const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
 
-                          // Revenue per bottle = sell/serve × serves
-                          const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : sell
+                          // Revenue per bottle = sell/serve × serves (serves=1 for bottle mode)
+                          const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
                           const marginPct = (buy != null && revenuePerBottle != null && revenuePerBottle > 0)
                             ? (((revenuePerBottle - buy) / revenuePerBottle) * 100) : null
                           const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
@@ -1854,12 +1857,18 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                <EditNumber value={sell ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                  onChange={v => saveSetting(item.name, 'sellPrice', v)}
-                                  saving={saving[`${item.name}_sellPrice`]} min={0} readOnly={readOnly} />
-                                {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
-                              </div>
+                              {isWine && sellUnit === 'bottle' ? (
+                                <EditNumber value={sellBottle ?? ''} placeholder="$0.00" decimals={2} prefix="$"
+                                  onChange={v => saveSetting(item.name, 'sellPriceBottle', v)}
+                                  saving={saving[`${item.name}_sellPriceBottle`]} min={0} readOnly={readOnly} />
+                              ) : (
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                  <EditNumber value={sellGlass ?? ''} placeholder="$0.00" decimals={2} prefix="$"
+                                    onChange={v => saveSetting(item.name, 'sellPrice', v)}
+                                    saving={saving[`${item.name}_sellPrice`]} min={0} readOnly={readOnly} />
+                                  {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
+                                </div>
+                              )}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'center', fontSize: 11 }}>
                               {item.isSpirit ? (
