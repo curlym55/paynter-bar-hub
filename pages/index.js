@@ -3999,6 +3999,7 @@ function StocktakeView({ items, readOnly, onExport }) {
   const [syncing, setSyncing]               = useState(false)
   const [syncResult, setSyncResult]         = useState(null)
   const [autoSyncPrompt, setAutoSyncPrompt] = useState(false)
+  const [autoSyncDismissed, setAutoSyncDismissed] = useState(false)
 
   const loadSyncPreview = async () => {
     setSyncLoading(true)
@@ -4016,7 +4017,7 @@ function StocktakeView({ items, readOnly, onExport }) {
     finally { setSyncLoading(false) }
   }
 
-  const openSyncModal = () => { setShowSyncModal(true); setAutoSyncPrompt(false); loadSyncPreview() }
+  const openSyncModal = () => { setShowSyncModal(true); setAutoSyncPrompt(false); setAutoSyncDismissed(true); loadSyncPreview() }
 
   const executeSync = async () => {
     setSyncing(true)
@@ -4047,9 +4048,9 @@ function StocktakeView({ items, readOnly, onExport }) {
     if (!countsLoaded) return
     const t = setTimeout(() => {
       fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => {})
-      // Show auto-sync prompt if there are counted items
+      // Show auto-sync prompt once per session if there are counted items and it hasn't been dismissed
       const anyCount = Object.values(counts).some(c => c.coolRoom !== '' || c.storeRoom !== '' || c.bar !== '')
-      if (anyCount && !showSyncModal) setAutoSyncPrompt(true)
+      if (anyCount && !showSyncModal && !autoSyncDismissed) setAutoSyncPrompt(true)
     }, 800)
     return () => clearTimeout(t)
   }, [counts, countsLoaded])
@@ -4520,7 +4521,7 @@ function StocktakeView({ items, readOnly, onExport }) {
           <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>⬆ Sync counts to Square?</div>
           <div style={{ fontSize: 12, color: '#64748b' }}>Stocktake saved. Push counted quantities to Square inventory?</div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button onClick={() => setAutoSyncPrompt(false)}
+            <button onClick={() => { setAutoSyncPrompt(false); setAutoSyncDismissed(true) }}
               style={{ padding: '6px 14px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
               Not now
             </button>
