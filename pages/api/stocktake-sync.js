@@ -94,6 +94,7 @@ export default async function handler(req, res) {
 
     // ── POST — execute sync ─────────────────────────────────────────────────
     if (req.method === 'POST') {
+      console.log('[stocktake-sync POST] countedNames:', countedNames.length, 'body keys:', Object.keys(req.body||{}).join(','))
       const [varMap, locationId] = await Promise.all([
         getVariationIdMap(token),
         getLocationId(token),
@@ -133,7 +134,7 @@ export default async function handler(req, res) {
           itemName:    name,
         })
 
-        if (result.ok) succeeded.push({ name, sqQty, note })
+        if (result.ok) succeeded.push({ name, sqQty, note, _sq: result._squareResponse })
         else           failed.push({ name, error: result.error })
       }
 
@@ -149,6 +150,7 @@ export default async function handler(req, res) {
         failed:       failed.length,
         skippedItems: [...skipped, ...failed.map(f => ({ name: f.name, reason: f.error }))],
         message:      parts.join(' · '),
+        _debug:       succeeded.map(s => ({ name: s.name, sqQty: s.sqQty, squareResponse: s._sq })),
       })
     }
 
