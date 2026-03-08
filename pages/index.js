@@ -1847,9 +1847,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
                           const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
                           const sellFromSq  = item.squareSellPrice != null && Number(item.sellPrice) === item.squareSellPrice
-                          const serveSizeLabel = item.isSpirit ? `${serveML}ml nip`
-                                              : sellUnit === 'glass' ? '150ml glass'
-                                              : `${bottleML}ml btl`
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -1865,18 +1862,27 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               </div>
                             </td>
                             <td style={{ ...styles.td, textAlign: 'center', fontSize: 11 }}>
-                              {isWine && !readOnly ? (
-                                <select value={sellUnit} onChange={e => saveSetting(item.name, 'sellUnit', e.target.value)}
-                                  style={{ fontSize: 11, border: '1px solid #cbd5e1', borderRadius: 4, padding: '2px 4px', background: '#fff', color: '#374151', cursor: 'pointer' }}>
-                                  <option value="glass">150ml glass</option>
-                                  <option value="bottle">Bottle</option>
-                                </select>
+                              {item.isSpirit ? (
+                                <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{serveML}ml nip</span>
+                              ) : isWine ? (
+                                readOnly
+                                  ? <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{sellUnit === 'glass' ? '150ml glass' : 'Bottle'}</span>
+                                  : <select value={sellUnit}
+                                      onChange={e => {
+                                        const v = e.target.value
+                                        saveSetting(item.name, 'sellUnit', v)
+                                        setItems(prev => prev.map(i => i.name === item.name ? { ...i, sellUnit: v } : i))
+                                      }}
+                                      style={{ fontSize: 11, border: '1px solid #cbd5e1', borderRadius: 4, padding: '2px 4px', background: '#fff', color: '#374151', cursor: 'pointer' }}>
+                                      <option value="glass">150ml glass</option>
+                                      <option value="bottle">Bottle</option>
+                                    </select>
                               ) : (
-                                <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{serveSizeLabel}</span>
+                                <span style={{ color: '#94a3b8' }}>—</span>
                               )}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#64748b' }}>
-                              {servesPerBottle ?? '—'}
+                              {(item.isSpirit || isWine) ? (servesPerBottle ?? '—') : <span style={{ color: '#94a3b8' }}>—</span>}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: marginColor }}>
                               {marginStr}
