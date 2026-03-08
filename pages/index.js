@@ -246,12 +246,10 @@ export default function Home() {
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
 
-    const escape = v => (v == null ? '' : String(v).includes(',') ? `"${v}"` : String(v))
+    const escape = v => (v == null ? '' : String(v).includes(',') || String(v).includes('"') ? `"${String(v).replace(/"/g, '""')}"` : String(v))
+
+    // Items first, then metadata below — per Square template instructions
     const rows = [
-      ['Vendor',      supplier, '', '', '', '', '', ''],
-      ['Ship to',     'GemLife Palmwoods', '', '', '', '', '', ''],
-      ['Expected On', date, '', '', '', '', '', ''],
-      ['Notes',       '', '', '', '', '', '', ''],
       ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
     for (const item of poItems) {
@@ -259,6 +257,12 @@ export default function Home() {
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
       rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
     }
+    // Blank row then metadata
+    rows.push([])
+    rows.push(['Vendor',      supplier])
+    rows.push(['Ship to',     'GemLife Palmwoods'])
+    rows.push(['Expected On', date])
+    rows.push(['Notes',       ''])
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
