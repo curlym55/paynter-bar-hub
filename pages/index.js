@@ -256,7 +256,8 @@ export default function Home() {
     ]
     for (const item of poItems) {
       const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
-      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), ''])
+      const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
+      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
     }
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
