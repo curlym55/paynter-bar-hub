@@ -254,10 +254,21 @@ export default function Home() {
     poItems.forEach((item, idx) => {
       const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      // Put vendor + expected date in Notes of first item only
-      const notes = idx === 0 ? `Vendor: ${supplier} | Expected: ${expectedDate} | Ship to: GemLife Palmwoods` : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', '', notes, String(qty), unitCost])
+      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
     })
+    // Vendor/shipping metadata after items — padded to 8 cols so Square can parse them
+    const pad = (arr) => [...arr, ...Array(8).fill('')].slice(0, 8)
+    rows.push(pad([]))
+    rows.push(pad(['Vendor',      '']))
+    rows.push(pad(['Account number', '']))
+    rows.push(pad(['Address',     '']))
+    rows.push(pad(['Contact',     '']))
+    rows.push(pad(['Phone Number','']))
+    rows.push(pad(['Email',       '']))
+    rows.push(pad([]))
+    rows.push(pad(['Ship To',     "GemLife Palmwoods Home Owners' Association Inc."]))
+    rows.push(pad(['Expected On', expectedDate]))
+    rows.push(pad(['Ordered By',  'Paynter Bar']))
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
