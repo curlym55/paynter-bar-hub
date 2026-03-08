@@ -24,6 +24,10 @@ export default async function handler(req, res) {
         ? settings.sellPrice
         : (item.squareSellPrice ?? '')
 
+      const sellPriceBottle = settings.sellPriceBottle !== undefined && settings.sellPriceBottle !== ''
+        ? settings.sellPriceBottle
+        : (item.squareSellPriceBottle ?? '')
+
       return {
         ...calculated,
         isSpirit:        ['Spirits','Fortified & Liqueurs'].includes(calculated.category),
@@ -31,9 +35,10 @@ export default async function handler(req, res) {
         notes:           settings.notes || '',
         buyPrice:        settings.buyPrice || '',
         sellPrice,
-        squareSellPrice: item.squareSellPrice ?? null,
+        squareSellPrice:       item.squareSellPrice ?? null,
+        squareSellPriceBottle: item.squareSellPriceBottle ?? null,
         sellUnit:        settings.sellUnit || null,
-        sellPriceBottle: settings.sellPriceBottle || '',
+        sellPriceBottle: sellPriceBottle,
       }
     })
 
