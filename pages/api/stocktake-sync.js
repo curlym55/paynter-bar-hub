@@ -35,12 +35,8 @@ export default async function handler(req, res) {
 
     // Item metadata (category, bottleML, nipML) is passed from the client
     // since items are fetched from Square on the frontend, not stored in Redis
-    const clientItems  = req.method === 'POST' ? (req.body?.items || []) : []
-    // For GET, items are passed as a JSON query param
-    let cachedItems = clientItems
-    if (req.method === 'GET' && req.query.items) {
-      try { cachedItems = JSON.parse(req.query.items) } catch { cachedItems = [] }
-    }
+    // Items metadata passed from client in POST body (avoids URL length limits)
+    const cachedItems = req.body?.items || []
 
     // Only process items that have at least one count entered
     const countedNames = Object.entries(counts)
@@ -56,49 +52,39 @@ export default async function handler(req, res) {
       return res.json({ preview: [], countedCount: 0 })
     }
 
-    // ── GET — preview ───────────────────────────────────────────────────────
-    if (req.method === 'GET') {
+    // ── POST — preview or execute sync ──────────────────────────────────────
+    if (req.method === 'POST') {
+      const previewOnly = req.body?.previewOnly === true
+
+      // Always fetch varMap (needed for both preview and execute)
       const varMap = await getVariationIdMap(token)
 
-      const preview = countedNames.map(name => {
-        const c     = counts[name]
-        const cr    = parseFloat(c.coolRoom)  || 0
-        const sr    = parseFloat(c.storeRoom) || 0
-        const br    = parseFloat(c.bar)       || 0
-        const total = cr + sr + br
+      // ── Preview ──────────────────────────────────────────────────────────
+      if (previewOnly) {
+        const preview = countedNames.map(name => {
+          const c     = counts[name]
+          const cr    = parseFloat(c.coolRoom)  || 0
+          const sr    = parseFloat(c.storeRoom) || 0
+          const br    = parseFloat(c.bar)       || 0
+          const total = cr + sr + br
+          const item      = cachedItems.find(i => i.name === name) || { name, category: '' }
+          const varInfo   = varMap[name] || null
+          const sqQty     = varInfo ? toSquareQty(item, total, itemSettings) : null
+          const note      = varInfo ? conversionNote(item, total, itemSettings) : null
+          const skipReason = !varInfo ? 'Not found in Square catalogue' : null
+          return {
+            name, category: item.category || '',
+            coolRoom: c.coolRoom, storeRoom: c.storeRoom, bar: c.bar, total,
+            squareQty: sqQty, conversionNote: note,
+            squareOnHand: varInfo?.onHand ?? null, variationId: varInfo?.varId || null,
+            skipReason, canSync: !skipReason,
+          }
+        }).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
+        return res.json({ preview, countedCount: countedNames.length })
+      }
 
-        const item      = cachedItems.find(i => i.name === name) || { name, category: '' }
-        const varInfo   = varMap[name] || null
-        const sqQty     = varInfo ? toSquareQty(item, total, itemSettings) : null
-        const note      = varInfo ? conversionNote(item, total, itemSettings) : null
-        const skipReason = !varInfo ? 'Not found in Square catalogue' : null
-
-        return {
-          name,
-          category:       item.category || '',
-          coolRoom:       c.coolRoom,
-          storeRoom:      c.storeRoom,
-          bar:            c.bar,
-          total,
-          squareQty:      sqQty,
-          conversionNote: note,
-          squareOnHand:   varInfo?.onHand ?? null,
-          variationId:    varInfo?.varId  || null,
-          skipReason,
-          canSync:        !skipReason,
-        }
-      }).sort((a, b) => a.category.localeCompare(b.category) || a.name.localeCompare(b.name))
-
-      return res.json({ preview, countedCount: countedNames.length })
-    }
-
-    // ── POST — execute sync ─────────────────────────────────────────────────
-    if (req.method === 'POST') {
-      console.log('[stocktake-sync POST] countedNames:', countedNames.length, 'body keys:', Object.keys(req.body||{}).join(','))
-      const [varMap, locationId] = await Promise.all([
-        getVariationIdMap(token),
-        getLocationId(token),
-      ])
+      // ── Execute ──────────────────────────────────────────────────────────
+      const locationId = await getLocationId(token)
 
       // Use a timestamp slightly in the future to ensure Square treats it as
       // more recent than any existing inventory record (Square discards stale physical counts)
@@ -154,7 +140,7 @@ export default async function handler(req, res) {
       })
     }
 
-    return res.status(405).json({ error: 'Method not allowed' })
+    return res.status(405).json({ error: 'Method not allowed (use POST)' })
 
   } catch(e) {
     console.error('Stocktake sync error:', e)

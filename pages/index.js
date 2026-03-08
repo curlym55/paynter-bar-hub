@@ -4005,10 +4005,12 @@ function StocktakeView({ items, readOnly, onExport }) {
     setSyncResult(null)
     setSyncPreview(null)
     try {
-      const itemsParam = encodeURIComponent(JSON.stringify(
-        items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
-      ))
-      const d = await fetch(`/api/stocktake-sync?items=${itemsParam}`).then(r => r.json())
+      const itemsPayload = items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
+      const d = await fetch('/api/stocktake-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsPayload, previewOnly: true })
+      }).then(r => r.json())
       setSyncPreview(d)
     } catch(e) { setSyncPreview({ error: e.message }) }
     finally { setSyncLoading(false) }
