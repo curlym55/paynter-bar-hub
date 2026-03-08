@@ -2031,6 +2031,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 // ─── WASTAGE LOG VIEW ─────────────────────────────────────────────────────────
 function WastageView({ items, log, readOnly, onRefresh }) {
   const REASONS = ['Breakage', 'Spoilage', 'Expired', 'Other']
+  const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
+  const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
   const REASON_COLOR = {
     Breakage: { bg: '#fee2e2', text: '#dc2626' },
     Spoilage: { bg: '#fef9c3', text: '#ca8a04' },
@@ -2539,7 +2541,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                           <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                              {['Date','Item','Logged','→ Square deduction','Conversion','Status'].map(h => (
+                              {['Date','Item','Logged','→ Square deduction','Conversion','Sq Stock','Status'].map(h => (
                                 <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -2555,15 +2557,18 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                                   {p.qty} {p.unit}
                                 </td>
                                 <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#16a34a', whiteSpace: 'nowrap' }}>
-                                  {p.canSync ? `−${p.squareQty} ${['Spirits','Fortified & Liqueurs'].includes(p.category) ? 'nips' : ['White Wine','Red Wine','Rose','Sparkling'].includes(p.category) ? 'btl' : 'units'}` : '—'}
+                                  {p.canSync ? `−${p.squareQty} ${SPIRIT_CATS.includes(p.category) ? 'nips' : WINE_CATS.includes(p.category) ? 'btl' : 'units'}` : '—'}
                                 </td>
                                 <td style={{ padding: '7px 10px', fontSize: 11, color: '#64748b' }}>
                                   {p.conversionNote || <span style={{ color: '#cbd5e1' }}>1:1</span>}
                                 </td>
+                                <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11, color: p.squareOnHand > 0 ? '#16a34a' : '#dc2626' }}>
+                                  {p.squareOnHand !== null ? p.squareOnHand : '—'}
+                                </td>
                                 <td style={{ padding: '7px 10px' }}>
                                   {p.canSync
                                     ? <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Ready</span>
-                                    : <span style={{ fontSize: 10, background: '#fef9c3', color: '#92400e', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Skip</span>
+                                    : <span title={p.skipReason} style={{ fontSize: 10, background: '#fef9c3', color: '#92400e', fontWeight: 700, padding: '2px 8px', borderRadius: 99, cursor: 'help' }}>Skip ⓘ</span>
                                   }
                                 </td>
                               </tr>
