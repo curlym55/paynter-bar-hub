@@ -63,7 +63,6 @@ export default function Home() {
   const [menuOpen, setMenuOpen]         = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': true, 'Sales & Analytics': true, 'Operations': false, 'Help': true })
-  const [orderedItems, setOrderedItems] = useState({})
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
   const [sellersError, setSellersError] = useState(null)
@@ -123,10 +122,7 @@ export default function Home() {
       setItems(data.items)
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
-      if (ro.ok) {
-        const od = await ro.json()
-        setOrderedItems(od.ordered || {})
-      }
+
     } catch (e) {
       setError(e.message)
     } finally {
@@ -202,21 +198,6 @@ export default function Home() {
     }
   }
 
-  async function toggleOrdered(itemName, supplier) {
-    const isOrdered = !!orderedItems[itemName]
-    const newVal = isOrdered ? null : (supplier || '')
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'setOrdered', itemName, value: newVal })
-    })
-    setOrderedItems(prev => {
-      const next = { ...prev }
-      if (isOrdered) delete next[itemName]
-      else next[itemName] = { date: new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }), supplier: supplier || '' }
-      return next
-    })
-  }
 
   async function loadNotes() {
     try {
@@ -1361,8 +1342,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => !filterOrder || item.orderQty > 0)
 
-  const onOrderCount = Object.keys(orderedItems).length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
+  const orderCount = items.filter(i => i.orderQty > 0).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
 
   if (!authed) return (
@@ -1561,8 +1541,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: 'pointer' }}
               onClick={() => setMainTab('reorder')}>
-              <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
-              <span style={styles.statLabel}>On Order</span>
+
             </div>
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#f59e0b' }}>
               {editingTarget ? (
@@ -1684,60 +1663,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
-            {onOrderCount > 0 && (() => {
-              // Group ordered items by supplier, then by date within each supplier
-              const bySupplier = {}
-              for (const [name, info] of Object.entries(orderedItems)) {
-                const key = info.supplier || 'Unknown'
-                if (!bySupplier[key]) bySupplier[key] = {}
-                if (!bySupplier[key][info.date]) bySupplier[key][info.date] = []
-                bySupplier[key][info.date].push(name)
-              }
-
-              async function markSupplierReceived(supplier) {
-                const itemsForSupplier = Object.entries(orderedItems)
-                  .filter(([, info]) => (info.supplier || 'Unknown') === supplier)
-                  .map(([name]) => name)
-                if (!confirm(`Mark ${itemsForSupplier.length} item${itemsForSupplier.length !== 1 ? 's' : ''} from ${supplier} as received?`)) return
-                await Promise.all(itemsForSupplier.map(name =>
-                  fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ action: 'setOrdered', itemName: name, value: null }) })
-                ))
-                setOrderedItems(prev => {
-                  const next = { ...prev }
-                  itemsForSupplier.forEach(name => delete next[name])
-                  return next
-                })
-              }
-
-              return (
-                <div style={{ marginBottom: 10 }}>
-                  {Object.entries(bySupplier).map(([supplier, dateGroups]) => {
-                    const supplierItems = Object.values(dateGroups).flat()
-                    return (
-                      <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 6 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                          <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
-                          <span style={{ fontSize: 12, color: '#64748b' }}>— {supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
-                          {!readOnly && (
-                            <button onClick={() => markSupplierReceived(supplier)}
-                              style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
-                              ✓ {supplier} Received
-                            </button>
-                          )}
-                        </div>
-                        {Object.entries(dateGroups).map(([date, names]) => (
-                          <div key={date} style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid #bbf7d0' }}>
-                            <span style={{ fontSize: 11, color: '#4ade80', fontWeight: 700, marginRight: 8 }}>Ordered {date}</span>
-                            <span style={{ fontSize: 11, color: '#64748b' }}>{names.join(' · ')}</span>
-                          </div>
-                        ))}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            })()}
 
             <div style={styles.tableWrap}>
               <table style={styles.table}>
@@ -1755,7 +1680,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     <th style={{ ...styles.th, textAlign: 'right' }}>Order Qty</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Bottles</th>
                     <th style={{ ...styles.th, textAlign: 'center' }}>Priority</th>
-                    <th style={{ ...styles.th, textAlign: 'center' }}>On Order</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
                     {viewMode === 'pricing' && <>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy Price</th>
@@ -1768,19 +1692,17 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 </thead>
                 <tbody>
                   {displayed.length === 0 && (
-                    <tr><td colSpan={viewMode === 'pricing' ? 19 : 14} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
+                    <tr><td colSpan={viewMode === 'pricing' ? 18 : 13} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
                       {filterOrder ? 'No items to order this week.' : 'No items found.'}
                     </td></tr>
                   )}
                   {displayed.map((item, idx) => {
                     const p = PRIORITY_COLORS[item.priority]
-                    const isOrdered = !!orderedItems[item.name]
-                    const rowBg = isOrdered ? '#f0fdf4' : (item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc'))
+                    const rowBg = item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc')
                     return (
                       <tr key={item.name} style={{ background: rowBg }}>
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
                           {item.name}
-                          {isOrdered && <span style={{ marginLeft: 6, fontSize: 10, background: '#16a34a', color: '#fff', borderRadius: 99, padding: '1px 7px', fontWeight: 700, verticalAlign: 'middle' }}>ON ORDER</span>}
                         </td>
                         <td style={styles.td}>
                           <EditSelect value={item.category} options={CATEGORIES}
@@ -1824,21 +1746,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: p.badge, color: '#fff' }}>{item.priority}</span>
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                          {!readOnly && (
-                            <button
-                              onClick={() => toggleOrdered(item.name, item.supplier)}
-                              title={isOrdered ? `Ordered ${orderedItems[item.name]?.date} — click to clear` : 'Mark as ordered'}
-                              style={{ fontSize: 11, fontWeight: 700, padding: '3px 10px', borderRadius: 99, border: 'none', cursor: 'pointer',
-                                background: isOrdered ? '#dcfce7' : '#f1f5f9',
-                                color: isOrdered ? '#16a34a' : '#94a3b8' }}>
-                              {isOrdered ? `✓ ${orderedItems[item.name]?.date}` : '+ Order'}
-                            </button>
-                          )}
-                          {readOnly && isOrdered && (
-                            <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 700 }}>✓ {orderedItems[item.name]?.date}</span>
-                          )}
-                        </td>
+
                         <td style={styles.td}>
                           <EditText value={item.notes || ''} onChange={v => saveSetting(item.name, 'notes', v)}
                             saving={saving[`${item.name}_notes`]} placeholder="Add note..." readOnly={readOnly} />
@@ -1993,7 +1901,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           <DashboardView
             items={items}
             lastUpdated={lastUpdated}
-            orderedItems={orderedItems}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
@@ -2623,11 +2530,10 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
+function DashboardView({ items, lastUpdated, onNav }) {
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
-  const onOrderCount = Object.keys(orderedItems).length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
+  const orderCount = items.filter(i => i.orderQty > 0).length
   const totalItems = items.length
 
   const now = new Date()
@@ -2658,7 +2564,6 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
           { label: 'Critical',      value: critCount,    sub: 'below target',    color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
           { label: 'Low Stock',     value: lowCount,     sub: 'running low',     color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
           { label: 'To Order',      value: orderCount,   sub: 'need ordering',   color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
-          { label: 'On Order',      value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
           { label: 'Refreshed',     value: refreshedAgo, sub: 'Square data',     color: '#475569', bg: '#f8fafc', action: null },
         ].map(({ label, value, sub, color, bg, action }) => (
           <div key={label}
@@ -3477,13 +3382,8 @@ function HelpTab() {
     },
     {
       icon: '📬',
-      title: 'On Order Tracking',
-      items: [
-        { q: 'What it does', a: 'When you place an order, click Mark as Ordered next to items in the Reorder Planner. They move off the \"To Order\" count and into the \"On Order\" banner so you know what\'s been actioned.' },
-        { q: 'On Order banner', a: 'Ordered items appear in a grouped banner at the top of the Reorder Planner, organised by supplier. Each supplier group shows the order date and which items were ordered.' },
-        { q: 'Marking delivery received', a: 'When stock arrives, click ✓ [Supplier] Received in the On Order banner. This clears all items for that supplier from the On Order list in one step.' },
-        { q: 'To Order vs On Order', a: '\"To Order\" count in the stats bar only shows items not yet actioned. \"On Order\" shows items that have been ordered but not yet received. The two counts are mutually exclusive.' },
-      ]
+      title: 'On Order Tracking — Removed',
+      items: []
     },
     {
       icon: '🥃',
