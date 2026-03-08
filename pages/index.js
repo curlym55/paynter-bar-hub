@@ -4000,6 +4000,18 @@ function StocktakeView({ items, readOnly, onExport }) {
   const [syncResult, setSyncResult]         = useState(null)
   const [autoSyncPrompt, setAutoSyncPrompt] = useState(false)
   const [autoSyncDismissed, setAutoSyncDismissed] = useState(false)
+  const [showHistory, setShowHistory]       = useState(false)
+  const [history, setHistory]               = useState(null)
+  const [historyLoading, setHistoryLoading] = useState(false)
+
+  const loadHistory = async () => {
+    setHistoryLoading(true)
+    try {
+      const d = await fetch('/api/stocktake-history').then(r => r.json())
+      setHistory(d.history || [])
+    } catch(e) { setHistory([]) }
+    finally { setHistoryLoading(false) }
+  }
 
   const loadSyncPreview = async () => {
     setSyncLoading(true)
@@ -4030,7 +4042,7 @@ function StocktakeView({ items, readOnly, onExport }) {
       })
       const d = await r.json()
       setSyncResult(d)
-      if (d.ok) loadSyncPreview()
+      if (d.ok) { loadSyncPreview(); if (showHistory) loadHistory() }
     } catch(e) { setSyncResult({ ok: false, error: e.message }) }
     finally { setSyncing(false) }
   }
@@ -4429,6 +4441,10 @@ function StocktakeView({ items, readOnly, onExport }) {
             ⬆ Sync to Square
           </button>
         )}
+        <button onClick={() => { setShowHistory(h => !h); if (!history) loadHistory() }}
+          style={{ padding: '7px 14px', background: showHistory ? '#0f172a' : '#f1f5f9', color: showHistory ? '#fff' : '#374151', border: '1px solid #e2e8f0', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+          📋 History
+        </button>
         <button onClick={resetAll}
           style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
           🗑 Clear All
@@ -4514,6 +4530,44 @@ function StocktakeView({ items, readOnly, onExport }) {
       <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
         For spirits: enter bottle count (decimals ok, e.g. 4.5 for a half-used bottle). Nips calculated automatically. Non-spirit items: enter unit count.
       </div>
+
+      {/* History panel */}
+      {showHistory && (
+        <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12 }}>📋 Stocktake Sync History</div>
+          {historyLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>}
+          {!historyLoading && history?.length === 0 && (
+            <div style={{ color: '#94a3b8', fontSize: 13 }}>No syncs recorded yet.</div>
+          )}
+          {!historyLoading && history?.map(day => (
+            <div key={day.date} style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#0e7490', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                {new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                <span style={{ marginLeft: 8, fontWeight: 400, color: '#94a3b8' }}>({day.snapshots.length} sync{day.snapshots.length !== 1 ? 's' : ''})</span>
+              </div>
+              {day.snapshots.map((snap, si) => (
+                <div key={si} style={{ marginBottom: 8, padding: '10px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      {new Date(snap.ts).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
+                      ✓ {snap.synced} synced{snap.skipped > 0 ? ` · ${snap.skipped} skipped` : ''}{snap.failed > 0 ? ` · ${snap.failed} failed` : ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {snap.items?.map((item, ii) => (
+                      <span key={ii} style={{ fontSize: 10, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 4, padding: '2px 6px', fontFamily: 'monospace' }}>
+                        {item.name}: {item.sqQty}{item.note ? ` (${item.note})` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Auto-sync prompt — appears after save when counts exist */}
       {autoSyncPrompt && !showSyncModal && (

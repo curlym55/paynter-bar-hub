@@ -1,4 +1,4 @@
-import { kvGet }                                                from '../../lib/redis'
+import { kvGet, kvSet }                                         from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postPhysicalCount } from '../../lib/square'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
@@ -133,6 +133,35 @@ export default async function handler(req, res) {
       if (succeeded.length) parts.push(`${succeeded.length} items synced to Square`)
       if (skipped.length)   parts.push(`${skipped.length} skipped`)
       if (failed.length)    parts.push(`${failed.length} failed`)
+
+      // ── Save history snapshot ────────────────────────────────────────────
+      if (succeeded.length > 0) {
+        const history  = (await kvGet('stocktakeHistory')) || []
+        const today    = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }) // YYYY-MM-DD
+        const snapshot = {
+          ts:       new Date().toISOString(),
+          counts:   Object.fromEntries(
+            countedNames
+              .filter(n => succeeded.find(s => s.name === n) || skipped.find(s => s.name === n))
+              .map(n => [n, counts[n]])
+          ),
+          synced:   succeeded.length,
+          skipped:  skipped.length,
+          failed:   failed.length,
+          items:    succeeded.map(s => ({ name: s.name, sqQty: s.sqQty, note: s.note })),
+        }
+        const dayIdx = history.findIndex(d => d.date === today)
+        if (dayIdx >= 0) {
+          history[dayIdx].snapshots.push(snapshot)
+        } else {
+          history.unshift({ date: today, snapshots: [snapshot] })
+        }
+        // Keep 90 days of history
+        const cutoff = new Date()
+        cutoff.setDate(cutoff.getDate() - 90)
+        const trimmed = history.filter(d => new Date(d.date) >= cutoff)
+        await kvSet('stocktakeHistory', trimmed)
+      }
 
       return res.json({
         ok:           failed.length === 0,
