@@ -125,7 +125,7 @@ export default async function handler(req, res) {
         const result = await postSingleWasteAdjustment(token, locationId, {
           variationId: varInfo.varId,
           squareQty:   String(squareQty),
-          occurredAt:  new Date(entry.date).toISOString(),
+          occurredAt:  new Date().toISOString(), // use now — Square can reject historical WASTE timestamps
           entryId:     entry.id,
           itemName:    entry.itemName,
         })
