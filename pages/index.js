@@ -37,6 +37,7 @@ export default function Home() {
   const [saving, setSaving]             = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
+  const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
   const [addingSupplier, setAddingSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
   const [printing, setPrinting]         = useState(null)
@@ -146,6 +147,7 @@ export default function Home() {
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.suppliers) setSuppliers(data.suppliers)
+      if (data.supplierVendorNames) setSupplierVendorNames(data.supplierVendorNames || {})
     }).catch(() => {})
   }, [])
 
@@ -243,6 +245,7 @@ export default function Home() {
   }
 
   function generatePoExcel(supplier, poItems) {
+    const squareName = supplierVendorNames[supplier] || ''
     const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
     const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
@@ -252,7 +255,7 @@ export default function Home() {
     poItems.forEach((item) => {
       const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
+      rows.push([item.name, 'Regular', item.sku || '', '', squareName, '', String(qty), unitCost])
     })
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
@@ -1693,6 +1696,26 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   <button style={{ ...styles.tab, borderStyle: 'dashed', color: '#64748b' }}
                     onClick={() => setAddingSupplier(true)}>+ Supplier</button>
                 )}
+                <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
+                {/* Square vendor name mapping — small ✎ per supplier */}
+                {!readOnly && suppliers.map(s => {
+                  const mapped = supplierVendorNames[s]
+                  return (
+                    <span key={s} title={`Square vendor name for ${s}: ${mapped || 'not set'}`}
+                      style={{ fontSize: 11, color: mapped ? '#16a34a' : '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
+                      onClick={() => {
+                        const v = prompt(`Square vendor name for "${s}"\n(must match exactly in Square Dashboard)`, mapped || s)
+                        if (v === null) return
+                        const updated = { ...supplierVendorNames, [s]: v.trim() }
+                        setSupplierVendorNames(updated)
+                        fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ itemName: '_global', field: 'supplierVendorNames', value: updated }) })
+                      }}>
+                      <span style={{ fontSize: 10 }}>✎</span>
+                      <span style={{ fontFamily: 'IBM Plex Mono, monospace' }}>{s.split(' ')[0]}</span>
+                    </span>
+                  )
+                })}
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>

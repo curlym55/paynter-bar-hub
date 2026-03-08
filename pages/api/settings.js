@@ -20,8 +20,9 @@ export default async function handler(req, res) {
 
       const settings     = (await kvGet('itemSettings')) || {}
       const targetWeeks  = (await kvGet('targetWeeks'))  || 6
-      const suppliers    = (await kvGet('suppliers'))    || ['Dan Murphys', 'Coles Woolies', 'ACW']
-      res.status(200).json({ settings, targetWeeks, suppliers })
+      const suppliers          = (await kvGet('suppliers'))          || ['Dan Murphys', 'Coles Woolies', 'ACW']
+      const supplierVendorNames = (await kvGet('supplierVendorNames')) || {}
+      res.status(200).json({ settings, targetWeeks, suppliers, supplierVendorNames })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -64,6 +65,8 @@ export default async function handler(req, res) {
 
       if (field === 'suppliers') {
         await kvSet('suppliers', value)
+      } else if (field === 'supplierVendorNames') {
+        await kvSet('supplierVendorNames', value)
         return res.status(200).json({ ok: true })
       }
 
