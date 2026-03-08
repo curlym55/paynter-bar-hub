@@ -119,7 +119,7 @@ export default async function handler(req, res) {
         })
 
         if (result.ok) succeeded.push({ id: entry.id, itemName: entry.itemName, squareQty, note })
-        else           failed.push({ id: entry.id, itemName: entry.itemName, error: result.error })
+        else           failed.push({ id: entry.id, itemName: entry.itemName, variationId: varInfo.varId, error: result.error })
       }
 
       // Mark only successfully synced entries in Redis
@@ -142,7 +142,7 @@ export default async function handler(req, res) {
         synced:       succeeded.length,
         skipped:      skipped.length,
         failed:       failed.length,
-        skippedItems: [...skipped, ...failed.map(f => ({ ...f, reason: f.error }))],
+        skippedItems: [...skipped, ...failed.map(f => ({ ...f, reason: `${f.error}${f.variationId ? ` (varId: ${f.variationId})` : ''}` }))],
         message:      parts.join(' · '),
       })
     }

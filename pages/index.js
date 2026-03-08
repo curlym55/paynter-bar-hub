@@ -2541,7 +2541,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
                           <thead>
                             <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
-                              {['Date','Item','Logged','→ Square deduction','Conversion','Sq Stock','Status'].map(h => (
+                              {['Date','Item','Logged','→ Square deduction','Conversion','Sq Stock','Var ID','Status'].map(h => (
                                 <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -2564,6 +2564,9 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                                 </td>
                                 <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11, color: p.squareOnHand > 0 ? '#16a34a' : '#dc2626' }}>
                                   {p.squareOnHand !== null ? p.squareOnHand : '—'}
+                                </td>
+                                <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 9, color: '#94a3b8', userSelect: 'all' }}>
+                                  {p.variationId ? p.variationId.slice(-8) : '—'}
                                 </td>
                                 <td style={{ padding: '7px 10px' }}>
                                   {p.canSync
