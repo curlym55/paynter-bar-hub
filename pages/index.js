@@ -3982,6 +3982,7 @@ const styles = {
 // ─── STOCKTAKE VIEW ────────────────────────────────────────────────────────────
 function StocktakeView({ items, readOnly, onExport }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
+  const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 
   // counts keyed by item name: { coolRoom, storeRoom, bar }
   const [counts, setCounts] = useState({})
@@ -3990,6 +3991,46 @@ function StocktakeView({ items, readOnly, onExport }) {
   const [mobileMode, setMobileMode] = useState(false)
   const [mobileIdx, setMobileIdx] = useState(0)
   const [showDiffs, setShowDiffs] = useState(false)
+
+  // Square sync state
+  const [showSyncModal, setShowSyncModal]   = useState(false)
+  const [syncPreview, setSyncPreview]       = useState(null)
+  const [syncLoading, setSyncLoading]       = useState(false)
+  const [syncing, setSyncing]               = useState(false)
+  const [syncResult, setSyncResult]         = useState(null)
+  const [autoSyncPrompt, setAutoSyncPrompt] = useState(false)
+
+  const loadSyncPreview = async () => {
+    setSyncLoading(true)
+    setSyncResult(null)
+    setSyncPreview(null)
+    try {
+      const itemsParam = encodeURIComponent(JSON.stringify(
+        items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
+      ))
+      const d = await fetch(`/api/stocktake-sync?items=${itemsParam}`).then(r => r.json())
+      setSyncPreview(d)
+    } catch(e) { setSyncPreview({ error: e.message }) }
+    finally { setSyncLoading(false) }
+  }
+
+  const openSyncModal = () => { setShowSyncModal(true); setAutoSyncPrompt(false); loadSyncPreview() }
+
+  const executeSync = async () => {
+    setSyncing(true)
+    try {
+      const itemsPayload = items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
+      const r = await fetch('/api/stocktake-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ items: itemsPayload })
+      })
+      const d = await r.json()
+      setSyncResult(d)
+      if (d.ok) loadSyncPreview()
+    } catch(e) { setSyncResult({ ok: false, error: e.message }) }
+    finally { setSyncing(false) }
+  }
 
   // Load counts from server on mount
   useEffect(() => {
@@ -4004,6 +4045,9 @@ function StocktakeView({ items, readOnly, onExport }) {
     if (!countsLoaded) return
     const t = setTimeout(() => {
       fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => {})
+      // Show auto-sync prompt if there are counted items
+      const anyCount = Object.values(counts).some(c => c.coolRoom !== '' || c.storeRoom !== '' || c.bar !== '')
+      if (anyCount && !showSyncModal) setAutoSyncPrompt(true)
     }, 800)
     return () => clearTimeout(t)
   }, [counts, countsLoaded])
@@ -4376,6 +4420,12 @@ function StocktakeView({ items, readOnly, onExport }) {
           style={{ padding: '7px 14px', background: '#0e7490', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
           🖨️ Print Blank Sheet
         </button>
+        {!readOnly && (
+          <button onClick={openSyncModal}
+            style={{ padding: '7px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+            ⬆ Sync to Square
+          </button>
+        )}
         <button onClick={resetAll}
           style={{ padding: '7px 14px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
           🗑 Clear All
@@ -4461,6 +4511,141 @@ function StocktakeView({ items, readOnly, onExport }) {
       <div style={{ marginTop: 12, fontSize: 11, color: '#94a3b8' }}>
         For spirits: enter bottle count (decimals ok, e.g. 4.5 for a half-used bottle). Nips calculated automatically. Non-spirit items: enter unit count.
       </div>
+
+      {/* Auto-sync prompt — appears after save when counts exist */}
+      {autoSyncPrompt && !showSyncModal && (
+        <div style={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1000, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '14px 18px', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', maxWidth: 320, display: 'flex', flexDirection: 'column', gap: 10 }}>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13 }}>⬆ Sync counts to Square?</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>Stocktake saved. Push counted quantities to Square inventory?</div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button onClick={() => setAutoSyncPrompt(false)}
+              style={{ padding: '6px 14px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+              Not now
+            </button>
+            <button onClick={openSyncModal}
+              style={{ padding: '6px 14px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+              Sync to Square
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Sync modal */}
+      {showSyncModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(15,23,42,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 720, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            {/* Header */}
+            <div style={{ background: '#0f172a', borderRadius: '14px 14px 0 0', padding: '16px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <div style={{ color: '#fff', fontWeight: 700, fontSize: 16 }}>⬆ Sync Stocktake to Square</div>
+                <div style={{ color: '#94a3b8', fontSize: 12, marginTop: 3 }}>This will set Square inventory quantities to your counted values</div>
+              </div>
+              <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: 20, cursor: 'pointer', padding: '0 4px' }}>×</button>
+            </div>
+
+            {/* Body */}
+            <div style={{ padding: '16px 20px', overflowY: 'auto', flex: 1 }}>
+              {/* Result banner */}
+              {syncResult && (
+                <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: syncResult.ok ? '#f0fdf4' : '#fee2e2', border: `1px solid ${syncResult.ok ? '#86efac' : '#fca5a5'}`, color: syncResult.ok ? '#166534' : '#991b1b', fontSize: 13, fontWeight: 600 }}>
+                  {syncResult.ok ? '✓ ' : '✕ '}{syncResult.message || syncResult.error}
+                  {syncResult.skippedItems?.length > 0 && (
+                    <div style={{ marginTop: 8, fontWeight: 400, fontSize: 12 }}>
+                      {syncResult.skippedItems.map((s, i) => (
+                        <div key={i} style={{ padding: '3px 0', borderTop: i > 0 ? '1px solid rgba(0,0,0,0.08)' : 'none' }}>
+                          <strong>{s.name}</strong>: {s.reason}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {syncLoading && <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>Loading preview…</div>}
+              {syncPreview?.error && (
+                <div style={{ padding: '10px 14px', background: '#fee2e2', borderRadius: 8, color: '#991b1b', fontSize: 13 }}>
+                  Error: {syncPreview.error}
+                </div>
+              )}
+              {syncPreview && !syncPreview.error && (
+                <>
+                  {syncPreview.preview?.length === 0
+                    ? <div style={{ textAlign: 'center', color: '#64748b', padding: 32 }}>No counted items to sync.</div>
+                    : <>
+                        <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                          <strong style={{ color: '#0f172a' }}>{syncPreview.preview?.filter(p => p.canSync).length}</strong> items ready to sync
+                          {syncPreview.preview?.filter(p => !p.canSync).length > 0 && (
+                            <span style={{ color: '#d97706' }}> · {syncPreview.preview.filter(p => !p.canSync).length} will be skipped</span>
+                          )}
+                        </div>
+                        <div style={{ overflowX: 'auto' }}>
+                          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                            <thead>
+                              <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                                {['Item','Category','Counted','→ Square sets to','Conversion','Sq Current','Status'].map(h => (
+                                  <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {syncPreview.preview.map((p, idx) => (
+                                <tr key={p.name} style={{ background: !p.canSync ? '#fffbeb' : idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9', opacity: !p.canSync ? 0.65 : 1 }}>
+                                  <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>{p.name}</td>
+                                  <td style={{ padding: '7px 10px', fontSize: 11, color: '#64748b' }}>{p.category}</td>
+                                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                                    {p.total} {SPIRIT_CATS.includes(p.category) ? 'btl' : 'units'}
+                                  </td>
+                                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#7c3aed', whiteSpace: 'nowrap' }}>
+                                    {p.canSync ? `${p.squareQty} ${SPIRIT_CATS.includes(p.category) ? 'nips' : 'units'}` : '—'}
+                                  </td>
+                                  <td style={{ padding: '7px 10px', fontSize: 11, color: '#64748b' }}>
+                                    {p.conversionNote || <span style={{ color: '#cbd5e1' }}>1:1</span>}
+                                  </td>
+                                  <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontSize: 11, color: '#374151' }}>
+                                    {p.squareOnHand !== null ? p.squareOnHand : '—'}
+                                  </td>
+                                  <td style={{ padding: '7px 10px' }}>
+                                    {p.canSync
+                                      ? <span style={{ fontSize: 10, background: '#ede9fe', color: '#6d28d9', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Ready</span>
+                                      : <span title={p.skipReason} style={{ fontSize: 10, background: '#fef9c3', color: '#92400e', fontWeight: 700, padding: '2px 8px', borderRadius: 99, cursor: 'help' }}>Skip ⓘ</span>
+                                    }
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </>
+                  }
+                </>
+              )}
+            </div>
+
+            {/* Footer */}
+            {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length > 0 && (
+              <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                  style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={executeSync} disabled={syncing}
+                  style={{ padding: '9px 22px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: syncing ? 0.7 : 1 }}>
+                  {syncing ? 'Syncing…' : `⬆ Sync ${syncPreview.preview.filter(p => p.canSync).length} item${syncPreview.preview.filter(p => p.canSync).length === 1 ? '' : 's'} to Square`}
+                </button>
+              </div>
+            )}
+            {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length === 0 && (
+              <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                  style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
