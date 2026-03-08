@@ -258,7 +258,7 @@ export default function Home() {
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
-        return { ...item, [field]: ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle'].includes(field) ? Number(value) : value }
+        return { ...item, [field]: ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice'].includes(field) ? Number(value) : value }
       }))
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
@@ -1818,17 +1818,12 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                             saving={saving[`${item.name}_notes`]} placeholder="Add note..." readOnly={readOnly} />
                         </td>
                         {viewMode === 'pricing' && (() => {
-                          // Categories sold by the glass (150ml) unless toggled to bottle
                           const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
                           const isWine = WINE_CATS.includes(item.category)
-                          // sellUnit: 'glass' or 'bottle' for wines; spirits always by nip; others by bottle
                           const sellUnit = item.isSpirit ? 'nip'
                                          : isWine ? (item.sellUnit || 'glass')
                                          : 'bottle'
-                          // Bottle capacity — spirits use stored bottleML (700/750/1000ml)
-                          // Wines default 750ml
                           const bottleML = item.isSpirit ? (item.bottleML || 700) : 750
-                          // Serve size in mL — only meaningful for spirits and glass-sold wines
                           const serveML = item.isSpirit ? (item.nipML || 30)
                                         : (isWine && sellUnit === 'glass') ? 150
                                         : null
@@ -1837,19 +1832,17 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          const buy  = item.buyPrice       !== '' && item.buyPrice       != null ? Number(item.buyPrice)       : null
-                          const sellGlass  = item.sellPrice      !== '' && item.sellPrice      != null ? Number(item.sellPrice)      : null
-                          const sellBottle = item.sellPriceBottle !== '' && item.sellPriceBottle != null ? Number(item.sellPriceBottle) : null
-                          // Active sell value depends on mode
-                          const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
+                          const buy  = item.buyPrice  !== '' && item.buyPrice  != null ? Number(item.buyPrice)  : null
+                          // Single sell price — user enters glass price or bottle price depending on mode
+                          const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
 
-                          // Revenue per bottle = sell/serve × serves (serves=1 for bottle mode)
                           const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
                           const marginPct = (buy != null && revenuePerBottle != null && revenuePerBottle > 0)
                             ? (((revenuePerBottle - buy) / revenuePerBottle) * 100) : null
                           const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
                           const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
                           const sellFromSq  = item.squareSellPrice != null && Number(item.sellPrice) === item.squareSellPrice
+                          const sellLabel   = item.isSpirit ? 'per nip' : sellUnit === 'glass' ? 'per glass' : 'per bottle'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -1857,18 +1850,13 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              {isWine && sellUnit === 'bottle' ? (
-                                <EditNumber value={sellBottle ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                  onChange={v => saveSetting(item.name, 'sellPriceBottle', v)}
-                                  saving={saving[`${item.name}_sellPriceBottle`]} min={0} readOnly={readOnly} />
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                  <EditNumber value={sellGlass ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                    onChange={v => saveSetting(item.name, 'sellPrice', v)}
-                                    saving={saving[`${item.name}_sellPrice`]} min={0} readOnly={readOnly} />
-                                  {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
-                                </div>
-                              )}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                <EditNumber value={sell ?? ''} placeholder="$0.00" decimals={2} prefix="$"
+                                  onChange={v => saveSetting(item.name, 'sellPrice', v)}
+                                  saving={saving[`${item.name}_sellPrice`]} min={0} readOnly={readOnly} />
+                                {(item.isSpirit || isWine) && <span style={{ fontSize: 9, color: '#94a3b8' }}>{sellLabel}</span>}
+                                {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
+                              </div>
                             </td>
                             <td style={{ ...styles.td, textAlign: 'center', fontSize: 11 }}>
                               {item.isSpirit ? (
