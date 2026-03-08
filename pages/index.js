@@ -248,7 +248,7 @@ export default function Home() {
 
     const escape = v => (v == null ? '' : String(v).includes(',') || String(v).includes('"') ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
-    // Items first, then metadata below — per Square template instructions
+    // Items only — Square rejects any non-item rows that lack SKU
     const rows = [
       ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
@@ -257,12 +257,6 @@ export default function Home() {
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
       rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
     }
-    // Blank row then metadata
-    rows.push([])
-    rows.push(['Vendor',      supplier])
-    rows.push(['Ship to',     'GemLife Palmwoods'])
-    rows.push(['Expected On', date])
-    rows.push(['Notes',       ''])
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
