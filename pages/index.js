@@ -604,7 +604,7 @@ export default function Home() {
 
     const critItems  = items.filter(i => i.priority === 'CRITICAL')
     const lowItems   = items.filter(i => i.priority === 'LOW')
-    const orderItems = items.filter(i => i.orderQty > 0)
+    const orderItems = items.filter(i => i.orderQty > 0 && !/don'?t\s+order/i.test(i.notes || ''))
 
     let categorySections = ''
     for (const cat of sortedCats) {
@@ -1405,12 +1405,14 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     document.head.appendChild(script)
   }
 
+  const dontOrder = item => /don'?t\s+order/i.test(item.notes || '')
+
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => !filterOrder || item.orderQty > 0)
+    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)))
 
   const onOrderCount = Object.keys(orderedItems).length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
 
   if (!authed) return (
@@ -1723,7 +1725,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                       {suppliers.map(s => (
                         <button key={s} style={styles.dropItem}
                           onClick={() => { printOrderSheet(s); setPrinting(null) }}>
-                          {s} ({items.filter(i => i.supplier === s && i.orderQty > 0).length} items)
+                          {s} ({items.filter(i => i.supplier === s && i.orderQty > 0 && !/don'?t\s+order/i.test(i.notes || '')).length} items)
                         </button>
                       ))}
                     </div>
@@ -1735,7 +1737,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
             {/* PO Modal */}
             {poModal && poSupplier && (() => {
-              const poItems = items.filter(i => i.supplier === poSupplier && i.orderQty > 0 && !orderedItems[i.name])
+              const poItems = items.filter(i => i.supplier === poSupplier && i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i))
               return (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                   <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -1825,7 +1827,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
             {/* Place Order buttons — one per supplier with items to order */}
             {!readOnly && (() => {
-              const suppliersWithOrders = [...new Set(items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).map(i => i.supplier).filter(Boolean))]
+              const suppliersWithOrders = [...new Set(items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).map(i => i.supplier).filter(Boolean))]
               if (!suppliersWithOrders.length) return null
               return (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
@@ -2713,7 +2715,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
   const onOrderCount = Object.keys(orderedItems).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/don'?t\s+order/i.test(i.notes || '')).length
   const totalItems = items.length
 
   const now = new Date()
