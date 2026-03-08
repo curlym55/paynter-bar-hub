@@ -99,10 +99,12 @@ export default async function handler(req, res) {
         getLocationId(token),
       ])
 
-      const occurredAt = new Date().toISOString()
-      const succeeded  = []
-      const failed     = []
-      const skipped    = []
+      // Use a timestamp slightly in the future to ensure Square treats it as
+      // more recent than any existing inventory record (Square discards stale physical counts)
+      let occurredMs  = Date.now() + 5000  // 5 seconds ahead
+      const succeeded = []
+      const failed    = []
+      const skipped   = []
 
       for (const name of countedNames) {
         const c       = counts[name]
@@ -121,6 +123,9 @@ export default async function handler(req, res) {
         const sqQty = toSquareQty(item, total, itemSettings)
         const note  = conversionNote(item, total, itemSettings)
 
+        const occurredAt = new Date(occurredMs).toISOString()
+        occurredMs += 1000  // increment 1s per item so each is unique and fresh
+        console.log(`[stocktake-sync] posting ${name}: qty=${sqQty} varId=${varInfo.varId} at=${occurredAt}`)
         const result = await postPhysicalCount(token, locationId, {
           variationId: varInfo.varId,
           quantity:    String(sqQty),
