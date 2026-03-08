@@ -2092,8 +2092,8 @@ function WastageView({ items, log, readOnly, onRefresh }) {
       const d = await r.json()
       setSyncResult(d)
       await onRefresh()
-      // Reload preview to reflect newly synced entries
-      loadSyncPreview()
+      // Only reload preview if all succeeded — on failure keep result visible for debugging
+      if (d.ok) loadSyncPreview()
     } catch(e) { setSyncResult({ ok: false, error: e.message }) }
     finally { setSyncing(false) }
   }
@@ -2503,8 +2503,12 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                 <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: syncResult.ok ? '#f0fdf4' : '#fee2e2', border: `1px solid ${syncResult.ok ? '#86efac' : '#fca5a5'}`, color: syncResult.ok ? '#166534' : '#991b1b', fontSize: 13, fontWeight: 600 }}>
                   {syncResult.ok ? '✓ ' : '✕ '}{syncResult.message || syncResult.error}
                   {syncResult.skippedItems?.length > 0 && (
-                    <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12 }}>
-                      Skipped: {syncResult.skippedItems.map(s => `${s.itemName} (${s.reason})`).join(', ')}
+                    <div style={{ marginTop: 8, fontWeight: 400, fontSize: 12 }}>
+                      {syncResult.skippedItems.map((s, i) => (
+                        <div key={i} style={{ padding: '3px 0', borderTop: i > 0 ? '1px solid rgba(0,0,0,0.08)' : 'none' }}>
+                          <strong>{s.itemName}</strong>: {s.reason}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>
