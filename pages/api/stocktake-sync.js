@@ -25,12 +25,17 @@ function conversionNote(item, totalBottles, itemSettings) {
   return null
 }
 
+export const config = {
+  api: { bodyParser: { sizeLimit: '1mb' } }
+}
+
 export default async function handler(req, res) {
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
   try {
     const counts      = (await kvGet('stocktakeCounts'))  || {}
+    console.log('[stocktake-sync] Redis counts keys:', Object.keys(counts).length, 'method:', req.method, 'previewOnly:', req.body?.previewOnly)
     const itemSettings = (await kvGet('itemSettings')) || {}
 
     // Item metadata (category, bottleML, nipML) is passed from the client
