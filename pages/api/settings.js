@@ -20,7 +20,7 @@ export default async function handler(req, res) {
 
       const settings     = (await kvGet('itemSettings')) || {}
       const targetWeeks  = (await kvGet('targetWeeks'))  || 6
-      const suppliers          = (await kvGet('suppliers'))          || ['Dan Murphys', 'Coles Woolies', 'ACW']
+      const suppliers          = (await kvGet('suppliers'))          || ['Dan Murphy', 'Coles Woolies', 'ACW']
       const supplierVendorNames = (await kvGet('supplierVendorNames')) || {}
       res.status(200).json({ settings, targetWeeks, suppliers, supplierVendorNames })
     } catch (err) {

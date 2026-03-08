@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Head from 'next/head'
 import { CATEGORIES } from '../lib/calculations'
 
-const DEFAULT_SUPPLIERS = ['Dan Murphys', 'Coles Woolies', 'ACW']
+const DEFAULT_SUPPLIERS = ['Dan Murphy', 'Coles Woolies', 'ACW']
 
 const PRIORITY_COLORS = {
   CRITICAL: { bg: '#fee2e2', text: '#991b1b', badge: '#dc2626' },
@@ -11,7 +11,7 @@ const PRIORITY_COLORS = {
 }
 
 const SUPPLIER_COLORS = {
-  'Dan Murphys':   '#1f4e79',
+  'Dan Murphy':   '#1f4e79',
   'Coles Woolies': '#c2410c',
   'ACW':           '#166534',
 }
