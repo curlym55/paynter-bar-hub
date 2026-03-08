@@ -1850,23 +1850,16 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              {isWine && sellUnit === 'bottle' ? (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                  <EditNumber value={sellBottle ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                    onChange={v => { saveSetting(item.name, 'sellPriceBottle', v); setItems(prev => prev.map(i => i.name === item.name ? { ...i, sellPriceBottle: Number(v) } : i)) }}
-                                    saving={saving[`${item.name}_sellPriceBottle`]} min={0} readOnly={readOnly} />
-                                  <span style={{ fontSize: 9, color: '#94a3b8' }}>per bottle</span>
-                                </div>
-                              ) : (
-                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
-                                  <EditNumber value={sellGlass ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                    onChange={v => saveSetting(item.name, 'sellPrice', v)}
-                                    saving={saving[`${item.name}_sellPrice`]} min={0} readOnly={readOnly} />
-                                  {item.isSpirit && <span style={{ fontSize: 9, color: '#94a3b8' }}>per nip</span>}
-                                  {isWine && <span style={{ fontSize: 9, color: '#94a3b8' }}>per glass</span>}
-                                  {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
-                                </div>
-                              )}
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                                <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontSize: 13 }}>
+                                  {(isWine && sellUnit === 'bottle' ? sellBottle : sellGlass) != null
+                                    ? `$${(isWine && sellUnit === 'bottle' ? sellBottle : sellGlass).toFixed(2)}`
+                                    : '—'}
+                                </span>
+                                <span style={{ fontSize: 9, color: '#94a3b8' }}>
+                                  {item.isSpirit ? 'per nip' : (isWine && sellUnit === 'bottle') ? 'per bottle' : isWine ? 'per glass' : ''} · Square
+                                </span>
+                              </div>
                             </td>
                             <td style={{ ...styles.td, textAlign: 'center', fontSize: 11 }}>
                               {item.isSpirit ? (
