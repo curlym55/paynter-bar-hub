@@ -246,31 +246,18 @@ export default function Home() {
     const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
     const expectedDate = tomorrow.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
+    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
-    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"') || String(v).includes("'")) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
-
-    // Items first (matching Square's own export format), vendor metadata below
     const rows = [
       ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
-    for (const item of poItems) {
+    poItems.forEach((item, idx) => {
       const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), unitCost])
-    }
-    // Blank row then vendor metadata — same structure as Square's own PO export
-    rows.push([])
-    rows.push(['Vendor',      supplier])
-    rows.push(['Account number', ''])
-    rows.push(['Address',     ''])
-    rows.push(['Contact',     ''])
-    rows.push(['Phone Number',''])
-    rows.push(['Email',       ''])
-    rows.push([])
-    rows.push(['Ship To',     "GemLife Palmwoods Home Owners' Association Inc."])
-    rows.push(['Expected On', expectedDate])
-    rows.push(['Ordered By',  'Paynter Bar'])
-    rows.push(['Notes',       ''])
+      // Put vendor + expected date in Notes of first item only
+      const notes = idx === 0 ? `Vendor: ${supplier} | Expected: ${expectedDate} | Ship to: GemLife Palmwoods` : ''
+      rows.push([item.name, 'Regular', item.sku || '', '', '', notes, String(qty), unitCost])
+    })
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
