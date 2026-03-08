@@ -2038,7 +2038,15 @@ function WastageView({ items, log, readOnly, onRefresh }) {
     Other:    { bg: '#f1f5f9', text: '#475569' },
   }
 
-  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }) // YYYY-MM-DD
+  // Unit options keyed by category group
+  function getUnitOptions(item) {
+    if (!item) return ['units']
+    if (['Spirits', 'Fortified & Liqueurs'].includes(item.category)) return ['nips', 'bottles']
+    if (['White Wine', 'Red Wine', 'Rose', 'Sparkling'].includes(item.category)) return ['glasses', 'bottles']
+    return ['units']
+  }
+
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
   const [form, setForm]       = useState({ itemName: '', qty: '', unit: 'units', reason: 'Breakage', note: '', recordedBy: '', date: today })
   const [saving, setSaving]   = useState(false)
   const [filter, setFilter]   = useState('All')
@@ -2047,6 +2055,46 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   const [dateTo, setDateTo]     = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm]   = useState({})
+
+  // Sync state
+  const [showSyncModal, setShowSyncModal] = useState(false)
+  const [syncPreview, setSyncPreview]     = useState(null)
+  const [syncLoading, setSyncLoading]     = useState(false)
+  const [syncing, setSyncing]             = useState(false)
+  const [syncResult, setSyncResult]       = useState(null)
+
+  const unsyncedCount = log.filter(e => !e.squareSynced).length
+
+  async function loadSyncPreview() {
+    setSyncLoading(true)
+    setSyncResult(null)
+    setSyncPreview(null)
+    try {
+      const r = await fetch('/api/wastage-sync')
+      if (!r.ok) throw new Error((await r.json()).error || 'Failed')
+      const d = await r.json()
+      setSyncPreview(d)
+    } catch(e) { setSyncPreview({ error: e.message }) }
+    finally { setSyncLoading(false) }
+  }
+
+  async function executeSync(entryIds) {
+    setSyncing(true)
+    try {
+      const r = await fetch('/api/wastage-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entryIds })
+      })
+      if (!r.ok) throw new Error((await r.json()).error || 'Sync failed')
+      const d = await r.json()
+      setSyncResult(d)
+      await onRefresh()
+      // Reload preview to reflect newly synced entries
+      loadSyncPreview()
+    } catch(e) { setSyncResult({ ok: false, error: e.message }) }
+    finally { setSyncing(false) }
+  }
 
   const filtered = log.filter(e => {
     if (filter !== 'All' && e.reason !== filter) return false
@@ -2213,7 +2261,8 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                   <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Item *</div>
                   <select value={form.itemName} onChange={e => {
                     const selected = items.find(i => i.name === e.target.value)
-                    setForm(f => ({ ...f, itemName: e.target.value, unit: selected?.isSpirit ? 'bottles' : 'units' }))
+                    const units = getUnitOptions(selected)
+                    setForm(f => ({ ...f, itemName: e.target.value, unit: units[0] }))
                   }} style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}>
                     <option value="">— Select item —</option>
                     {[...new Set(items.map(i => i.category))].filter(Boolean).sort().map(cat => (
@@ -2232,17 +2281,19 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                     onChange={e => setForm(f => ({ ...f, qty: e.target.value }))}
                     style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, textAlign: 'center', boxSizing: 'border-box' }} />
                 </div>
-                {/* Unit */}
+                {/* Unit — options depend on item category */}
                 <div style={{ width: 100 }}>
                   <div style={{ fontSize: 11, color: '#64748b', marginBottom: 4 }}>Unit</div>
-                  <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
-                    style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}>
-                    <option>units</option>
-                    <option>bottles</option>
-                    <option>nips</option>
-                    <option>cases</option>
-                    <option>packs</option>
-                  </select>
+                  {(() => {
+                    const selectedItem = items.find(i => i.name === form.itemName)
+                    const unitOpts = getUnitOptions(selectedItem)
+                    return (
+                      <select value={form.unit} onChange={e => setForm(f => ({ ...f, unit: e.target.value }))}
+                        style={{ width: '100%', padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13 }}>
+                        {unitOpts.map(u => <option key={u}>{u}</option>)}
+                      </select>
+                    )
+                  })()}
                 </div>
                 {/* Reason */}
                 <div style={{ width: 130 }}>
@@ -2310,6 +2361,15 @@ function WastageView({ items, log, readOnly, onRefresh }) {
               style={{ fontSize: 11, background: '#0e7490', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', color: '#fff', fontWeight: 600 }}>
               🖨️ Print Report
             </button>
+            {!readOnly && (
+              <button onClick={() => { setShowSyncModal(true); loadSyncPreview() }}
+                style={{ fontSize: 11, background: unsyncedCount > 0 ? '#16a34a' : '#475569', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                ⬆ Sync to Square
+                {unsyncedCount > 0 && (
+                  <span style={{ background: '#fff', color: '#16a34a', fontWeight: 800, fontSize: 10, borderRadius: 99, padding: '1px 6px', lineHeight: 1.5 }}>{unsyncedCount}</span>
+                )}
+              </button>
+            )}
           </div>
         </div>
         {filtered.length === 0 ? (
@@ -2321,7 +2381,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
           <table style={{ width: '100%', minWidth: 500, borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                {['Date','Item','Qty','Reason','Note','By',''].map(h => (
+                {['Date','Item','Qty','Reason','Note','By','Sq',''].map(h => (
                   <th key={h} style={{ padding: '7px 12px', textAlign: h === 'Qty' ? 'center' : 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
                 ))}
               </tr>
@@ -2347,7 +2407,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                           <div style={{ display: 'flex', gap: 4 }}>
                             <input type="number" value={editForm.qty} min="0" step="0.1" onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} style={{ ...inp, width: 55 }} />
                             <select value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inp, width: 65 }}>
-                              {['units','bottles','nips','cans','glasses','kegs'].map(u => <option key={u}>{u}</option>)}
+                              {getUnitOptions(items.find(i => i.name === editForm.itemName)).map(u => <option key={u}>{u}</option>)}
                             </select>
                           </div>
                         </td>
@@ -2362,6 +2422,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                         <td style={{ padding: '6px 8px' }}>
                           <input value={editForm.recordedBy} onChange={e => setEditForm(f => ({ ...f, recordedBy: e.target.value }))} placeholder="Name..." style={inp} />
                         </td>
+                        <td style={{ padding: '6px 8px' }} />
                         <td style={{ padding: '6px 8px', whiteSpace: 'nowrap' }}>
                           <div style={{ display: 'flex', gap: 4 }}>
                             <button onClick={() => saveEdit(entry)} style={{ fontSize: 11, background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '3px 8px', cursor: 'pointer', fontWeight: 700 }}>✓</button>
@@ -2383,6 +2444,15 @@ function WastageView({ items, log, readOnly, onRefresh }) {
                         </td>
                         <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b', maxWidth: 200 }}>{entry.note || '—'}</td>
                         <td style={{ padding: '8px 12px', fontSize: 12, color: '#64748b' }}>{entry.recordedBy || '—'}</td>
+                        <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                          {entry.squareSynced
+                            ? <span title={`Synced ${new Date(entry.squareSyncedAt).toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short' })}${entry.conversionNote ? '\n' + entry.conversionNote : ''}`}
+                                style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', fontWeight: 700, padding: '2px 6px', borderRadius: 99, whiteSpace: 'nowrap', cursor: 'default' }}>
+                                ✓ Sq
+                              </span>
+                            : <span style={{ fontSize: 10, color: '#cbd5e1' }}>—</span>
+                          }
+                        </td>
                         <td style={{ padding: '8px 12px' }}>
                           {!readOnly && (
                             <div style={{ display: 'flex', gap: 4 }}>
@@ -2407,6 +2477,134 @@ function WastageView({ items, log, readOnly, onRefresh }) {
       <div style={{ marginTop: 14, fontSize: 11, color: '#cbd5e1', textAlign: 'center' }}>
         Wastage records stored in the cloud · visible to all management team members
       </div>
+
+      {/* ── SYNC MODAL ──────────────────────────────────────────────────────── */}
+      {showSyncModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, width: '100%', maxWidth: 680, maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 64px rgba(0,0,0,0.3)' }}>
+
+            {/* Modal header */}
+            <div style={{ background: '#0f172a', color: '#fff', borderRadius: '14px 14px 0 0', padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <div style={{ fontSize: 15, fontWeight: 700 }}>⬆ Sync Wastage to Square</div>
+                <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 2 }}>This will post WASTE adjustments to your Square inventory</div>
+              </div>
+              <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                style={{ background: 'none', border: 'none', color: '#94a3b8', fontSize: 20, cursor: 'pointer', lineHeight: 1 }}>✕</button>
+            </div>
+
+            {/* Modal body */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '16px 20px' }}>
+
+              {/* Success/fail result banner */}
+              {syncResult && (
+                <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: syncResult.ok ? '#f0fdf4' : '#fee2e2', border: `1px solid ${syncResult.ok ? '#86efac' : '#fca5a5'}`, color: syncResult.ok ? '#166534' : '#991b1b', fontSize: 13, fontWeight: 600 }}>
+                  {syncResult.ok ? '✓ ' : '✕ '}{syncResult.message || syncResult.error}
+                  {syncResult.skippedItems?.length > 0 && (
+                    <div style={{ marginTop: 6, fontWeight: 400, fontSize: 12 }}>
+                      Skipped: {syncResult.skippedItems.map(s => `${s.itemName} (${s.reason})`).join(', ')}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {syncLoading && (
+                <div style={{ textAlign: 'center', padding: 32, color: '#64748b' }}>
+                  <div style={{ ...styles.spinner, margin: '0 auto 12px' }} />
+                  Loading preview from Square...
+                </div>
+              )}
+
+              {syncPreview?.error && (
+                <div style={{ color: '#dc2626', padding: 16, background: '#fee2e2', borderRadius: 8, fontSize: 13 }}>
+                  Error: {syncPreview.error}
+                </div>
+              )}
+
+              {syncPreview && !syncPreview.error && (
+                <>
+                  {syncPreview.preview?.length === 0 ? (
+                    <div style={{ textAlign: 'center', padding: 32, color: '#64748b', fontSize: 14 }}>
+                      ✓ All wastage entries are already synced to Square
+                    </div>
+                  ) : (
+                    <>
+                      <div style={{ fontSize: 12, color: '#64748b', marginBottom: 10 }}>
+                        {syncPreview.preview.filter(p => p.canSync).length} entries ready to sync ·{' '}
+                        {syncPreview.preview.filter(p => !p.canSync).length > 0 && (
+                          <span style={{ color: '#d97706' }}>{syncPreview.preview.filter(p => !p.canSync).length} will be skipped (not in Square catalogue)</span>
+                        )}
+                      </div>
+                      <div style={{ overflowX: 'auto' }}>
+                        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                          <thead>
+                            <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                              {['Date','Item','Logged','→ Square deduction','Conversion','Status'].map(h => (
+                                <th key={h} style={{ padding: '7px 10px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', whiteSpace: 'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {syncPreview.preview.map((p, idx) => (
+                              <tr key={p.id} style={{ background: !p.canSync ? '#fffbeb' : idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9', opacity: !p.canSync ? 0.65 : 1 }}>
+                                <td style={{ padding: '7px 10px', color: '#64748b', whiteSpace: 'nowrap' }}>
+                                  {new Date(p.date).toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: 'numeric', month: 'short' })}
+                                </td>
+                                <td style={{ padding: '7px 10px', fontWeight: 600, color: '#0f172a' }}>{p.itemName}</td>
+                                <td style={{ padding: '7px 10px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>
+                                  {p.qty} {p.unit}
+                                </td>
+                                <td style={{ padding: '7px 10px', fontFamily: 'monospace', fontWeight: 700, color: '#16a34a', whiteSpace: 'nowrap' }}>
+                                  {p.canSync ? `−${p.squareQty} ${['Spirits','Fortified & Liqueurs'].includes(p.category) ? 'nips' : ['White Wine','Red Wine','Rose','Sparkling'].includes(p.category) ? 'btl' : 'units'}` : '—'}
+                                </td>
+                                <td style={{ padding: '7px 10px', fontSize: 11, color: '#64748b' }}>
+                                  {p.conversionNote || <span style={{ color: '#cbd5e1' }}>1:1</span>}
+                                </td>
+                                <td style={{ padding: '7px 10px' }}>
+                                  {p.canSync
+                                    ? <span style={{ fontSize: 10, background: '#dcfce7', color: '#16a34a', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Ready</span>
+                                    : <span style={{ fontSize: 10, background: '#fef9c3', color: '#92400e', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Skip</span>
+                                  }
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </>
+                  )}
+                </>
+              )}
+            </div>
+
+            {/* Modal footer */}
+            {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length > 0 && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10, background: '#f8fafc', borderRadius: '0 0 14px 14px' }}>
+                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                  style={{ padding: '9px 18px', background: '#e2e8f0', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                  Cancel
+                </button>
+                <button
+                  onClick={() => executeSync(syncPreview.preview.filter(p => p.canSync).map(p => p.id))}
+                  disabled={syncing}
+                  style={{ padding: '9px 20px', background: syncing ? '#86efac' : '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: syncing ? 'not-allowed' : 'pointer' }}>
+                  {syncing
+                    ? '⏳ Syncing...'
+                    : `⬆ Sync ${syncPreview.preview.filter(p => p.canSync).length} entr${syncPreview.preview.filter(p => p.canSync).length === 1 ? 'y' : 'ies'} to Square`}
+                </button>
+              </div>
+            )}
+            {syncPreview && !syncPreview.error && syncPreview.preview?.length === 0 && (
+              <div style={{ padding: '14px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', background: '#f8fafc', borderRadius: '0 0 14px 14px' }}>
+                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                  style={{ padding: '9px 18px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                  Close
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
