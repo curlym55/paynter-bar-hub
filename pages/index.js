@@ -1833,21 +1833,39 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                                 : null
 
                           const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
-                          // Glass price: Square 'Glass' variation, or primary price
-                          const glassVar  = (item.variations || []).find(v => v.name.toLowerCase().includes('glass'))
-                          const bottleVar = (item.variations || []).find(v => v.name.toLowerCase().includes('bottle') || v.name.toLowerCase() === 'regular')
-                          const sellGlass  = glassVar  ? Number(glassVar.price)
-                                           : (item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null)
-                          const sellBottle = bottleVar ? Number(bottleVar.price)
+
+                          // Resolve sell prices from Square variations (same logic as Price List tab)
+                          const vars = item.variations || []
+                          const glassVar  = vars.find(v => v.name.toLowerCase().includes('glass'))
+                          const bottleVar = vars.find(v => v.name.toLowerCase().includes('bottle') || v.name.toLowerCase() === 'regular')
+                          const nipVar    = vars.find(v => v.name.toLowerCase().includes('nip') || v.name.toLowerCase().includes('30ml') || v.name.toLowerCase().includes('60ml'))
+
+                          // For spirits: prefer nip variation, then regular, then primary price
+                          // For wines: glass variation for glass mode, bottle/regular for bottle mode
+                          // For beer/other: just use primary Square price
+                          const sellGlass = item.isSpirit
+                            ? (nipVar || bottleVar || glassVar)?.price != null ? Number((nipVar || bottleVar || glassVar).price) : (item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null)
+                            : glassVar?.price != null ? Number(glassVar.price)
+                            : (item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null)
+
+                          const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
                                            : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
+
+                          // Active sell price for this item/mode
                           const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
 
-                          const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
-                          const marginPct = (buy != null && revenuePerBottle != null && revenuePerBottle > 0)
+                          // Revenue per bottle:
+                          //   spirits/wine-glass: sell-per-serve × serves-per-bottle
+                          //   wine-bottle: sell price IS the bottle price (serves=1)
+                          //   beer/other: sell price is per unit (1:1 with buy)
+                          const revenuePerBottle = (!item.isSpirit && !isWine)
+                            ? sell  // beer/other: 1:1
+                            : (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
+
+                          const marginPct = (buy != null && revenuePerBottle != null && buy > 0 && revenuePerBottle > 0)
                             ? (((revenuePerBottle - buy) / revenuePerBottle) * 100) : null
-                          const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
+                          const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '—'
                           const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
-                          const sellFromSq  = item.squareSellPrice != null && sellGlass != null && sellGlass === item.squareSellPrice
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
