@@ -1732,7 +1732,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     <th style={{ ...styles.th, textAlign: 'center' }}>On Order</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
                     {viewMode === 'pricing' && <>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy/Btl</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy Price</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sell/Serve</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
@@ -1857,16 +1857,27 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           // Active sell price for this item/mode
                           const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
 
-                          // Revenue per bottle:
-                          //   spirits/wine-glass: sell-per-serve × serves-per-bottle
-                          //   wine-bottle: sell price IS the bottle price (serves=1)
-                          //   beer/other: sell price is per unit (1:1 with buy)
-                          const revenuePerBottle = (!item.isSpirit && !isWine)
-                            ? sell  // beer/other: 1:1
-                            : (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
-
-                          const marginPct = (buy != null && revenuePerBottle != null && buy > 0 && revenuePerBottle > 0)
-                            ? (((revenuePerBottle - buy) / revenuePerBottle) * 100) : null
+                          // Margin logic:
+                          //   spirits:     buy=per nip, sell=per nip  → (sell−buy)/sell
+                          //   wine glass:  buy=per bottle, sell=per glass → (sell×serves−buy)/(sell×serves)
+                          //   wine bottle: buy=per bottle, sell=per bottle → (sell−buy)/sell
+                          //   beer/other:  buy=per unit, sell=per unit → (sell−buy)/sell
+                          let marginPct = null
+                          if (buy != null && buy >= 0 && sell != null && sell > 0) {
+                            if (item.isSpirit) {
+                              // both per nip
+                              marginPct = ((sell - buy) / sell) * 100
+                            } else if (isWine && sellUnit === 'glass' && servesPerBottle) {
+                              // buy per bottle, sell per glass
+                              const rev = sell * servesPerBottle
+                              marginPct = rev > 0 ? ((rev - buy) / rev) * 100 : null
+                            } else {
+                              // wine bottle, beer, other — both same unit
+                              marginPct = ((sell - buy) / sell) * 100
+                            }
+                          }
+                          const revenuePerBottle = (isWine && sellUnit === 'glass' && sell != null && servesPerBottle)
+                            ? +(sell * servesPerBottle).toFixed(2) : null
                           const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '—'
                           const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
                           return <>
