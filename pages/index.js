@@ -1820,7 +1820,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         {viewMode === 'pricing' && (() => {
                           const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
                           const isWine = WINE_CATS.includes(item.category)
+                          const BOTTLE_ONLY = ['Henkell', 'Yellowtail Chardonnay']
+                          const forceBottle = item.category === 'Sparkling' || BOTTLE_ONLY.includes(item.name)
                           const sellUnit = item.isSpirit ? 'nip'
+                                         : forceBottle ? 'bottle'
                                          : isWine ? (item.sellUnit || 'glass')
                                          : 'bottle'
                           const bottleML = item.isSpirit ? (item.bottleML || 700) : 750
@@ -1888,7 +1891,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               {item.isSpirit ? (
                                 <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{serveML}ml nip</span>
                               ) : isWine ? (
-                                readOnly
+                                (readOnly || forceBottle)
                                   ? <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{sellUnit === 'glass' ? '150ml glass' : 'Bottle'}</span>
                                   : <select value={sellUnit}
                                       onChange={e => {
