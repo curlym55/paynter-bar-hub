@@ -4013,6 +4013,107 @@ function StocktakeView({ items, readOnly, onExport }) {
     finally { setHistoryLoading(false) }
   }
 
+  const exportHistoryToExcel = () => {
+    if (!history?.length) return
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+    script.onload = () => {
+      const XLSX  = window.XLSX
+      const NAVY  = '0F172A', TEAL = '0E7490', PURPLE = '7C3AED'
+      const WHITE = 'FFFFFF', LGREY = 'F1F5F9', LPUR = 'EDE9FE'
+
+      const cell  = (v, s) => ({ v: v ?? '', s, t: typeof v === 'number' ? 'n' : 's' })
+      const hStyle = {
+        font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+        fill: { fgColor: { rgb: NAVY } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: { bottom: { style: 'medium', color: { rgb: TEAL } } }
+      }
+      const hStyleL = { ...hStyle, alignment: { horizontal: 'left' } }
+      const dayStyle = {
+        font: { bold: true, sz: 11, color: { rgb: WHITE } },
+        fill: { fgColor: { rgb: PURPLE } },
+        alignment: { horizontal: 'left', vertical: 'center' },
+      }
+      const syncStyle = {
+        font: { bold: true, sz: 10, color: { rgb: NAVY } },
+        fill: { fgColor: { rgb: LPUR } },
+        alignment: { horizontal: 'left' },
+      }
+
+      const rows = []
+      const merges = []
+
+      // Title block
+      rows.push([cell('Paynter Bar — Stocktake Sync History', { font: { bold: true, sz: 16, color: { rgb: NAVY } } }), ...Array(4).fill(cell(''))])
+      rows.push([cell(`Exported: ${new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })}`, { font: { sz: 10, color: { rgb: '64748B' } } }), ...Array(4).fill(cell(''))])
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } })
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 4 } })
+      rows.push([])
+
+      // Column headers
+      rows.push([
+        cell('Item',            hStyleL),
+        cell('Category',        hStyleL),
+        cell('Square Qty Set',  hStyle),
+        cell('Conversion',      hStyle),
+        cell('Time',            hStyle),
+      ])
+
+      // Data rows grouped by day then sync
+      for (const day of history) {
+        const dayLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', {
+          weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+        })
+        const dayRowIdx = rows.length
+        rows.push([
+          cell(`${dayLabel}  (${day.snapshots.length} sync${day.snapshots.length !== 1 ? 's' : ''})`, dayStyle),
+          cell('', dayStyle), cell('', dayStyle), cell('', dayStyle), cell('', dayStyle),
+        ])
+        merges.push({ s: { r: dayRowIdx, c: 0 }, e: { r: dayRowIdx, c: 4 } })
+
+        for (const snap of day.snapshots) {
+          const timeStr = new Date(snap.ts).toLocaleTimeString('en-AU', {
+            timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit'
+          })
+          const syncLabel = `Sync at ${timeStr}  —  ${snap.synced} synced${snap.skipped ? `, ${snap.skipped} skipped` : ''}${snap.failed ? `, ${snap.failed} failed` : ''}`
+          const syncRowIdx = rows.length
+          rows.push([
+            cell(syncLabel, syncStyle),
+            cell('', syncStyle), cell('', syncStyle), cell('', syncStyle), cell('', syncStyle),
+          ])
+          merges.push({ s: { r: syncRowIdx, c: 0 }, e: { r: syncRowIdx, c: 4 } })
+
+          // Item rows
+          const snapItems = snap.items || []
+          snapItems.forEach((item, idx) => {
+            const shade = idx % 2 === 0 ? WHITE : 'F8FAFC'
+            const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
+            const sc = { ...s, alignment: { horizontal: 'center' } }
+            const cat = item.category || ''
+            rows.push([
+              cell(item.name,  s),
+              cell(cat,        { ...s, font: { sz: 10, color: { rgb: '64748B' } } }),
+              cell(item.sqQty, { ...sc, font: { sz: 10, bold: true, color: { rgb: '16A34A' } } }),
+              cell(item.note || '1:1', { ...s, font: { sz: 9, color: { rgb: '64748B' } } }),
+              cell(timeStr,    { ...sc, font: { sz: 10, color: { rgb: '94A3B8' } } }),
+            ])
+          })
+        }
+        rows.push([]) // spacer between days
+      }
+
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 38 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 10 }]
+      ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
+      ws['!merges'] = merges
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Sync History')
+      XLSX.writeFile(wb, `Paynter-Bar-Stocktake-History-${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+    document.head.appendChild(script)
+  }
+
   const loadSyncPreview = async () => {
     setSyncLoading(true)
     setSyncResult(null)
@@ -4534,7 +4635,15 @@ function StocktakeView({ items, readOnly, onExport }) {
       {/* History panel */}
       {showHistory && (
         <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12 }}>📋 Stocktake Sync History</div>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Stocktake Sync History</span>
+            {history?.length > 0 && (
+              <button onClick={exportHistoryToExcel}
+                style={{ padding: '5px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                📊 Export Excel
+              </button>
+            )}
+          </div>
           {historyLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>}
           {!historyLoading && history?.length === 0 && (
             <div style={{ color: '#94a3b8', fontSize: 13 }}>No syncs recorded yet.</div>

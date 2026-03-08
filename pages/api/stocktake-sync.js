@@ -125,7 +125,7 @@ export default async function handler(req, res) {
           itemName:    name,
         })
 
-        if (result.ok) succeeded.push({ name, sqQty, note, _sq: result._squareResponse })
+        if (result.ok) succeeded.push({ name, sqQty, note, category: item.category || '', _sq: result._squareResponse })
         else           failed.push({ name, error: result.error })
       }
 
@@ -148,7 +148,7 @@ export default async function handler(req, res) {
           synced:   succeeded.length,
           skipped:  skipped.length,
           failed:   failed.length,
-          items:    succeeded.map(s => ({ name: s.name, sqQty: s.sqQty, note: s.note })),
+          items:    succeeded.map(s => ({ name: s.name, sqQty: s.sqQty, note: s.note, category: s.category })),
         }
         const dayIdx = history.findIndex(d => d.date === today)
         if (dayIdx >= 0) {
