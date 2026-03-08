@@ -1732,15 +1732,17 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     <th style={{ ...styles.th, textAlign: 'center' }}>On Order</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
                     {viewMode === 'pricing' && <>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy Price</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sell Price</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy/Btl</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sell/Serve</th>
+                      <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Margin</th>
                     </>}
                   </tr>
                 </thead>
                 <tbody>
                   {displayed.length === 0 && (
-                    <tr><td colSpan={viewMode === 'pricing' ? 17 : 14} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
+                    <tr><td colSpan={viewMode === 'pricing' ? 19 : 14} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
                       {filterOrder ? 'No items to order this week.' : 'No items found.'}
                     </td></tr>
                   )}
@@ -1816,12 +1818,37 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                             saving={saving[`${item.name}_notes`]} placeholder="Add note..." readOnly={readOnly} />
                         </td>
                         {viewMode === 'pricing' && (() => {
+                          // Categories sold by the glass (150ml) unless toggled to bottle
+                          const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
+                          const isWine = WINE_CATS.includes(item.category)
+                          // sellUnit: 'glass' or 'bottle' for wines; spirits always by nip; others by bottle
+                          const sellUnit = item.isSpirit ? 'nip'
+                                         : isWine ? (item.sellUnit || 'glass')
+                                         : 'bottle'
+                          // Bottle capacity — spirits support 700/750/1000/1125/1750ml
+                          // Wines default 750ml (override stored as wineML if needed)
+                          const bottleML = item.isSpirit ? (item.bottleML || 700) : (item.wineML || 750)
+                          // Serve size in mL
+                          const serveML = item.isSpirit ? (item.nipML || 30)
+                                        : sellUnit === 'glass' ? 150
+                                        : null
+                          const servesPerBottle = sellUnit === 'bottle' ? 1
+                                                : serveML ? +(bottleML / serveML).toFixed(1)
+                                                : null
+
                           const buy  = item.buyPrice  !== '' && item.buyPrice  != null ? Number(item.buyPrice)  : null
                           const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
-                          const marginPct = (buy != null && sell != null && sell > 0) ? (((sell - buy) / sell) * 100) : null
-                          const marginStr = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
+
+                          // Revenue per bottle = sell/serve × serves
+                          const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : sell
+                          const marginPct = (buy != null && revenuePerBottle != null && revenuePerBottle > 0)
+                            ? (((revenuePerBottle - buy) / revenuePerBottle) * 100) : null
+                          const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '-'
                           const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
-                          const sellFromSq = item.squareSellPrice != null && Number(item.sellPrice) === item.squareSellPrice
+                          const sellFromSq  = item.squareSellPrice != null && Number(item.sellPrice) === item.squareSellPrice
+                          const serveSizeLabel = item.isSpirit ? `${serveML}ml nip`
+                                              : sellUnit === 'glass' ? '150ml glass'
+                                              : `${bottleML}ml btl`
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -1836,8 +1863,25 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 {sellFromSq && <span style={{ fontSize: 9, color: '#94a3b8', fontFamily: 'IBM Plex Mono, monospace' }}>from Square</span>}
                               </div>
                             </td>
+                            <td style={{ ...styles.td, textAlign: 'center', fontSize: 11 }}>
+                              {isWine && !readOnly ? (
+                                <select value={sellUnit} onChange={e => saveSetting(item.name, 'sellUnit', e.target.value)}
+                                  style={{ fontSize: 11, border: '1px solid #cbd5e1', borderRadius: 4, padding: '2px 4px', background: '#fff', color: '#374151', cursor: 'pointer' }}>
+                                  <option value="glass">150ml glass</option>
+                                  <option value="bottle">Bottle</option>
+                                </select>
+                              ) : (
+                                <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{serveSizeLabel}</span>
+                              )}
+                            </td>
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#64748b' }}>
+                              {servesPerBottle ?? '—'}
+                            </td>
                             <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: marginColor }}>
                               {marginStr}
+                              {servesPerBottle != null && servesPerBottle > 1 && revenuePerBottle != null && (
+                                <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 400 }}>${revenuePerBottle.toFixed(2)}/btl rev</div>
+                              )}
                             </td>
                           </>
                         })()}
