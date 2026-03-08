@@ -248,8 +248,14 @@ export default function Home() {
 
     const escape = v => (v == null ? '' : String(v).includes(',') || String(v).includes('"') ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
-    // Items only — Square rejects any non-item rows that lack SKU
+    // Metadata as 2-column rows, then item header + rows
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+    const expectedDate = tomorrow.toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
     const rows = [
+      ['Vendor',      supplier],
+      ['Ship to',     "GemLife Palmwoods Home Owners' Association Inc."],
+      ['Expected On', expectedDate],
+      ['Notes',       ''],
       ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
     for (const item of poItems) {
