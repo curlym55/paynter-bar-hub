@@ -1832,10 +1832,15 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          const buy        = item.buyPrice        !== '' && item.buyPrice        != null ? Number(item.buyPrice)        : null
-                          const sellGlass  = item.sellPrice       !== '' && item.sellPrice       != null ? Number(item.sellPrice)       : null
-                          const sellBottle = item.sellPriceBottle !== '' && item.sellPriceBottle != null ? Number(item.sellPriceBottle) : null
-                          const sell       = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
+                          const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
+                          // Glass price: Square 'Glass' variation, or primary price
+                          const glassVar  = (item.variations || []).find(v => v.name.toLowerCase().includes('glass'))
+                          const bottleVar = (item.variations || []).find(v => v.name.toLowerCase().includes('bottle') || v.name.toLowerCase() === 'regular')
+                          const sellGlass  = glassVar  ? Number(glassVar.price)
+                                           : (item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null)
+                          const sellBottle = bottleVar ? Number(bottleVar.price)
+                                           : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
+                          const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
 
                           const revenuePerBottle = (sell != null && servesPerBottle != null) ? +(sell * servesPerBottle).toFixed(2) : null
                           const marginPct = (buy != null && revenuePerBottle != null && revenuePerBottle > 0)
