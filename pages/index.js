@@ -45,6 +45,10 @@ export default function Home() {
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
   const [sohModal, setSohModal]               = useState(false)
+  const [poModal, setPoModal]                 = useState(false)
+  const [poSupplier, setPoSupplier]           = useState(null)
+  const [poPlacing, setPoPlacing]             = useState(false)
+  const [poReceiving, setPoReceiving]         = useState(null)
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
@@ -66,6 +70,7 @@ export default function Home() {
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
   const [sellersError, setSellersError] = useState(null)
+  const [orderedItems, setOrderedItems]   = useState({})
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
   const [settingsAudit, setSettingsAudit] = useState({}) // { "ItemName__field": { ts, who } }
@@ -115,13 +120,17 @@ export default function Home() {
       const effectiveDays = days || daysBack
       const [r, ro] = await Promise.all([
         fetch(`/api/items?days=${effectiveDays}`),
-        fetch('/api/settings?action=getOrdered')
+        fetch('/api/purchase-order')
       ])
       if (!r.ok) throw new Error((await r.json()).error || 'Failed to load')
       const data = await r.json()
       setItems(data.items)
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
+      if (ro.ok) {
+        const od = await ro.json()
+        setOrderedItems(od.ordered || {})
+      }
 
     } catch (e) {
       setError(e.message)
@@ -198,6 +207,64 @@ export default function Home() {
     }
   }
 
+
+  async function placeOrder(supplier, items) {
+    setPoPlacing(true)
+    try {
+      const r = await fetch('/api/purchase-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'place', supplier, items })
+      })
+      const d = await r.json()
+      if (d.ok) setOrderedItems(d.ordered)
+    } finally {
+      setPoPlacing(false)
+      setPoModal(false)
+      setPoSupplier(null)
+    }
+  }
+
+  async function receiveOrder(supplier) {
+    if (!confirm(`Mark all items from ${supplier} as received?\n\nRemember to also receive the PO in Square Dashboard to update stock.`)) return
+    setPoReceiving(supplier)
+    try {
+      const r = await fetch('/api/purchase-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'receive', supplier })
+      })
+      const d = await r.json()
+      if (d.ok) setOrderedItems(d.ordered)
+    } finally {
+      setPoReceiving(null)
+    }
+  }
+
+  function generatePoExcel(supplier, poItems) {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+    script.onload = () => {
+      const XLSX = window.XLSX
+      const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: '2-digit', year: 'numeric' })
+      const rows = []
+      rows.push(['Vendor',      supplier])
+      rows.push(['Ship to',     'GemLife Palmwoods'])
+      rows.push(['Expected On', date])
+      rows.push(['Notes',       ''])
+      rows.push(['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'])
+      for (const item of poItems) {
+        const qty = item.isSpirit ? item.bottlesToOrder : item.orderQty
+        rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), ''])
+      }
+      const ws = XLSX.utils.aoa_to_sheet(rows)
+      ws['!cols'] = [{ wch: 20 }, { wch: 16 }, { wch: 14 }, { wch: 14 }, { wch: 14 }, { wch: 20 }, { wch: 8 }, { wch: 10 }]
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Purchase Order')
+      XLSX.writeFile(wb, `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.xlsx`)
+    }
+    document.head.appendChild(script)
+  }
 
   async function loadNotes() {
     try {
@@ -1342,7 +1409,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => !filterOrder || item.orderQty > 0)
 
-  const orderCount = items.filter(i => i.orderQty > 0).length
+  const onOrderCount = Object.keys(orderedItems).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
 
   if (!authed) return (
@@ -1541,7 +1609,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: 'pointer' }}
               onClick={() => setMainTab('reorder')}>
-
+              <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
+              <span style={styles.statLabel}>On Order</span>
             </div>
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#f59e0b' }}>
               {editingTarget ? (
@@ -1663,6 +1732,115 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
+
+            {/* PO Modal */}
+            {poModal && poSupplier && (() => {
+              const poItems = items.filter(i => i.supplier === poSupplier && i.orderQty > 0 && !orderedItems[i.name])
+              return (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+                  <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>🛒 Purchase Order — {poSupplier}</div>
+                      <button onClick={() => { setPoModal(false); setPoSupplier(null) }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                    </div>
+                    <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
+                      Review items below. Confirm to generate the Square import file and mark items as On Order.
+                    </p>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 }}>
+                      <thead>
+                        <tr style={{ background: '#0f172a' }}>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 11 }}>Item</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>Order Qty</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>Bottles</th>
+                          <th style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 11 }}>SKU</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {poItems.map((item, idx) => (
+                          <tr key={item.name} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                            <td style={{ padding: '8px 12px', fontWeight: 500 }}>{item.name}</td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
+                              {item.isSpirit ? item.nipsToOrder : item.orderQty}
+                              <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
+                            </td>
+                            <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', color: '#1d4ed8' }}>
+                              {item.isSpirit ? item.bottlesToOrder : '—'}
+                              {item.isSpirit && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>btl</span>}
+                            </td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#64748b' }}>{item.sku || '—'}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#854d0e', marginBottom: 20 }}>
+                      💡 After confirming: upload the downloaded file to Square Dashboard → Items &amp; Services → Purchase Orders → Import
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                      <button onClick={() => { setPoModal(false); setPoSupplier(null) }}
+                        style={{ flex: 1, padding: '11px 0', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
+                        Cancel
+                      </button>
+                      <button onClick={() => { generatePoExcel(poSupplier, poItems); placeOrder(poSupplier, poItems.map(i => ({ name: i.name, sku: i.sku, orderQty: i.isSpirit ? i.nipsToOrder : i.orderQty, bottlesToOrder: i.bottlesToOrder, isSpirit: i.isSpirit }))) }}
+                        disabled={poPlacing}
+                        style={{ flex: 2, padding: '11px 0', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+                        {poPlacing ? 'Placing…' : `✓ Confirm & Download PO (${poItems.length} items)`}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* On Order banner */}
+            {onOrderCount > 0 && (() => {
+              const bySupplier = {}
+              for (const [name, info] of Object.entries(orderedItems)) {
+                const key = info.supplier || 'Unknown'
+                if (!bySupplier[key]) bySupplier[key] = []
+                bySupplier[key].push({ name, ...info })
+              }
+              return (
+                <div style={{ marginBottom: 12 }}>
+                  {Object.entries(bySupplier).map(([supplier, supplierItems]) => (
+                    <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 6 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
+                        <span style={{ fontSize: 12, color: '#64748b' }}>— {supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order since {supplierItems[0]?.date}</span>
+                        {!readOnly && (
+                          <button onClick={() => receiveOrder(supplier)}
+                            disabled={poReceiving === supplier}
+                            style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
+                            {poReceiving === supplier ? '…' : `✓ ${supplier} Received`}
+                          </button>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
+                        {supplierItems.map(i => `${i.name} (${i.isSpirit ? `${i.orderQty} nips / ${i.bottlesToOrder} btl` : `${i.orderQty} units`})`).join(' · ')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )
+            })()}
+
+            {/* Place Order buttons — one per supplier with items to order */}
+            {!readOnly && (() => {
+              const suppliersWithOrders = [...new Set(items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).map(i => i.supplier).filter(Boolean))]
+              if (!suppliersWithOrders.length) return null
+              return (
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                  {suppliersWithOrders.map(supplier => {
+                    const count = items.filter(i => i.supplier === supplier && i.orderQty > 0 && !orderedItems[i.name]).length
+                    return (
+                      <button key={supplier} onClick={() => { setPoSupplier(supplier); setPoModal(true) }}
+                        style={{ padding: '7px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        🛒 Place Order — {supplier} ({count} item{count !== 1 ? 's' : ''})
+                      </button>
+                    )
+                  })}
+                </div>
+              )
+            })()}
 
             <div style={styles.tableWrap}>
               <table style={styles.table}>
@@ -1901,6 +2079,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           <DashboardView
             items={items}
             lastUpdated={lastUpdated}
+            orderedItems={orderedItems}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
@@ -2530,10 +2709,11 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav }) {
+function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
+  const onOrderCount = Object.keys(orderedItems).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
-  const orderCount = items.filter(i => i.orderQty > 0).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name]).length
   const totalItems = items.length
 
   const now = new Date()
@@ -2564,6 +2744,7 @@ function DashboardView({ items, lastUpdated, onNav }) {
           { label: 'Critical',      value: critCount,    sub: 'below target',    color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
           { label: 'Low Stock',     value: lowCount,     sub: 'running low',     color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
           { label: 'To Order',      value: orderCount,   sub: 'need ordering',   color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
+          { label: 'On Order',      value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
           { label: 'Refreshed',     value: refreshedAgo, sub: 'Square data',     color: '#475569', bg: '#f8fafc', action: null },
         ].map(({ label, value, sub, color, bg, action }) => (
           <div key={label}
