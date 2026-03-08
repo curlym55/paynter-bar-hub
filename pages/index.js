@@ -48,6 +48,7 @@ export default function Home() {
   const [poModal, setPoModal]                 = useState(false)
   const [poSupplier, setPoSupplier]           = useState(null)
   const [poPlacing, setPoPlacing]             = useState(false)
+  const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
@@ -254,7 +255,7 @@ export default function Home() {
       rows.push(['Notes',       ''])
       rows.push(['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'])
       for (const item of poItems) {
-        const qty = item.isSpirit ? item.bottlesToOrder : item.orderQty
+        const qty = item.isSpirit ? (item._btl || item.bottlesToOrder) : (item._qty || item.orderQty)
         rows.push([item.name, 'Regular', item.sku || '', '', '', '', String(qty), ''])
       }
       const ws = XLSX.utils.aoa_to_sheet(rows)
@@ -1737,7 +1738,13 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
             {/* PO Modal */}
             {poModal && poSupplier && (() => {
-              const poItems = items.filter(i => i.supplier === poSupplier && i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i))
+              const poItems = items.filter(i => i.supplier === poSupplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i))
+                .map(i => {
+                  const nipOverride = orderQtyOverrides[i.name]
+                  const nips = nipOverride !== undefined ? nipOverride : (i.isSpirit ? i.nipsToOrder : i.orderQty)
+                  const btl  = i.isSpirit ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                  return { ...i, _nips: nips, _btl: btl, _qty: i.isSpirit ? nips : nips }
+                })
               return (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
                   <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -1762,11 +1769,11 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           <tr key={item.name} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                             <td style={{ padding: '8px 12px', fontWeight: 500 }}>{item.name}</td>
                             <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
-                              {item.isSpirit ? item.nipsToOrder : item.orderQty}
+                              {item.isSpirit ? item._nips : item._qty}
                               <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
                             </td>
                             <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', color: '#1d4ed8' }}>
-                              {item.isSpirit ? item.bottlesToOrder : '—'}
+                              {item.isSpirit ? item._btl : '—'}
                               {item.isSpirit && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>btl</span>}
                             </td>
                             <td style={{ padding: '8px 12px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#64748b' }}>{item.sku || '—'}</td>
@@ -1782,7 +1789,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         style={{ flex: 1, padding: '11px 0', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
                         Cancel
                       </button>
-                      <button onClick={() => { generatePoExcel(poSupplier, poItems); placeOrder(poSupplier, poItems.map(i => ({ name: i.name, sku: i.sku, orderQty: i.isSpirit ? i.nipsToOrder : i.orderQty, bottlesToOrder: i.bottlesToOrder, isSpirit: i.isSpirit }))) }}
+                      <button onClick={() => { generatePoExcel(poSupplier, poItems); placeOrder(poSupplier, poItems.map(i => ({ name: i.name, sku: i.sku, orderQty: i._qty, bottlesToOrder: i._btl, isSpirit: i.isSpirit }))) }}
                         disabled={poPlacing}
                         style={{ flex: 2, padding: '11px 0', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
                         {poPlacing ? 'Placing…' : `✓ Confirm & Download PO (${poItems.length} items)`}
@@ -1916,12 +1923,43 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', fontSize: 15 }}>
-                          {item.isSpirit
-                            ? (item.nipsToOrder > 0 ? item.nipsToOrder : '-')
-                            : (item.orderQty > 0 ? item.orderQty : '-')}
+                          {readOnly
+                            ? (item.isSpirit ? (item.nipsToOrder > 0 ? item.nipsToOrder : '-') : (item.orderQty > 0 ? item.orderQty : '-'))
+                            : (() => {
+                                const calcQty = item.isSpirit ? item.nipsToOrder : item.orderQty
+                                const override = orderQtyOverrides[item.name]
+                                const display = override !== undefined ? override : (calcQty > 0 ? calcQty : 0)
+                                const isEdited = override !== undefined && override !== calcQty
+                                return (
+                                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 4 }}>
+                                    {isEdited && <span title="Manually adjusted" style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700 }}>✎</span>}
+                                    <input
+                                      type="number" min="0" value={display}
+                                      onChange={e => {
+                                        const v = parseInt(e.target.value) || 0
+                                        setOrderQtyOverrides(prev => ({ ...prev, [item.name]: v }))
+                                      }}
+                                      style={{ width: 60, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 14,
+                                        border: isEdited ? '1px solid #f59e0b' : '1px solid #e2e8f0',
+                                        borderRadius: 5, padding: '2px 6px', background: isEdited ? '#fffbeb' : '#f8fafc',
+                                        color: isEdited ? '#92400e' : 'inherit' }}
+                                    />
+                                    {isEdited && (
+                                      <button onClick={() => setOrderQtyOverrides(prev => { const n = {...prev}; delete n[item.name]; return n })}
+                                        title="Reset to calculated" style={{ fontSize: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>↺</button>
+                                    )}
+                                  </div>
+                                )
+                              })()
+                          }
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79' }}>
-                          {item.isSpirit ? (item.bottlesToOrder > 0 ? item.bottlesToOrder : '-') : '-'}
+                          {item.isSpirit ? (() => {
+                            const nipOverride = orderQtyOverrides[item.name]
+                            const nips = nipOverride !== undefined ? nipOverride : item.nipsToOrder
+                            const btl = nips > 0 ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30))) : 0
+                            return btl > 0 ? btl : '-'
+                          })() : '-'}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: p.badge, color: '#fff' }}>{item.priority}</span>
