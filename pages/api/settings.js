@@ -3,7 +3,11 @@ import { kvGet, kvSet } from '../../lib/redis'
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     try {
-      // Price list settings endpoint
+      if (req.query.action === 'getAudit') {
+        const audit = (await kvGet('settingsAudit')) || {}
+        return res.status(200).json({ audit })
+      }
+
       if (req.query.action === 'getPriceList') {
         const priceList = (await kvGet('priceListSettings')) || {}
         return res.status(200).json({ priceList })
@@ -66,12 +70,25 @@ export default async function handler(req, res) {
       const allSettings = (await kvGet('itemSettings')) || {}
       if (!allSettings[resolvedName]) allSettings[resolvedName] = {}
 
-      const numFields = ['pack', 'bottleML', 'nipML', 'stockOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle']
-      if (value === null || value === '') {
+      const numFields  = ['pack', 'bottleML', 'nipML', 'stockOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle']
+      const boolFields = ['bottleOnly']
+      if (value === null || value === '' || value === false) {
         delete allSettings[resolvedName][field]
+      } else if (boolFields.includes(field)) {
+        allSettings[resolvedName][field] = true
       } else {
         allSettings[resolvedName][field] = numFields.includes(field) ? Number(value) : value
       }
+
+      // Audit log — record when and (coarsely) who changed each field
+      const audit = (await kvGet('settingsAudit')) || {}
+      const auditKey = `${resolvedName}__${field}`
+      if (value === null || value === '' || value === false) {
+        delete audit[auditKey]
+      } else {
+        audit[auditKey] = { ts: new Date().toISOString(), who: req.body.who || 'committee' }
+      }
+      await kvSet('settingsAudit', audit)
 
       await kvSet('itemSettings', allSettings)
       res.status(200).json({ ok: true })

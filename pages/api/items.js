@@ -37,8 +37,10 @@ export default async function handler(req, res) {
         sellPrice,
         squareSellPrice:       item.squareSellPrice ?? null,
         squareSellPriceBottle: item.squareSellPriceBottle ?? null,
+        variations:            item.variations ?? [],
         sellUnit:        settings.sellUnit || null,
         sellPriceBottle: sellPriceBottle,
+        bottleOnly:      settings.bottleOnly === true || settings.bottleOnly === 'yes',
       }
     })
 

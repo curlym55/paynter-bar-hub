@@ -69,6 +69,7 @@ export default function Home() {
   const [sellersError, setSellersError] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
+  const [settingsAudit, setSettingsAudit] = useState({}) // { "ItemName__field": { ts, who } }
 
   useEffect(() => {
     if (sessionStorage.getItem('bar_authed') === 'yes') {
@@ -77,21 +78,31 @@ export default function Home() {
     }
   }, [])
 
-  function checkPin() {
-    if (pin === '5554') {
-      sessionStorage.setItem('bar_authed', 'yes')
-      sessionStorage.setItem('bar_readonly', 'yes')
-      setReadOnly(true)
-      setAuthed(true)
-      setPin('')
-      return
-    }
-    if (pin === '3838') {
-      sessionStorage.setItem('bar_authed', 'yes')
-      sessionStorage.removeItem('bar_readonly')
-      setAuthed(true)
-      setPinError(false)
-    } else {
+  async function checkPin() {
+    try {
+      const r = await fetch('/api/auth', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pin })
+      })
+      const data = await r.json()
+      if (data.ok) {
+        sessionStorage.setItem('bar_authed', 'yes')
+        if (data.readonly) {
+          sessionStorage.setItem('bar_readonly', 'yes')
+          setReadOnly(true)
+        } else {
+          sessionStorage.removeItem('bar_readonly')
+          setReadOnly(false)
+        }
+        setAuthed(true)
+        setPinError(false)
+        setPin('')
+      } else {
+        setPinError(true)
+        setPin('')
+      }
+    } catch {
       setPinError(true)
       setPin('')
     }
@@ -122,7 +133,7 @@ export default function Home() {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [])
+  }, [daysBack])
 
   useEffect(() => { loadItems() }, [loadItems])
 
@@ -131,6 +142,9 @@ export default function Home() {
       if (data.suppliers) setSuppliers(data.suppliers)
     }).catch(() => {})
   }, [])
+
+  // Reset best-sellers cache when sales period changes so it reloads fresh
+  useEffect(() => { setSellersData(null) }, [daysBack])
 
   async function loadSalesReport(period, custom) {
     setSalesLoading(true)
@@ -223,15 +237,14 @@ export default function Home() {
   }
 
   async function loadSellersData() {
-    if (sellersData) return   // already loaded
     setSellersLoading(true)
     setSellersError(null)
     try {
       const end   = new Date(); end.setHours(23,59,59,999)
-      const start = new Date(); start.setDate(start.getDate() - 90); start.setHours(0,0,0,0)
+      const start = new Date(); start.setDate(start.getDate() - daysBack); start.setHours(0,0,0,0)
       // dummy compare range (required by API but not used here)
       const compareEnd   = new Date(start.getTime() - 1)
-      const compareStart = new Date(compareEnd); compareStart.setDate(compareStart.getDate() - 90)
+      const compareStart = new Date(compareEnd); compareStart.setDate(compareStart.getDate() - daysBack)
       const params = new URLSearchParams({
         start: start.toISOString(), end: end.toISOString(),
         compareStart: compareStart.toISOString(), compareEnd: compareEnd.toISOString(),
@@ -254,12 +267,19 @@ export default function Home() {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, field, value })
+        body: JSON.stringify({ itemName, field, value, who: readOnly ? 'volunteer' : 'committee' })
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
         return { ...item, [field]: ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle'].includes(field) ? Number(value) : value }
       }))
+      // Update local audit state
+      const auditKey = `${itemName}__${field}`
+      if (value === null || value === '' || value === false) {
+        setSettingsAudit(prev => { const n = { ...prev }; delete n[auditKey]; return n })
+      } else {
+        setSettingsAudit(prev => ({ ...prev, [auditKey]: { ts: new Date().toISOString(), who: readOnly ? 'volunteer' : 'committee' } }))
+      }
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }
@@ -357,15 +377,16 @@ export default function Home() {
     }
   }
 
-  // Load price list settings on mount alongside items
+  // Load price list settings and audit log on mount
   useEffect(() => {
     async function loadPriceListSettings() {
       try {
-        const r = await fetch('/api/settings?action=getPriceList')
-        if (r.ok) {
-          const d = await r.json()
-          setPriceListSettings(d.priceList || {})
-        }
+        const [plRes, auditRes] = await Promise.all([
+          fetch('/api/settings?action=getPriceList'),
+          fetch('/api/settings?action=getAudit'),
+        ])
+        if (plRes.ok)    { const d = await plRes.json();    setPriceListSettings(d.priceList || {}) }
+        if (auditRes.ok) { const d = await auditRes.json(); setSettingsAudit(d.audit || {}) }
       } catch(e) { /* silent */ }
     }
     if (authed) loadPriceListSettings()
@@ -1580,7 +1601,12 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           </div>
         )}
 
-        {error && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
+        {error && items.length === 0 && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
+        {error && items.length > 0 && (
+          <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', margin: '8px 20px', padding: '8px 14px', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
+            ⚠️ Refresh failed — showing cached data. <button onClick={() => loadItems(true)} style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, background: 'none', border: '1px solid #d97706', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#92400e' }}>Retry</button>
+          </div>
+        )}
 
         {/* SALES TAB */}
         {mainTab === 'sales' && (
@@ -1820,8 +1846,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         {viewMode === 'pricing' && (() => {
                           const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
                           const isWine = WINE_CATS.includes(item.category)
-                          const BOTTLE_ONLY = ['Henkell', 'Yellowtail Chardonnay']
-                          const forceBottle = item.category === 'Sparkling' || BOTTLE_ONLY.includes(item.name)
+                          const forceBottle = item.category === 'Sparkling' || item.bottleOnly
                           const sellUnit = item.isSpirit ? 'nip'
                                          : forceBottle ? 'bottle'
                                          : isWine ? (item.sellUnit || 'glass')
@@ -1885,6 +1910,11 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
                                 onChange={v => saveSetting(item.name, 'buyPrice', v)}
                                 saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
+                              {settingsAudit[`${item.name}__buyPrice`] && (
+                                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>
+                                  ↺ {new Date(settingsAudit[`${item.name}__buyPrice`].ts).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}
+                                </div>
+                              )}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
@@ -1902,18 +1932,39 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               {item.isSpirit ? (
                                 <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{serveML}ml nip</span>
                               ) : isWine ? (
-                                (readOnly || forceBottle)
-                                  ? <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{sellUnit === 'glass' ? '150ml glass' : 'Bottle'}</span>
-                                  : <select value={sellUnit}
-                                      onChange={e => {
-                                        const v = e.target.value
-                                        saveSetting(item.name, 'sellUnit', v)
-                                        setItems(prev => prev.map(i => i.name === item.name ? { ...i, sellUnit: v } : i))
-                                      }}
-                                      style={{ fontSize: 11, border: '1px solid #cbd5e1', borderRadius: 4, padding: '2px 4px', background: '#fff', color: '#374151', cursor: 'pointer' }}>
-                                      <option value="glass">150ml glass</option>
-                                      <option value="bottle">Bottle</option>
-                                    </select>
+                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                                  {(readOnly || forceBottle)
+                                    ? <span style={{ color: '#64748b', fontFamily: 'IBM Plex Mono, monospace' }}>{sellUnit === 'glass' ? '150ml glass' : 'Bottle'}</span>
+                                    : <select value={sellUnit}
+                                        onChange={e => {
+                                          const v = e.target.value
+                                          saveSetting(item.name, 'sellUnit', v)
+                                          setItems(prev => prev.map(i => i.name === item.name ? { ...i, sellUnit: v } : i))
+                                        }}
+                                        style={{ fontSize: 11, border: '1px solid #cbd5e1', borderRadius: 4, padding: '2px 4px', background: '#fff', color: '#374151', cursor: 'pointer' }}>
+                                        <option value="glass">150ml glass</option>
+                                        <option value="bottle">Bottle</option>
+                                      </select>
+                                  }
+                                  {!readOnly && item.category !== 'Sparkling' && (
+                                    item.bottleOnly
+                                      ? <button title="Remove bottle lock" onClick={() => {
+                                            saveSetting(item.name, 'bottleOnly', false)
+                                            setItems(prev => prev.map(i => i.name === item.name ? { ...i, bottleOnly: false } : i))
+                                          }}
+                                          style={{ fontSize: 9, color: '#dc2626', background: 'none', border: '1px solid #fca5a5', borderRadius: 4, padding: '1px 5px', cursor: 'pointer', lineHeight: 1.4 }}>
+                                          🔒 unlock
+                                        </button>
+                                      : <button title="Always sell as bottle — locks out glass option" onClick={() => {
+                                            saveSetting(item.name, 'bottleOnly', true)
+                                            saveSetting(item.name, 'sellUnit', 'bottle')
+                                            setItems(prev => prev.map(i => i.name === item.name ? { ...i, bottleOnly: true, sellUnit: 'bottle' } : i))
+                                          }}
+                                          style={{ fontSize: 9, color: '#94a3b8', background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1px 5px', cursor: 'pointer', lineHeight: 1.4 }}>
+                                          🔓 fix bottle
+                                        </button>
+                                  )}
+                                </div>
                               ) : (
                                 <span style={{ color: '#94a3b8' }}>—</span>
                               )}
@@ -1954,7 +2005,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
         {mainTab === 'notes' && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
-        {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} />}
+        {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} daysBack={daysBack} />}
         {mainTab === 'pricelist' && (
           <PriceListView
             items={items}
@@ -2440,7 +2491,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
 
 
 // ─── BEST & WORST SELLERS VIEW ───────────────────────────────────────────────
-function BestSellersView({ items, salesData, loading, error }) {
+function BestSellersView({ items, salesData, loading, error, daysBack = 90 }) {
   const today = new Date()
 
   // Build sales map from Orders API data
@@ -2456,7 +2507,7 @@ function BestSellersView({ items, salesData, loading, error }) {
   const top10    = sorted.slice(0, 10)
   const maxAvg   = top10[0]?.weeklyAvg || 1
 
-  // Slow sellers: has stock, sold in last 90 days but in bottom 25% by units
+  // Slow sellers: has stock, sold in period but in bottom 25% by units
   const itemsWithSales = salesData
     ? withData
         .filter(i => (i.onHand || 0) > 0 && (salesMap[i.name] || 0) > 0)
@@ -2465,7 +2516,7 @@ function BestSellersView({ items, salesData, loading, error }) {
   const slowCutoff = Math.ceil(itemsWithSales.length * 0.25)
   const slowSellers = itemsWithSales.slice(0, slowCutoff)
 
-  // Not selling at all: has stock, zero sales in 90 days
+  // Not selling at all: has stock, zero sales in period
   const notSelling = salesData
     ? withData.filter(i => (i.onHand || 0) > 0 && (salesMap[i.name] || 0) === 0)
         .sort((a, b) => (b.onHand || 0) - (a.onHand || 0))
@@ -2480,7 +2531,7 @@ function BestSellersView({ items, salesData, loading, error }) {
   if (loading) return (
     <div style={{ textAlign: 'center', padding: 64, color: '#64748b' }}>
       <div style={{ ...styles.spinner, margin: '0 auto 16px' }} />
-      Loading 90 days of sales data from Square...
+      Loading {daysBack} days of sales data from Square...
     </div>
   )
 
@@ -2490,7 +2541,10 @@ function BestSellersView({ items, salesData, loading, error }) {
     <div style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
 
       {/* Summary strip */}
-      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 24, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ fontSize: 11, color: '#64748b', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 10px', alignSelf: 'center', fontWeight: 600 }}>
+          📅 {daysBack}-day period
+        </div>
         {[
           { label: 'Top Seller',      value: top10[0]?.name.split(' ').slice(0,3).join(' ') || '—', sub: top10[0] ? `${top10[0].weeklyAvg} / week` : '', color: '#16a34a' },
           { label: 'Items Tracked',   value: withData.length,   sub: `${items.length} total`,              color: '#2563eb' },
@@ -2595,6 +2649,7 @@ function BestSellersView({ items, salesData, loading, error }) {
 // ─── PRICE LIST VIEW ──────────────────────────────────────────────────────────
 function PriceListView({ items, settings, readOnly, saving, onSave, onPrint }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
+  const [showOutOfStock, setShowOutOfStock] = useState(false)
 
   // Group items by category
   const grouped = {}
@@ -2653,7 +2708,11 @@ function isHidden(item) {
           </div>
         </div>
         <div style={{ display: 'flex', gap: 8 }}>
-
+          <button
+            onClick={() => setShowOutOfStock(v => !v)}
+            style={{ background: showOutOfStock ? '#f1f5f9' : '#fff', color: showOutOfStock ? '#374151' : '#64748b', border: '1px solid #e2e8f0', borderRadius: 6, padding: '8px 14px', fontWeight: 600, fontSize: 12, cursor: 'pointer' }}>
+            {showOutOfStock ? '👁 Showing Out of Stock' : '🚫 Hiding Out of Stock'}
+          </button>
           <button
             style={{ background: '#be185d', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontWeight: 700, fontSize: 13, cursor: 'pointer' }}
             onClick={() => onPrint(items, settings)}>
@@ -2678,7 +2737,7 @@ function isHidden(item) {
                 </tr>
               </thead>
               <tbody>
-                {grouped[cat].filter(item => (item.onHand || 0) > 0 || isHidden(item)).map((item, idx) => {
+                {grouped[cat].filter(item => showOutOfStock || (item.onHand || 0) > 0 || isHidden(item)).map((item, idx) => {
                   const hidden  = isHidden(item)
                   const price   = getPrice(item)
                   const rowBg   = idx % 2 === 0 ? '#fff' : '#f8fafc'
@@ -3297,7 +3356,7 @@ function HelpTab() {
       title: 'Price List',
       items: [
         { q: 'Opening', a: 'Click 🏷️ Price List in the top-right header. The editor shows all items grouped by category with their current Square prices.' },
-        { q: 'Showing and hiding items', a: 'Click the Shown/Hidden toggle next to any item to include or exclude it from the printed price list. Items with zero stock in Square are automatically excluded.' },
+        { q: 'Showing and hiding items', a: 'Click the Shown/Hidden toggle next to any item to include or exclude it from the printed price list. Items with zero stock are hidden by default — use the Hide/Show Out of Stock toggle in the toolbar to reveal them.' },
         { q: 'Prices', a: 'All prices come from Square. To change a price, update it in Square and click Refresh. Wine items with both a Glass and Bottle price show both, with Glass listed first.' },
         { q: 'Printing', a: 'Click 🖨️ Print Price List to open a two-page A4 portrait document in a two-column card layout. In the print dialog set paper to A4, margins to None and scale to 100%.' },
         { q: 'Edit access', a: 'The Shown/Hidden toggle is only available to committee members. Read-only users can view the price list but cannot make changes.' },
