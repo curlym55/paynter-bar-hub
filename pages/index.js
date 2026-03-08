@@ -3627,18 +3627,29 @@ function StocktakeView({ items, readOnly, onExport }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
 
   // counts keyed by item name: { coolRoom, storeRoom, bar }
-  const [counts, setCounts] = useState(() => {
-    try { const s = localStorage.getItem('stocktake_counts'); return s ? JSON.parse(s) : {} } catch { return {} }
-  })
+  const [counts, setCounts] = useState({})
+  const [countsLoaded, setCountsLoaded] = useState(false)
   const [filterCat, setFilterCat] = useState('All')
   const [mobileMode, setMobileMode] = useState(false)
   const [mobileIdx, setMobileIdx] = useState(0)
   const [showDiffs, setShowDiffs] = useState(false)
 
-  // Persist counts whenever they change
+  // Load counts from server on mount
   useEffect(() => {
-    try { localStorage.setItem('stocktake_counts', JSON.stringify(counts)) } catch {}
-  }, [counts])
+    fetch('/api/stocktake')
+      .then(r => r.json())
+      .then(data => { setCounts(data.counts || {}); setCountsLoaded(true) })
+      .catch(() => setCountsLoaded(true))
+  }, [])
+
+  // Save counts to server whenever they change (debounced 800ms)
+  useEffect(() => {
+    if (!countsLoaded) return
+    const t = setTimeout(() => {
+      fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => {})
+    }, 800)
+    return () => clearTimeout(t)
+  }, [counts, countsLoaded])
 
   const setCount = (name, field, val) => {
     const num = val === '' ? '' : parseFloat(val) || 0
@@ -3879,7 +3890,7 @@ function StocktakeView({ items, readOnly, onExport }) {
     setTimeout(() => w.print(), 500)
   }
 
-  const resetAll = () => { if (window.confirm('Clear all counts?')) { setCounts({}); try { localStorage.removeItem('stocktake_counts') } catch {} } }
+  const resetAll = () => { if (window.confirm('Clear all counts?')) { setCounts({}); fetch('/api/stocktake', { method: 'DELETE' }).catch(() => {}) } }
 
   // ── MOBILE VIEW ───────────────────────────────────────────────────────────────
   if (mobileMode) {
