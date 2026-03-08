@@ -66,7 +66,7 @@ export default async function handler(req, res) {
       const allSettings = (await kvGet('itemSettings')) || {}
       if (!allSettings[resolvedName]) allSettings[resolvedName] = {}
 
-      const numFields = ['pack', 'bottleML', 'nipML', 'stockOverride']
+      const numFields = ['pack', 'bottleML', 'nipML', 'stockOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle']
       if (value === null || value === '') {
         delete allSettings[resolvedName][field]
       } else {

@@ -258,7 +258,7 @@ export default function Home() {
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
-        return { ...item, [field]: ['pack','bottleML','nipML','stockOverride'].includes(field) ? Number(value) : value }
+        return { ...item, [field]: ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle'].includes(field) ? Number(value) : value }
       }))
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
