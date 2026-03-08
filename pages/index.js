@@ -1825,14 +1825,15 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           const sellUnit = item.isSpirit ? 'nip'
                                          : isWine ? (item.sellUnit || 'glass')
                                          : 'bottle'
-                          // Bottle capacity — spirits support 700/750/1000/1125/1750ml
-                          // Wines default 750ml (override stored as wineML if needed)
-                          const bottleML = item.isSpirit ? (item.bottleML || 700) : (item.wineML || 750)
-                          // Serve size in mL
+                          // Bottle capacity — spirits use stored bottleML (700/750/1000ml)
+                          // Wines default 750ml
+                          const bottleML = item.isSpirit ? (item.bottleML || 700) : 750
+                          // Serve size in mL — only meaningful for spirits and glass-sold wines
                           const serveML = item.isSpirit ? (item.nipML || 30)
-                                        : sellUnit === 'glass' ? 150
+                                        : (isWine && sellUnit === 'glass') ? 150
                                         : null
-                          const servesPerBottle = sellUnit === 'bottle' ? 1
+                          const servesPerBottle = !item.isSpirit && !isWine ? null
+                                                : sellUnit === 'bottle' ? 1
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
