@@ -40,7 +40,7 @@ export default function Home() {
   const [addingSupplier, setAddingSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
   const [printing, setPrinting]         = useState(null)
-  const [daysBack, setDaysBack]         = useState(90)
+  const [daysBack, setDaysBack]         = useState(60)
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
