@@ -115,6 +115,9 @@ async function getInventoryCounts(token, locationId, variationIds) {
       })
     })
     const data = await res.json()
+    if (data.errors?.length) {
+      console.error('[getInventoryCounts] Square errors:', JSON.stringify(data.errors))
+    }
     for (const count of data.counts || []) {
       const varId = count.catalog_object_id
       counts[varId] = (counts[varId] || 0) + parseFloat(count.quantity || 0)
@@ -319,9 +322,10 @@ export async function fetchSalesReport(token, startStr, endStr) {
 
 // ─── WASTAGE SYNC HELPERS ─────────────────────────────────────────────────────
 
-// Returns { itemName: primaryVariationId } for all bar items.
-// Used by wastage-sync to map item names to Square variation IDs at sync time.
+// Returns { itemName: { varId, onHand } } for all bar items.
+// Includes current inventory so preview can flag zero-stock items.
 export async function getVariationIdMap(token) {
+  const locationId     = await getLocationId(token)
   const barCategoryIds = await getBarCategoryIds(token)
   const catalog        = await getCatalogItems(token, barCategoryIds)
 
@@ -333,43 +337,55 @@ export async function getVariationIdMap(token) {
   }
 
   // For each item, prefer the 'Regular' variation (the one Square tracks inventory on)
-  const map = {}
+  const primaryVarIds = {}
   for (const [name, vars] of Object.entries(groups)) {
     const regular = vars.find(v =>
       v.variationName.toLowerCase() === 'regular' || v.variationName === ''
     )
-    map[name] = (regular || vars[0]).varId
+    primaryVarIds[name] = (regular || vars[0]).varId
+  }
+
+  // Fetch current inventory counts so preview can detect zero-stock
+  const inventory = await getInventoryCounts(token, locationId, Object.values(primaryVarIds))
+
+  const map = {}
+  for (const [name, varId] of Object.entries(primaryVarIds)) {
+    map[name] = { varId, onHand: inventory[varId] ?? 0 }
   }
   return map
 }
 
-// Posts WASTE adjustments to the Square Inventory API.
-// adjustments: [{ variationId, squareQty (string), occurredAt (ISO), entryId, itemName }]
-export async function postWasteAdjustments(token, locationId, adjustments) {
-  const changes = adjustments.map(adj => ({
-    type: 'ADJUSTMENT',
-    adjustment: {
-      catalog_object_id: adj.variationId,
-      location_id:       locationId,
-      from_state:        'IN_STOCK',
-      to_state:          'WASTE',
-      quantity:          String(adj.squareQty),
-      occurred_at:       adj.occurredAt,
-    }
-  }))
-
-  const res = await fetch(`${BASE_URL}/inventory/changes/batch-change`, {
-    method:  'POST',
-    headers: headers(token),
-    body:    JSON.stringify({
-      idempotency_key: `waste-sync-${Date.now()}`,
-      changes,
-    })
-  })
-
-  const data = await res.json()
-  if (data.errors?.length) {
-    throw new Error(data.errors.map(e => e.detail).join('; '))
+// Posts a single WASTE adjustment. Returns { ok, error } — never throws.
+export async function postSingleWasteAdjustment(token, locationId, adj) {
+  const body = {
+    idempotency_key: `waste-${adj.entryId}-${Date.now()}`,
+    changes: [{
+      type: 'ADJUSTMENT',
+      adjustment: {
+        catalog_object_id: adj.variationId,
+        location_id:       locationId,
+        from_state:        'IN_STOCK',
+        to_state:          'WASTE',
+        quantity:          String(adj.squareQty),
+        occurred_at:       adj.occurredAt,
+      }
+    }]
   }
-  return data
+  console.log('[wastage-sync] POST body:', JSON.stringify(body))
+  try {
+    const res  = await fetch(`${BASE_URL}/inventory/changes/batch-change`, {
+      method:  'POST',
+      headers: headers(token),
+      body:    JSON.stringify(body),
+    })
+    const data = await res.json()
+    console.log('[wastage-sync] Square response status:', res.status, JSON.stringify(data))
+    if (data.errors?.length) {
+      const errDetail = data.errors.map(e => `[${e.code}] ${e.detail || e.category || ''}`).join('; ')
+      return { ok: false, error: errDetail }
+    }
+    return { ok: true }
+  } catch(e) {
+    return { ok: false, error: e.message }
+  }
 }

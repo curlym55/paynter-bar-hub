@@ -92,10 +92,22 @@ export default async function handler(req, res) {
       if (!toSync.length)
         return res.json({ ok: true, synced: 0, skipped: 0, message: 'Nothing to sync' })
 
-      const [varMap, locationId] = await Promise.all([
-        getVariationIdMap(token),
-        getLocationId(token),
-      ])
+      console.log('[sync POST] step 1: getting varMap + locationId')
+      let varMap, locationId
+      try {
+        locationId = await getLocationId(token)
+        console.log('[sync POST] step 2: locationId =', locationId)
+      } catch(e) {
+        console.error('[sync POST] getLocationId failed:', e.message)
+        throw e
+      }
+      try {
+        varMap = await getVariationIdMap(token)
+        console.log('[sync POST] step 3: varMap keys =', Object.keys(varMap).length)
+      } catch(e) {
+        console.error('[sync POST] getVariationIdMap failed:', e.message)
+        throw e
+      }
 
       const syncedAt  = new Date().toISOString()
       const succeeded = []
