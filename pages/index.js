@@ -115,7 +115,7 @@ export default function Home() {
   }
 
   const loadItems = useCallback(async (showRefresh = false, days = null) => {
-    if (showRefresh) setRefreshing(true)
+    if (showRefresh) { setRefreshing(true); setOrderQtyOverrides({}) }
     else setLoading(true)
     setError(null)
     try {

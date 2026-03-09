@@ -22,7 +22,16 @@ export default async function handler(req, res) {
       const targetWeeks  = (await kvGet('targetWeeks'))  || 6
       const suppliers          = (await kvGet('suppliers'))          || ['Dan Murphy', 'Coles Woolies', 'ACW']
       const supplierVendorNames = (await kvGet('supplierVendorNames')) || {}
-      res.status(200).json({ settings, targetWeeks, suppliers, supplierVendorNames })
+
+      // One-time migration: rename "Dan Murphys" → "Dan Murphy" everywhere
+      let migrated = false
+      for (const [name, s] of Object.entries(settings)) {
+        if (s.supplier === 'Dan Murphys') { s.supplier = 'Dan Murphy'; migrated = true }
+      }
+      if (migrated) await kvSet('itemSettings', settings)
+      const fixedSuppliers = suppliers.map(s => s === 'Dan Murphys' ? 'Dan Murphy' : s)
+      if (fixedSuppliers.some((s, i) => s !== suppliers[i])) await kvSet('suppliers', fixedSuppliers)
+      res.status(200).json({ settings, targetWeeks, suppliers: fixedSuppliers, supplierVendorNames })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
