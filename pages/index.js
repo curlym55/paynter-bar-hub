@@ -126,7 +126,7 @@ export default function Home() {
       ])
       if (!r.ok) throw new Error((await r.json()).error || 'Failed to load')
       const data = await r.json()
-      setItems(data.items)
+      setItems(data.items.map(i => i.supplier === 'Dan Murphys' ? { ...i, supplier: 'Dan Murphy' } : i))
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
       if (ro.ok) {
