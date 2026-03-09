@@ -11,7 +11,7 @@ export default async function handler(req, res) {
     const squareItems = await fetchSquareData(token, daysBack)
     const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
     const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
-    const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphys', 'Coles Woolies', 'ACW']
+    const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
 
     const items = squareItems.map(item => {
       const settings = allSettings[item.name] || {}
