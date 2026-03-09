@@ -54,6 +54,7 @@ export default function Home() {
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
+  const [salesDay, setSalesDay]         = useState('')
   const [salesReport, setSalesReport]   = useState(null)
   const [salesLoading, setSalesLoading] = useState(false)
   const [salesError, setSalesError]     = useState(null)
@@ -183,6 +184,11 @@ export default function Home() {
         end   = new Date(now)
         compareStart = new Date(fyStart - 1, 4, 1); compareStart.setHours(0,0,0,0)
         compareEnd   = new Date(start.getTime() - 1)
+      } else if (period === 'day' && custom.day) {
+        start = new Date(custom.day + 'T00:00:00'); start.setHours(0,0,0,0)
+        end   = new Date(custom.day + 'T23:59:59'); end.setHours(23,59,59,999)
+        compareEnd   = new Date(start.getTime() - 1)
+        compareStart = new Date(compareEnd); compareStart.setHours(0,0,0,0)
       } else if (period === 'custom' && custom.start && custom.end) {
         start = new Date(custom.start); start.setHours(0,0,0,0)
         end   = new Date(custom.end);   end.setHours(23,59,59,999)
@@ -858,6 +864,13 @@ export default function Home() {
       periodLabel = `Financial Year ${fyStart}–${String(fyStart + 1).slice(2)} (May–Apr)`
       compareStart = new Date(fyStart - 1, 4, 1, 0, 0, 0)
       compareEnd   = new Date(start.getTime() - 1)
+    } else if (salesPeriod === 'day') {
+      if (!salesCustom?.day) { setSalesPdfLoading(false); alert('Please select a date first'); return }
+      start = new Date(salesCustom.day + 'T00:00:00'); start.setHours(0,0,0,0)
+      end   = new Date(salesCustom.day + 'T23:59:59'); end.setHours(23,59,59,999)
+      periodLabel = new Date(salesCustom.day + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      compareEnd   = new Date(start.getTime() - 1)
+      compareStart = new Date(compareEnd); compareStart.setHours(0,0,0,0)
     } else if (salesPeriod === 'custom') {
       if (!salesCustom?.start || !salesCustom?.end) { setSalesPdfLoading(false); alert('Please select a custom date range in the Sales tab first'); return }
       start = new Date(salesCustom.start + 'T00:00:00'); start.setHours(0,0,0,0)
@@ -894,7 +907,7 @@ export default function Home() {
     const generated = now.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     const fmtRev = n => n ? `$${Number(n).toFixed(2)}` : '—'
     const fmtChg = n => n == null ? '—' : (n >= 0 ? '+' : '') + n + '%'
-    const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : 'Prior Period'
+    const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : salesPeriod === 'day' ? 'Prior Day' : 'Prior Period'
 
     if (exportXlsx) {
       // ── Excel export ──────────────────────────────────────────────────────
@@ -3856,13 +3869,17 @@ function SalesView({ period, setPeriod, custom, setCustom, report, loading, erro
     <div className="view-wrap" style={{ padding: '24px 32px' }}>
       {/* Period controls */}
       <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 12, background: '#fff', padding: '10px 20px', borderBottom: '1px solid #e2e8f0' }}>
-        {[['month','This Month'],['lastmonth','Last Month'],['3months','Last 3 Months'],['financialYear','Financial Year (May – Apr)'],['custom','Custom Range']].map(([val, label]) => (
+        {[['month','This Month'],['lastmonth','Last Month'],['3months','Last 3 Months'],['financialYear','Financial Year (May – Apr)'],['day','Single Day'],['custom','Custom Range']].map(([val, label]) => (
           <button key={val}
             style={{ ...styles.tab, ...(period === val ? styles.tabActive : {}) }}
-            onClick={() => { setPeriod(val); if (val !== 'custom') onLoad(val, custom) }}>
+            onClick={() => { setPeriod(val); if (val !== 'custom' && val !== 'day') onLoad(val, custom) }}>
             {label}
           </button>
         ))}
+        {period === 'day' && (
+          <input type="date" value={custom.day || ''} onChange={e => { const c2 = {...custom, day: e.target.value}; setCustom(c2); if (e.target.value) onLoad('day', c2) }}
+            style={{ ...styles.supplierInput, width: 150 }} />
+        )}
         {period === 'custom' && (
           <>
             <input type="date" value={custom.start} onChange={e => setCustom(c => ({ ...c, start: e.target.value }))}
