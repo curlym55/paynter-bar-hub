@@ -67,7 +67,7 @@ export default function Home() {
   const [notesLog, setNotesLog]         = useState([])
   const [notesLoaded, setNotesLoaded]   = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(true)
   const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': true, 'Sales & Analytics': true, 'Operations': false, 'Help': true })
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
@@ -1470,10 +1470,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         {(() => {
           const SC = sidebarCollapsed
           const groups = [
-            { label: 'Overview', icon: '🏠', items: [
-              { icon: '🏠', label: 'Dashboard', tab: 'home', action: () => setMainTab('home') },
-            ]},
             { label: 'Stock', icon: '📦', items: [
+              { icon: '🏠', label: 'Dashboard', tab: 'home', action: () => setMainTab('home') },
               { icon: '📦', label: 'Reorder Planner', tab: 'reorder', action: () => setMainTab('reorder') },
               { icon: '📋', label: 'Stocktake', tab: 'stocktake', action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
             ]},
@@ -1492,7 +1490,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { icon: '📋', label: 'SOH Report', tab: 'soh', action: () => setSohModal(true) },
             ]},
             { label: 'Help', icon: '❓', items: [
-              { icon: '❓', label: 'Help & Guide', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
+              { icon: '❓', label: 'Help', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
             ]},
           ]
           return (
@@ -1514,15 +1512,15 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
                 {groups.map(group => (
                   <div key={group.label}>
-                    <button onClick={() => !SC && setSidebarOpenGroups(g => ({ ...g, [group.label]: !g[group.label] }))}
-                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 8, padding: SC ? '7px 0' : '6px 12px', background: 'none', border: 'none', cursor: 'pointer', justifyContent: SC ? 'center' : 'space-between', color: '#94a3b8' }}>
+                    <button onClick={() => !SC && group.items.length > 1 && setSidebarOpenGroups(g => ({ ...g, [group.label]: !g[group.label] }))}
+                      style={{ width: '100%', display: group.items.length === 1 && !SC ? 'none' : 'flex', alignItems: 'center', gap: 8, padding: SC ? '7px 0' : '6px 12px', background: 'none', border: 'none', cursor: 'pointer', justifyContent: SC ? 'center' : 'space-between', color: '#94a3b8' }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{group.icon}</span>
                         {!SC && <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', whiteSpace: 'nowrap' }}>{group.label}</span>}
                       </div>
                       {!SC && <span style={{ fontSize: 9, color: '#475569', transition: 'transform 0.15s', transform: sidebarOpenGroups[group.label] ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>}
                     </button>
-                    {(SC || sidebarOpenGroups[group.label]) && group.items.map(item => {
+                    {(SC || sidebarOpenGroups[group.label] || group.items.length === 1) && group.items.map(item => {
                       const isActive = mainTab === item.tab || (item.tab === 'reorder' && mainTab === 'reorder')
                       return (
                         <button key={item.tab} onClick={() => { item.action(); setMenuOpen(false) }}
