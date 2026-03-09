@@ -1,6 +1,6 @@
 import { fetchSquareData } from '../../lib/square'
 import { calculateItem, CATEGORY_ORDER } from '../../lib/calculations'
-import { kvGet } from '../../lib/redis'
+import { kvGet, kvSet } from '../../lib/redis'
 
 export default async function handler(req, res) {
   const token = process.env.SQUARE_ACCESS_TOKEN
@@ -12,6 +12,13 @@ export default async function handler(req, res) {
     const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
     const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
     const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
+
+    // One-time migration: rename "Dan Murphys" → "Dan Murphy" in item settings
+    let migrated = false
+    for (const s of Object.values(allSettings)) {
+      if (s.supplier === 'Dan Murphys') { s.supplier = 'Dan Murphy'; migrated = true }
+    }
+    if (migrated) await kvSet('itemSettings', allSettings)
 
     const items = squareItems.map(item => {
       const settings = allSettings[item.name] || {}
