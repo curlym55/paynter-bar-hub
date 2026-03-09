@@ -2780,11 +2780,16 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
 function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
+  const [dashTab, setDashTab]   = useState('overview')
+  const [fyData,  setFyData]    = useState(null)
+  const [fyLoading, setFyLoading] = useState(false)
+  const [fyError,   setFyError]   = useState(null)
+
   const onOrderCount = Object.keys(orderedItems).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/don'?t\s+order/i.test(i.notes || '')).length
-  const totalItems = items.length
+  const totalItems   = items.length
 
   const now = new Date()
   const refreshedAgo = lastUpdated ? (() => {
@@ -2794,67 +2799,239 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
     return `${Math.floor(mins/60)}h ${mins%60}m ago`
   })() : 'Not yet refreshed'
 
+  useEffect(() => {
+    if (dashTab === 'fy' && !fyData && !fyLoading) loadFyChart()
+  }, [dashTab])
+
+  async function loadFyChart() {
+    setFyLoading(true); setFyError(null)
+    const now = new Date()
+    const fyStartYear = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1
+    const months = []
+    for (let m = 0; m < 12; m++) {
+      const jsMonth = (4 + m) % 12
+      const year    = jsMonth < 4 ? fyStartYear + 1 : fyStartYear
+      const start   = new Date(year, jsMonth, 1)
+      if (start > now) break
+      const rawEnd = new Date(year, jsMonth + 1, 0, 23, 59, 59, 999)
+      const end = rawEnd > now ? new Date(now) : rawEnd
+      months.push({ jsMonth, year, start, end, partial: rawEnd > now })
+    }
+    try {
+      const results = []
+      for (const { jsMonth, year, start, end, partial } of months) {
+        const params = new URLSearchParams({
+          start:        start.toISOString(),
+          end:          end.toISOString(),
+          compareStart: new Date(0).toISOString(),
+          compareEnd:   new Date(0).toISOString(),
+        })
+        const r = await fetch(`/api/sales?${params}`)
+        const d = r.ok ? await r.json() : null
+        results.push({
+          label:   start.toLocaleDateString('en-AU', { month: 'short' }),
+          revenue: d?.totals?.revenue || 0,
+          partial,
+        })
+      }
+      setFyData(results)
+    } catch(e) { setFyError(e.message) }
+    finally { setFyLoading(false) }
+  }
+
   const features = [
-    { icon: '📦', label: 'Reorder Planner',     desc: 'Stock levels, order quantities & supplier sheets', tab: 'reorder',     color: '#1e3a5f' },
-    { icon: '📊', label: 'Sales Report',          desc: 'Period sales with category breakdown',             tab: 'sales',        color: '#7c3aed' },
-    { icon: '📈', label: 'Quarterly Trends',      desc: 'Four-quarter category performance charts',         tab: 'trends',       color: '#0e7490' },
-    { icon: '🏆', label: 'Best & Worst Sellers',  desc: 'Top 10, slow sellers and items not moving',        tab: 'bestsellers',  color: '#92400e' },
-    { icon: '🏷️', label: 'Price List',            desc: 'Printable A4 price list for bar display',          tab: 'pricelist',    color: '#be185d' },
-    { icon: '👥', label: 'Volunteer Roster',      desc: 'Volunteer scheduling (opens new tab)',             tab: 'roster',       color: '#065f46', external: true },
-    { icon: '🗑️', label: 'Wastage Log',            desc: 'Record breakages, spoilage and expired stock',    tab: 'wastage',      color: '#92400e' },
-    { icon: '❓', label: 'Help & Guide',           desc: 'Full documentation for all features',             tab: 'help',         color: '#475569' },
+    { icon: '📦', label: 'Reorder Planner',    desc: 'Stock levels, order quantities & supplier sheets', tab: 'reorder',    color: '#1e3a5f' },
+    { icon: '📊', label: 'Sales Report',        desc: 'Period sales with category breakdown',             tab: 'sales',      color: '#7c3aed' },
+    { icon: '📈', label: 'Quarterly Trends',    desc: 'Four-quarter category performance charts',         tab: 'trends',     color: '#0e7490' },
+    { icon: '🏆', label: 'Best & Worst Sellers',desc: 'Top 10, slow sellers and items not moving',        tab: 'bestsellers',color: '#92400e' },
+    { icon: '🏷️', label: 'Price List',          desc: 'Printable A4 price list for bar display',          tab: 'pricelist',  color: '#be185d' },
+    { icon: '👥', label: 'Volunteer Roster',    desc: 'Volunteer scheduling (opens new tab)',             tab: 'roster',     color: '#065f46', external: true },
+    { icon: '🗑️', label: 'Wastage Log',          desc: 'Record breakages, spoilage and expired stock',    tab: 'wastage',    color: '#92400e' },
+    { icon: '❓', label: 'Help & Guide',         desc: 'Full documentation for all features',             tab: 'help',       color: '#475569' },
   ]
 
+  const alertItems = items
+    .filter(i => i.priority === 'CRITICAL' || i.priority === 'LOW')
+    .sort((a, b) => (a.priority === 'CRITICAL' ? 0 : 1) - (b.priority === 'CRITICAL' ? 0 : 1) || (a.onHand ?? 999) - (b.onHand ?? 999))
+
+  const statCards = [
+    { label: 'Critical',  value: critCount,    sub: 'below target',      color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
+    { label: 'Low Stock', value: lowCount,     sub: 'running low',       color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
+    { label: 'To Order',  value: orderCount,   sub: 'need ordering',     color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
+    { label: 'On Order',  value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
+    { label: 'Refreshed', value: refreshedAgo, sub: 'Square data',       color: '#475569', bg: '#f8fafc', action: null },
+  ]
+
+  const dashTabs = [
+    { id: 'overview', label: '🏠 Overview' },
+    { id: 'alerts',   label: `⚠️ Stock Alerts${critCount + lowCount > 0 ? ` (${critCount + lowCount})` : ''}` },
+    { id: 'fy',       label: '📊 FY Sales' },
+  ]
+
+  const fmt = v => '$' + Math.round(v).toLocaleString('en-AU')
+
   return (
-    <div className="dash-wrap" style={{ padding: '20px 32px', maxWidth: 1100, margin: '0 auto' }}>
-
-      {/* Compact header row: stats + refresh */}
-      <div className="dash-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
-        {[
-          { label: 'Critical',      value: critCount,    sub: 'below target',    color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
-          { label: 'Low Stock',     value: lowCount,     sub: 'running low',     color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
-          { label: 'To Order',      value: orderCount,   sub: 'need ordering',   color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
-          { label: 'On Order',      value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
-          { label: 'Refreshed',     value: refreshedAgo, sub: 'Square data',     color: '#475569', bg: '#f8fafc', action: null },
-        ].map(({ label, value, sub, color, bg, action }) => (
-          <div key={label}
-            onClick={action || undefined}
-            style={{ background: bg, borderRadius: 8, border: `1px solid ${color}33`, padding: '10px 14px', cursor: action ? 'pointer' : 'default' }}
-            onMouseEnter={e => { if (action) e.currentTarget.style.opacity = '0.85' }}
-            onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}>
-            <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{label}</div>
-            <div style={{ fontSize: 20, fontWeight: 800, color, fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1.1, wordBreak: 'break-word' }}>{value}</div>
-            <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{sub}</div>
-          </div>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Dashboard sub-tabs */}
+      <div style={{ display: 'flex', gap: 4, padding: '10px 32px 0', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+        {dashTabs.map(t => (
+          <button key={t.id} onClick={() => setDashTab(t.id)}
+            style={{ padding: '7px 18px', border: 'none', borderRadius: '6px 6px 0 0', cursor: 'pointer', fontSize: 12, fontWeight: dashTab === t.id ? 700 : 400,
+              background: dashTab === t.id ? '#fff' : 'transparent',
+              color: dashTab === t.id ? '#0f172a' : '#64748b',
+              borderBottom: dashTab === t.id ? '2px solid #fff' : '2px solid transparent',
+              marginBottom: dashTab === t.id ? -2 : 0 }}>
+            {t.label}
+          </button>
         ))}
       </div>
 
-      {/* Feature grid — 4 columns */}
-      <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-        {features.map(f => (
-          <div key={f.tab}
-            onClick={() => f.external ? window.open('https://paynter-bar-roster.vercel.app/', '_blank') : onNav(f.tab)}
-            style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-            onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
-            onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
-            <div style={{ width: 36, height: 36, borderRadius: 8, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>
-              {f.icon}
-            </div>
-            <div style={{ minWidth: 0 }}>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}{f.external ? ' ↗' : ''}</div>
-              <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <div style={{ flex: 1, overflowY: 'auto' }}>
+        <div style={{ padding: '20px 32px', maxWidth: 1100, margin: '0 auto' }}>
 
-      <div style={{ marginTop: 14, fontSize: 10, color: '#cbd5e1', textAlign: 'center' }}>
-        Paynter Bar Hub · GemLife Palmwoods · {totalItems} items tracked
+          {/* Stat cards — always visible */}
+          <div className="dash-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
+            {statCards.map(({ label, value, sub, color, bg, action }) => (
+              <div key={label} onClick={action || undefined}
+                style={{ background: bg, borderRadius: 8, border: `1px solid ${color}33`, padding: '10px 14px', cursor: action ? 'pointer' : 'default' }}
+                onMouseEnter={e => { if (action) e.currentTarget.style.opacity = '0.85' }}
+                onMouseLeave={e => { e.currentTarget.style.opacity = '1' }}>
+                <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: 3 }}>{label}</div>
+                <div style={{ fontSize: 20, fontWeight: 800, color, fontFamily: 'IBM Plex Mono, monospace', lineHeight: 1.1, wordBreak: 'break-word' }}>{value}</div>
+                <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 2 }}>{sub}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Overview tab */}
+          {dashTab === 'overview' && (
+            <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+              {features.map(f => (
+                <div key={f.tab}
+                  onClick={() => f.external ? window.open('https://paynter-bar-roster.vercel.app/', '_blank') : onNav(f.tab)}
+                  style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
+                  <div style={{ width: 36, height: 36, borderRadius: 8, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}{f.external ? ' ↗' : ''}</div>
+                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Stock Alerts tab */}
+          {dashTab === 'alerts' && (
+            alertItems.length === 0
+              ? <div style={{ textAlign: 'center', padding: 48, color: '#16a34a', fontSize: 14 }}>✅ All items are at target stock levels</div>
+              : <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
+                        {['Status','Item','Category','Supplier','On Hand','Target','To Order'].map(h => (
+                          <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Status' ? 'center' : 'left', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {alertItems.map((item, i) => {
+                        const isCrit = item.priority === 'CRITICAL'
+                        return (
+                          <tr key={item.name} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}
+                            onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
+                            onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fafafa'}>
+                            <td style={{ padding: '8px 12px', textAlign: 'center' }}>
+                              <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: isCrit ? '#fee2e2' : '#fef9c3', color: isCrit ? '#991b1b' : '#854d0e' }}>{isCrit ? 'CRITICAL' : 'LOW'}</span>
+                            </td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{item.name}</td>
+                            <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.category}</td>
+                            <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.supplier || '—'}</td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 700, color: isCrit ? '#dc2626' : '#d97706' }}>{item.onHand ?? '—'}</td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#64748b' }}>{item.targetQty ?? '—'}</td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#2563eb', fontWeight: item.orderQty > 0 ? 700 : 400 }}>{item.orderQty > 0 ? item.orderQty : '—'}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                  <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0' }}>
+                    <button onClick={() => onNav('reorder')} style={{ padding: '6px 14px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                      📦 Open Reorder Planner
+                    </button>
+                  </div>
+                </div>
+          )}
+
+          {/* FY Sales chart tab */}
+          {dashTab === 'fy' && (
+            fyLoading
+              ? <div style={{ textAlign: 'center', padding: 64, color: '#64748b' }}>
+                  <div style={{ ...styles.spinner, margin: '0 auto 16px' }} />
+                  Loading FY sales from Square...
+                </div>
+              : fyError
+                ? <div style={{ textAlign: 'center', padding: 48, color: '#dc2626', fontSize: 13 }}>⚠️ {fyError}</div>
+                : fyData && (() => {
+                    const maxRev  = Math.max(...fyData.map(m => m.revenue), 1)
+                    const fyTotal = fyData.reduce((s, m) => s + m.revenue, 0)
+                    const firstYear = fyData[0]?.label ? new Date(fyData[0].label + ' 1 2000').getMonth() : null
+                    return (
+                      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '20px 24px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
+                          <div>
+                            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Financial Year Sales by Month</div>
+                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>May – April · Revenue ex-GST from Square</div>
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>FY Total</div>
+                            <div style={{ fontSize: 20, fontWeight: 800, color: '#7c3aed', fontFamily: 'IBM Plex Mono, monospace' }}>{fmt(fyTotal)}</div>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 200, paddingBottom: 24, paddingLeft: 48, position: 'relative' }}>
+                          {[0.25, 0.5, 0.75, 1].map(pct => (
+                            <div key={pct} style={{ position: 'absolute', left: 0, right: 0, bottom: 24 + pct * 160, pointerEvents: 'none' }}>
+                              <span style={{ fontSize: 9, color: '#94a3b8', position: 'absolute', left: 0, top: -6, whiteSpace: 'nowrap' }}>{fmt(maxRev * pct)}</span>
+                              <div style={{ position: 'absolute', left: 44, right: 0, borderTop: '1px dashed #e2e8f0' }} />
+                            </div>
+                          ))}
+                          {fyData.map(m => {
+                            const barH = Math.max(2, Math.round((m.revenue / maxRev) * 160))
+                            return (
+                              <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}
+                                title={`${m.label}: ${fmt(m.revenue)}${m.partial ? ' (partial month)' : ''}`}>
+                                <div style={{ fontSize: 8, color: '#7c3aed', fontWeight: 700, marginBottom: 2, opacity: m.revenue > 0 ? 1 : 0, whiteSpace: 'nowrap' }}>{fmt(m.revenue)}</div>
+                                <div style={{ width: '80%', height: barH, background: m.partial ? '#a78bfa' : '#7c3aed', borderRadius: '3px 3px 0 0', opacity: m.revenue === 0 ? 0.12 : 1 }} />
+                                <div style={{ fontSize: 9, color: m.partial ? '#7c3aed' : '#64748b', marginTop: 4, fontWeight: m.partial ? 700 : 400 }}>{m.label}{m.partial ? '*' : ''}</div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6 }}>* Current month (partial)</div>
+                        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
+                          <button onClick={() => { setFyData(null); loadFyChart() }}
+                            style={{ padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                            🔄 Refresh
+                          </button>
+                          <button onClick={() => onNav('trends')}
+                            style={{ padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                            📈 Quarterly Trends →
+                          </button>
+                        </div>
+                      </div>
+                    )
+                  })()
+          )}
+
+          <div style={{ marginTop: 14, fontSize: 10, color: '#cbd5e1', textAlign: 'center' }}>
+            Paynter Bar Hub · GemLife Palmwoods · {totalItems} items tracked
+          </div>
+        </div>
       </div>
     </div>
   )
 }
-
 
 // ─── BEST & WORST SELLERS VIEW ───────────────────────────────────────────────
 function BestSellersView({ items, salesData, loading, error, daysBack = 90 }) {
