@@ -2000,7 +2000,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           })() : '-'}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: p.badge, color: '#fff' }}>{item.priority}</span>
+                          <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{item.priority}</span>
                         </td>
 
                         <td style={styles.td}>
