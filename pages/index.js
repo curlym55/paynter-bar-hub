@@ -2537,6 +2537,16 @@ function WastageView({ items, log, readOnly, onRefresh }) {
               style={{ fontSize: 11, background: '#0e7490', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', color: '#fff', fontWeight: 600 }}>
               🖨️ Print Report
             </button>
+            {!readOnly && unsyncedCount > 0 && (
+              <button onClick={async () => {
+                  if (!confirm(`Mark all ${unsyncedCount} unsynced entr${unsyncedCount === 1 ? 'y' : 'ies'} as already synced to Square?\n\nUse this when entries have been manually re-entered and were previously synced.`)) return
+                  await fetch('/api/wastage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'markAllSynced' }) })
+                  await onRefresh()
+                }}
+                style={{ fontSize: 11, background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', fontWeight: 600 }}>
+                ✓ Mark All as Synced
+              </button>
+            )}
             {!readOnly && (
               <button onClick={() => { setShowSyncModal(true); loadSyncPreview() }}
                 style={{ fontSize: 11, background: unsyncedCount > 0 ? '#16a34a' : '#475569', border: 'none', borderRadius: 6, padding: '5px 12px', cursor: 'pointer', color: '#fff', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>

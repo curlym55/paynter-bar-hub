@@ -9,6 +9,22 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
+      // Bulk mark all unsynced entries as already synced (no Square API call)
+      if (req.body?.action === 'markAllSynced') {
+        const now = Date.now()
+        let count = 0
+        for (const entry of log) {
+          if (!entry.squareSynced) {
+            entry.squareSynced   = true
+            entry.squareSyncedAt = now
+            entry.conversionNote = 'Marked as previously synced'
+            count++
+          }
+        }
+        await kvSet('wastageLog', log)
+        return res.json({ ok: true, count })
+      }
+
       const { itemName, category, qty, unit, reason, note, recordedBy } = req.body
       if (!itemName || !qty || !reason) return res.status(400).json({ error: 'itemName, qty and reason required' })
       const entry = {
