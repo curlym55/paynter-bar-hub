@@ -1497,7 +1497,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
             ]},
             { label: 'Operations', icon: '🗑️', items: [
-              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage'&&!wastageLoaded) loadWastageLog() } },
+              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               { icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } },
               { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank') },
@@ -1596,7 +1596,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { label: '📊 Sales Report',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
               { label: '📈 Quarterly Trends',    action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
               { label: '🏆 Best & Worst Sellers',action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
-              { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage'&&!wastageLoaded) loadWastageLog() }, active: mainTab === 'wastage' },
+              { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
               { label: '📝 Notes',               action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' },
               { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
               { label: '👥 Roster',              action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank'), active: false },
@@ -2213,11 +2213,17 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   const [saving, setSaving]   = useState(false)
   const [filter, setFilter]   = useState('All')
   const [showForm, setShowForm] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
   const [dateFrom, setDateFrom] = useState('')
   const [dateTo, setDateTo]     = useState('')
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm]   = useState({})
 
+  async function refresh() {
+    setRefreshing(true)
+    await onRefresh()
+    setRefreshing(false)
+  }
   // Sync state
   const [showSyncModal, setShowSyncModal] = useState(false)
   const [syncPreview, setSyncPreview]     = useState(null)
@@ -2392,6 +2398,14 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
   return (
     <div className="view-wrap" style={{ padding: '16px', maxWidth: 960, margin: '0 auto' }}>
+
+      {/* Toolbar */}
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+        <button onClick={refresh} disabled={refreshing}
+          style={{ padding: '6px 14px', background: refreshing ? '#94a3b8' : '#f1f5f9', color: refreshing ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: refreshing ? 'not-allowed' : 'pointer' }}>
+          {refreshing ? 'Refreshing...' : '🔄 Refresh'}
+        </button>
+      </div>
 
       {/* Summary strip */}
       <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 20 }}>
