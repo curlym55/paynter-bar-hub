@@ -613,7 +613,7 @@ export default function Home() {
 
     const critItems  = items.filter(i => i.priority === 'CRITICAL')
     const lowItems   = items.filter(i => i.priority === 'LOW')
-    const orderItems = items.filter(i => i.orderQty > 0 && !/don'?t\s+order/i.test(i.notes || ''))
+    const orderItems = items.filter(i => i.orderQty > 0 && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || ''))
 
     let categorySections = ''
     for (const cat of sortedCats) {
@@ -1421,7 +1421,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     document.head.appendChild(script)
   }
 
-  const dontOrder = item => /don'?t\s+order/i.test(item.notes || '')
+  const dontOrder = item => /do\s*n'?t\s+order|do\s+not\s+order/i.test(item.notes || '')
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
@@ -1763,7 +1763,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                       {suppliers.map(s => (
                         <button key={s} style={styles.dropItem}
                           onClick={() => { printOrderSheet(s); setPrinting(null) }}>
-                          {s} ({items.filter(i => i.supplier === s && i.orderQty > 0 && !/don'?t\s+order/i.test(i.notes || '')).length} items)
+                          {s} ({items.filter(i => i.supplier === s && i.orderQty > 0 && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length} items)
                         </button>
                       ))}
                     </div>
@@ -2820,7 +2820,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   const onOrderCount = Object.keys(orderedItems).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
   const lowCount     = items.filter(i => i.priority === 'LOW').length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/don'?t\s+order/i.test(i.notes || '')).length
+  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length
   const totalItems   = items.length
 
   const now = new Date()
