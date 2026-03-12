@@ -67,6 +67,7 @@ export default function Home() {
   const [wastageLog, setWastageLog]     = useState([])
   const [notesLog, setNotesLog]         = useState([])
   const [notesLoaded, setNotesLoaded]   = useState(false)
+  const [fromCache, setFromCache]       = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': false, 'Sales & Analytics': false, 'Operations': false, 'Reports': false, 'Help': false })
@@ -121,8 +122,9 @@ export default function Home() {
     setError(null)
     try {
       const effectiveDays = days || daysBack
+      const refreshParam = showRefresh ? '&refresh=true' : ''
       const [r, ro] = await Promise.all([
-        fetch(`/api/items?days=${effectiveDays}`),
+        fetch(`/api/items?days=${effectiveDays}${refreshParam}`),
         fetch('/api/purchase-order')
       ])
       if (!r.ok) throw new Error((await r.json()).error || 'Failed to load')
@@ -130,6 +132,7 @@ export default function Home() {
       setItems(data.items.map(i => i.supplier === 'Dan Murphys' ? { ...i, supplier: 'Dan Murphy' } : i))
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
+      setFromCache(data.fromCache === true)
       if (ro.ok) {
         const od = await ro.json()
         setOrderedItems(od.ordered || {})
@@ -1580,7 +1583,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastUpdated && <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" }}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
-              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => loadItems(true)} disabled={refreshing}>{refreshing ? 'Refreshing...' : '🔄 Refresh'}</button>
+              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => loadItems(true)} disabled={refreshing}>{refreshing ? 'Refreshing...' : '🔄 Refresh from Square'}</button>
             </div>
           </div>
 
@@ -2149,6 +2152,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           <DashboardView
             items={items}
             lastUpdated={lastUpdated}
+            fromCache={fromCache}
             orderedItems={orderedItems}
             onNav={(tab) => {
               setMainTab(tab)
@@ -2779,7 +2783,7 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
+function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache = false }) {
   const [dashTab, setDashTab]   = useState('overview')
   const [fyData,  setFyData]    = useState(null)
   const [fyLoading, setFyLoading] = useState(false)
@@ -2859,7 +2863,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {} }) {
     { label: 'Low Stock', value: lowCount,     sub: 'running low',       color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
     { label: 'To Order',  value: orderCount,   sub: 'need ordering',     color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
     { label: 'On Order',  value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
-    { label: 'Refreshed', value: refreshedAgo, sub: 'Square data',       color: '#475569', bg: '#f8fafc', action: null },
+    { label: 'Refreshed', value: refreshedAgo, sub: fromCache ? '📦 cached data' : '✅ live from Square', color: fromCache ? '#d97706' : '#475569', bg: fromCache ? '#fffbeb' : '#f8fafc', action: null },
   ]
 
   const dashTabs = [
