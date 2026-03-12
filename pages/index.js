@@ -1425,8 +1425,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => !dontOrder(item))
-    .filter(item => !filterOrder || item.orderQty > 0)
+    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)))
 
   const onOrderCount = Object.keys(orderedItems).length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).length
@@ -1960,9 +1959,11 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', fontSize: 15 }}>
-                          {readOnly
-                            ? (item.isSpirit ? (item.nipsToOrder > 0 ? item.nipsToOrder : '-') : (item.orderQty > 0 ? item.orderQty : '-'))
-                            : (() => {
+                          {dontOrder(item)
+                            ? <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 400, fontStyle: 'italic' }}>Do not restock</span>
+                            : readOnly
+                              ? (item.isSpirit ? (item.nipsToOrder > 0 ? item.nipsToOrder : '-') : (item.orderQty > 0 ? item.orderQty : '-'))
+                              : (() => {
                                 const calcQty = item.isSpirit ? item.nipsToOrder : item.orderQty
                                 const override = orderQtyOverrides[item.name]
                                 const display = override !== undefined ? override : (calcQty > 0 ? calcQty : 0)
