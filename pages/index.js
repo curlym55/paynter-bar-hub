@@ -813,8 +813,8 @@ export default function Home() {
 
       const allRows = [...summaryRows, ...dataRows]
       const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 }]
-      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
+      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }]
+      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 32 } : { hpt: 20 })
       ws['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
         { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
@@ -1298,8 +1298,8 @@ export default function Home() {
 
       const allRows = [...summaryRows, ...dataRows]
       const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 36 }, { wch: 10 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 16 }, { wch: 18 }]
-      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
+      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }]
+      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 32 } : { hpt: 20 })
       ws['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
         { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
