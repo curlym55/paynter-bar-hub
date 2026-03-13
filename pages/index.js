@@ -832,7 +832,7 @@ export default function Home() {
       const zip = await window.JSZip.loadAsync(wbBuf)
       const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
       const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
-      const patchedXml = sheetXml.replace(/<sheetViews>.*?<\/sheetViews>/s, freezeXml)
+      const patchedXml = sheetXml.replace('<sheetViews><sheetView workbookViewId="0"/></sheetViews>', freezeXml)
       zip.file('xl/worksheets/sheet1.xml', patchedXml)
       const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
       const url = URL.createObjectURL(outBuf)
@@ -1317,7 +1317,7 @@ export default function Home() {
       const zip = await window.JSZip.loadAsync(wbBuf)
       const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
       const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
-      const patchedXml = sheetXml.replace(/<sheetViews>.*?<\/sheetViews>/s, freezeXml)
+      const patchedXml = sheetXml.replace('<sheetViews><sheetView workbookViewId="0"/></sheetViews>', freezeXml)
       zip.file('xl/worksheets/sheet1.xml', patchedXml)
       const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
       const url = URL.createObjectURL(outBuf)
