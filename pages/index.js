@@ -821,9 +821,9 @@ export default function Home() {
         { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
       ]
 
+      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9, topLeftCell: 'A10' }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9 }]
       XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
@@ -1293,9 +1293,9 @@ export default function Home() {
         { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
       ]
 
+      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9, topLeftCell: 'A10' }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9 }]
       XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
