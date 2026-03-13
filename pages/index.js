@@ -821,10 +821,23 @@ export default function Home() {
         { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
       ]
 
-      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9, topLeftCell: 'A10' }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
+      const wbBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+      // Inject freeze pane via JSZip since xlsx-js-style doesn't support !views
+      const jszipScript = document.createElement('script')
+      jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
+      document.head.appendChild(jszipScript)
+      await new Promise(r => { jszipScript.onload = r })
+      const zip = await window.JSZip.loadAsync(wbBuf)
+      const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
+      const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
+      const patchedXml = sheetXml.replace(/<sheetViews>.*?<\/sheetViews>/s, freezeXml)
+      zip.file('xl/worksheets/sheet1.xml', patchedXml)
+      const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+      const url = URL.createObjectURL(outBuf)
+      const a = document.createElement('a'); a.href = url; a.download = `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`; a.click()
+      URL.revokeObjectURL(url)
       return
     }
 
@@ -1293,10 +1306,23 @@ export default function Home() {
         { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
       ]
 
-      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9, topLeftCell: 'A10' }]
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
+      const wbBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
+      // Inject freeze pane via JSZip since xlsx-js-style doesn't support !views
+      const jszipScript = document.createElement('script')
+      jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
+      document.head.appendChild(jszipScript)
+      await new Promise(r => { jszipScript.onload = r })
+      const zip = await window.JSZip.loadAsync(wbBuf)
+      const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
+      const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
+      const patchedXml = sheetXml.replace(/<sheetViews>.*?<\/sheetViews>/s, freezeXml)
+      zip.file('xl/worksheets/sheet1.xml', patchedXml)
+      const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
+      const url = URL.createObjectURL(outBuf)
+      const a = document.createElement('a'); a.href = url; a.download = `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`; a.click()
+      URL.revokeObjectURL(url)
       return
     }
 
