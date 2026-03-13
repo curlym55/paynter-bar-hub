@@ -823,7 +823,7 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      ws['!freeze'] = { xSplit: 0, ySplit: 9 }
+      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9 }]
       XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
@@ -1295,7 +1295,7 @@ export default function Home() {
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      ws['!freeze'] = { xSplit: 0, ySplit: 9 }
+      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 9 }]
       XLSX.writeFile(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
@@ -1379,7 +1379,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         { wch: 16 }, // J Square On Hand
         { wch: 12 }, // K Difference
       ]
-      ws['!freeze'] = { xSplit: 0, ySplit: 1 }
+      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
 
       const range = window.XLSX.utils.decode_range(ws['!ref'])
 
