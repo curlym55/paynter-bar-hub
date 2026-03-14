@@ -285,12 +285,11 @@ export default function Home() {
   }
 
   async function loadWastageLog() {
-    try {
-      const r = await fetch('/api/wastage')
-      const data = await r.json()
-      setWastageLog(data.entries || [])
-      setWastageLoaded(true)
-    } catch(e) { console.error('Wastage load error', e) }
+    const r = await fetch('/api/wastage')
+    if (!r.ok) throw new Error(`Server error ${r.status}`)
+    const data = await r.json()
+    setWastageLog(data.entries || [])
+    setWastageLoaded(true)
   }
 
   async function loadSellersData() {
@@ -2223,6 +2222,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
 // ─── WASTAGE LOG VIEW ─────────────────────────────────────────────────────────
 function WastageView({ items, log, readOnly, onRefresh }) {
+  useEffect(() => { onRefresh().catch(() => {}) }, [])
   const REASONS = ['Breakage', 'Spoilage', 'Expired', 'Other']
   const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
   const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
@@ -2252,9 +2252,16 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm]   = useState({})
 
+  const [refreshError, setRefreshError] = useState(null)
+
   async function refresh() {
     setRefreshing(true)
-    await onRefresh()
+    setRefreshError(null)
+    try {
+      await onRefresh()
+    } catch(e) {
+      setRefreshError(e.message || 'Failed to load')
+    }
     setRefreshing(false)
   }
   // Sync state
@@ -2433,7 +2440,8 @@ function WastageView({ items, log, readOnly, onRefresh }) {
     <div className="view-wrap" style={{ padding: '16px', maxWidth: 960, margin: '0 auto' }}>
 
       {/* Toolbar */}
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 10 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 10, marginBottom: 10 }}>
+        {refreshError && <span style={{ fontSize: 11, color: '#dc2626' }}>⚠️ {refreshError}</span>}
         <button onClick={refresh} disabled={refreshing}
           style={{ padding: '6px 14px', background: refreshing ? '#94a3b8' : '#f1f5f9', color: refreshing ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, fontWeight: 600, cursor: refreshing ? 'not-allowed' : 'pointer' }}>
           {refreshing ? 'Refreshing...' : '🔄 Refresh'}
