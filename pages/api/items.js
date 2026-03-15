@@ -59,6 +59,7 @@ export default async function handler(req, res) {
         sellUnit:              settings.sellUnit || null,
         sellPriceBottle,
         bottleOnly:            settings.bottleOnly === true || settings.bottleOnly === 'yes',
+        orderQtyOverride:      settings.orderQtyOverride != null ? Number(settings.orderQtyOverride) : null,
       }
     })
 
