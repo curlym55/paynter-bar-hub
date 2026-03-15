@@ -117,7 +117,7 @@ export default function Home() {
   }
 
   const loadItems = useCallback(async (showRefresh = false, days = null) => {
-    if (showRefresh) { setRefreshing(true); setOrderQtyOverrides({}) }
+    if (showRefresh) { setRefreshing(true) }
     else setLoading(true)
     setError(null)
     try {
@@ -133,6 +133,14 @@ export default function Home() {
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)
       setFromCache(data.fromCache === true)
+      // Restore persisted order qty overrides from item settings
+      const overrides = {}
+      for (const item of data.items) {
+        if (item.orderQtyOverride != null && item.orderQtyOverride !== '') {
+          overrides[item.name] = Number(item.orderQtyOverride)
+        }
+      }
+      setOrderQtyOverrides(overrides)
       if (ro.ok) {
         const od = await ro.json()
         setOrderedItems(od.ordered || {})
@@ -247,12 +255,22 @@ export default function Home() {
         body: JSON.stringify({ action: 'receive', supplier })
       })
       const d = await r.json()
-      if (d.ok) setOrderedItems(d.ordered)
+      if (d.ok) {
+        setOrderedItems(d.ordered)
+        const supplierItems = items.filter(i => i.supplier === supplier)
+        setOrderQtyOverrides(prev => {
+          const next = { ...prev }
+          for (const item of supplierItems) delete next[item.name]
+          return next
+        })
+        for (const item of supplierItems) {
+          saveSetting(item.name, 'orderQtyOverride', null)
+        }
+      }
     } finally {
       setPoReceiving(null)
     }
   }
-
   function generatePoExcel(supplier, poItems) {
     const squareName = supplierVendorNames[supplier] || ''
     const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
@@ -2003,6 +2021,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                       onChange={e => {
                                         const v = parseInt(e.target.value) || 0
                                         setOrderQtyOverrides(prev => ({ ...prev, [item.name]: v }))
+                                        saveSetting(item.name, 'orderQtyOverride', v)
                                       }}
                                       style={{ width: 60, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 14,
                                         border: isEdited ? '1px solid #f59e0b' : '1px solid #e2e8f0',
@@ -2010,7 +2029,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                         color: isEdited ? '#92400e' : 'inherit' }}
                                     />
                                     {isEdited && (
-                                      <button onClick={() => setOrderQtyOverrides(prev => { const n = {...prev}; delete n[item.name]; return n })}
+                                      <button onClick={() => {
+                                        setOrderQtyOverrides(prev => { const n = {...prev}; delete n[item.name]; return n })
+                                        saveSetting(item.name, 'orderQtyOverride', null)
+                                      }}
                                         title="Reset to calculated" style={{ fontSize: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', padding: 0 }}>↺</button>
                                     )}
                                   </div>
