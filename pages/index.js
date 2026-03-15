@@ -1905,7 +1905,13 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         )}
                       </div>
                       <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
-                        {supplierItems.map(i => `${i.name} (${i.isSpirit ? `${i.orderQty} nips / ${i.bottlesToOrder} btl` : `${i.orderQty} units`})`).join(' · ')}
+                        {supplierItems.map(i => {
+                          const override = orderQtyOverrides[i.name]
+                          const nips = override !== undefined ? override : i.orderQty
+                          const btl = i.isSpirit && nips > 0 ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                          const edited = override !== undefined && override !== i.orderQty
+                          return `${i.name} (${i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`})${edited ? ' ✎' : ''}`
+                        }).join(' · ')}
                       </div>
                     </div>
                   ))}
