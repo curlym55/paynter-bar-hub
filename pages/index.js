@@ -3101,6 +3101,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                     <tbody>
                       {alertItems.map((item, i) => {
                         const isCrit = item.priority === 'CRITICAL'
+                        const isOnOrder = !!orderedItems[item.name]
                         return (
                           <tr key={item.name} style={{ borderBottom: '1px solid #f1f5f9', background: i % 2 === 0 ? '#fff' : '#fafafa' }}
                             onMouseEnter={e => e.currentTarget.style.background = '#f0f9ff'}
@@ -3108,12 +3109,17 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                             <td style={{ padding: '8px 12px', textAlign: 'center' }}>
                               <span style={{ fontSize: 10, fontWeight: 700, padding: '2px 7px', borderRadius: 4, background: isCrit ? '#fee2e2' : '#fef9c3', color: isCrit ? '#991b1b' : '#854d0e' }}>{isCrit ? 'CRITICAL' : 'LOW'}</span>
                             </td>
-                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>{item.name}</td>
+                            <td style={{ padding: '8px 12px', fontWeight: 600, color: '#0f172a' }}>
+                              {item.name}
+                              {isOnOrder && <span style={{ marginLeft: 8, fontSize: 10, fontWeight: 700, padding: '1px 6px', borderRadius: 4, background: '#dcfce7', color: '#16a34a' }}>🛒 On Order</span>}
+                            </td>
                             <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.category}</td>
                             <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.supplier || '—'}</td>
                             <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 700, color: isCrit ? '#dc2626' : '#d97706' }}>{item.onHand ?? '—'}</td>
                             <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#64748b' }}>{item.targetQty ?? '—'}</td>
-                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#2563eb', fontWeight: item.orderQty > 0 ? 700 : 400 }}>{item.orderQty > 0 ? item.orderQty : '—'}</td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: isOnOrder ? '#16a34a' : '#2563eb', fontWeight: item.orderQty > 0 ? 700 : 400 }}>
+                              {isOnOrder ? '✓ Ordered' : item.orderQty > 0 ? item.orderQty : '—'}
+                            </td>
                           </tr>
                         )
                       })}
