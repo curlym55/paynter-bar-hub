@@ -2948,7 +2948,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
     setWeatherLoading(true)
     try {
       // Palmwoods QLD: lat -26.70, lon 152.76
-      const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.70&longitude=152.76&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Australia%2FBrisbane&forecast_days=14'
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.70&longitude=152.76&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Australia%2FBrisbane&forecast_days=7'
       const r = await fetch(url)
       const d = await r.json()
       // Find next 3 trading days (Wed=3, Fri=5, Sun=0)
@@ -2960,7 +2960,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
         max: Math.round(d.daily.temperature_2m_max[i]),
         min: Math.round(d.daily.temperature_2m_min[i]),
         rain: d.daily.precipitation_probability_max[i],
-      })).filter(d => tradingDays.includes(d.dayOfWeek)).slice(0, 4)
+      }))
       setWeatherData(days)
     } catch(e) { setWeatherData([]) }
     finally { setWeatherLoading(false) }
@@ -3153,16 +3153,22 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                       const rainColor = r => r >= 70 ? '#dc2626' : r >= 40 ? '#d97706' : '#16a34a'
                       if (days.length === 0) return <div style={{ color: '#94a3b8', fontSize: 12 }}>Weather data unavailable</div>
                       return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
-                          {days.map(d => (
-                            <div key={d.date} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
-                              <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>{dayName(d)}</div>
-                              <div style={{ fontSize: 20, margin: '4px 0' }}>{(WMO[d.code] || '🌡️').split(' ')[0]}</div>
-                              <div style={{ fontSize: 11, color: '#475569' }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', marginTop: 2 }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 10 }}>/ {d.min}°</span></div>
-                              <div style={{ fontSize: 10, color: rainColor(d.rain), fontWeight: 600, marginTop: 4 }}>💧 {d.rain}% rain</div>
-                            </div>
-                          ))}
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                          {days.map(d => {
+                            const isTrading = tradingDays.includes(d.dayOfWeek)
+                            return (
+                              <div key={d.date} style={{ background: isTrading ? '#eff6ff' : '#f8fafc', border: `1px solid ${isTrading ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8, padding: '10px 12px' }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
+                                  <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>{dayName(d)}</div>
+                                  {isTrading && <span style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', background: '#dbeafe', padding: '1px 5px', borderRadius: 3 }}>BAR</span>}
+                                </div>
+                                <div style={{ fontSize: 20, margin: '4px 0' }}>{(WMO[d.code] || '🌡️').split(' ')[0]}</div>
+                                <div style={{ fontSize: 11, color: '#475569' }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', marginTop: 2 }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 10 }}>/ {d.min}°</span></div>
+                                <div style={{ fontSize: 10, color: rainColor(d.rain), fontWeight: 600, marginTop: 4 }}>💧 {d.rain}% rain</div>
+                              </div>
+                            )
+                          })}
                         </div>
                       )
                     })()
