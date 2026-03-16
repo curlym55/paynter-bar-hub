@@ -497,7 +497,12 @@ export default function Home() {
           .sort((a, b) => a.name === 'Glass' ? -1 : b.name === 'Glass' ? 1 : 0)
       }
       if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push({ label, price, variations, alcoholPct: (settings[item.name] || {}).alcoholPct || item.alcoholPct || '' })
+      const spiritCatsPrint = ['Spirits','Fortified & Liqueurs']
+      const wineCatsPrint = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+      const serveML = spiritCatsPrint.includes(item.category) ? (item.nipML || 30)
+                    : wineCatsPrint.includes(item.category) ? 150
+                    : 375
+      grouped[cat].push({ label, price, variations, alcoholPct: (settings[item.name] || {}).alcoholPct || item.alcoholPct || '', serveML })
     }
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
@@ -518,14 +523,18 @@ export default function Home() {
         <div class="card">
           <div class="cat-hdr">${cat}</div>
           <table>
-            ${grouped[cat].map(({ label, price, variations, alcoholPct }) => `
-              <tr>
-                <td class="nm">${label}${alcoholPct ? `<span class="alc">${alcoholPct}%</span>` : ''}</td>
-                <td class="pr">${variations
-                  ? `<table style="border-collapse:collapse;width:100%;line-height:1.3">${variations.map(v => `<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">${v.name}</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$${Number(v.price).toFixed(2)}</td></tr>`).join('')}</table>`
-                  : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
-                }</td>
-              </tr>`).join('')}
+            ${grouped[cat].map(({ label, price, variations, alcoholPct, serveML }) => {
+              const abv = parseFloat(alcoholPct)
+              const stdDrinksStr = abv && serveML ? (abv * serveML / 1000).toFixed(1) : ''
+              const priceCell = variations
+                ? '<table style="border-collapse:collapse;width:100%;line-height:1.3">' + variations.map(v => {
+                    const vML = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : serveML
+                    const vSd = abv && vML ? (abv * vML / 1000).toFixed(1) : ''
+                    return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#9ca3af">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
+                  }).join('') + '</table>'
+                : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
+              return '<tr><td class="nm">' + label + (alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
+            }).join('')}
           </table>
         </div>`).join('')
     }
@@ -571,6 +580,7 @@ export default function Home() {
   tr:nth-child(even) td { background: #f8fafc; }
   .nm { padding: 7px 14px; font-size: 15px; }
   .alc { font-size: 10px; color: #6b7280; font-weight: 400; margin-left: 6px; font-family: Arial; }
+  .sd  { font-size: 10px; color: #9ca3af; font-weight: 400; margin-left: 6px; font-family: Arial; }
   .pr {
     padding: 7px 14px; text-align: right;
     font-size: 16px; font-weight: 700;
@@ -2886,6 +2896,11 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   const [fyData,  setFyData]    = useState(null)
   const [fyLoading, setFyLoading] = useState(false)
   const [fyError,   setFyError]   = useState(null)
+  const [weatherData, setWeatherData] = useState(null)
+  const [weatherLoading, setWeatherLoading] = useState(false)
+  const [revenueTarget, setRevenueTarget] = useState(null)
+  const [editingTarget, setEditingTarget] = useState(false)
+  const [targetInput, setTargetInput] = useState('')
 
   const onOrderCount = Object.keys(orderedItems).length
   const critCount    = items.filter(i => i.priority === 'CRITICAL').length
@@ -2903,7 +2918,51 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
 
   useEffect(() => {
     if (dashTab === 'fy' && !fyData && !fyLoading) loadFyChart()
+    if (dashTab === 'weather' && !weatherData && !weatherLoading) loadWeather()
   }, [dashTab])
+
+  // Load revenue target from settings
+  useEffect(() => {
+    fetch('/api/settings').then(r => r.json()).then(d => {
+      const s = d.settings || d || {}
+      if (s.__revenueTarget) setRevenueTarget(Number(s.__revenueTarget))
+    }).catch(() => {})
+  }, [])
+
+  async function saveRevenueTarget(val) {
+    const v = parseFloat(val)
+    if (!isNaN(v) && v > 0) {
+      setRevenueTarget(v)
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ itemName: '__revenueTarget', field: '__revenueTarget', value: v, who: 'committee' })
+      })
+    }
+    setEditingTarget(false)
+  }
+
+  async function loadWeather() {
+    setWeatherLoading(true)
+    try {
+      // Palmwoods QLD: lat -26.70, lon 152.76
+      const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.70&longitude=152.76&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Australia%2FBrisbane&forecast_days=14'
+      const r = await fetch(url)
+      const d = await r.json()
+      // Find next 3 trading days (Wed=3, Fri=5, Sun=0)
+      const tradingDays = [0, 3, 5]
+      const days = d.daily.time.map((date, i) => ({
+        date,
+        dayOfWeek: new Date(date + 'T12:00:00').getDay(),
+        code: d.daily.weathercode[i],
+        max: Math.round(d.daily.temperature_2m_max[i]),
+        min: Math.round(d.daily.temperature_2m_min[i]),
+        rain: d.daily.precipitation_probability_max[i],
+      })).filter(d => tradingDays.includes(d.dayOfWeek)).slice(0, 4)
+      setWeatherData(days)
+    } catch(e) { setWeatherData([]) }
+    finally { setWeatherLoading(false) }
+  }
 
   async function loadFyChart() {
     setFyLoading(true); setFyError(null)
@@ -2968,6 +3027,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
     { id: 'overview', label: '🏠 Overview' },
     { id: 'alerts',   label: `⚠️ Stock Alerts${critCount + lowCount > 0 ? ` (${critCount + lowCount})` : ''}` },
     { id: 'fy',       label: '📊 FY Sales' },
+    { id: 'weather',  label: '🌤️ Trading Weather' },
   ]
 
   const fmt = v => '$' + Math.round(v).toLocaleString('en-AU')
@@ -3111,6 +3171,50 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                           })}
                         </div>
                         <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6 }}>* Current month (partial)</div>
+                        {/* Revenue target gauge */}
+                        <div style={{ marginTop: 16, background: '#f8fafc', borderRadius: 8, padding: '14px 16px', border: '1px solid #e2e8f0' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                            <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>FY Revenue Target</div>
+                            {!editingTarget
+                              ? <button onClick={() => { setTargetInput(revenueTarget || ''); setEditingTarget(true) }}
+                                  style={{ fontSize: 11, color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                                  ✎ {revenueTarget ? 'Edit' : 'Set target'}
+                                </button>
+                              : <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                                  <span style={{ fontSize: 11, color: '#64748b' }}>$</span>
+                                  <input type="number" value={targetInput} onChange={e => setTargetInput(e.target.value)}
+                                    style={{ width: 90, fontSize: 12, border: '1px solid #7c3aed', borderRadius: 4, padding: '3px 6px' }}
+                                    onKeyDown={e => e.key === 'Enter' && saveRevenueTarget(targetInput)}
+                                    autoFocus />
+                                  <button onClick={() => saveRevenueTarget(targetInput)}
+                                    style={{ fontSize: 11, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>Save</button>
+                                  <button onClick={() => setEditingTarget(false)}
+                                    style={{ fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                                </div>
+                            }
+                          </div>
+                          {revenueTarget
+                            ? (() => {
+                                const pct = Math.min(100, (fyTotal / revenueTarget) * 100)
+                                const remaining = revenueTarget - fyTotal
+                                const color = pct >= 100 ? '#16a34a' : pct >= 75 ? '#7c3aed' : pct >= 50 ? '#d97706' : '#dc2626'
+                                return (
+                                  <div>
+                                    <div style={{ background: '#e2e8f0', borderRadius: 99, height: 12, overflow: 'hidden', marginBottom: 8 }}>
+                                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 0.5s ease' }} />
+                                    </div>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
+                                      <span style={{ color, fontWeight: 700 }}>{pct.toFixed(1)}% of {fmt(revenueTarget)}</span>
+                                      <span style={{ color: remaining > 0 ? '#64748b' : '#16a34a', fontWeight: 600 }}>
+                                        {remaining > 0 ? `${fmt(remaining)} to go` : `🎉 Target exceeded by ${fmt(-remaining)}`}
+                                      </span>
+                                    </div>
+                                  </div>
+                                )
+                              })()
+                            : <div style={{ fontSize: 11, color: '#94a3b8' }}>Set a FY revenue target to track progress</div>
+                          }
+                        </div>
                         <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
                           <button onClick={() => { setFyData(null); loadFyChart() }}
                             style={{ padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
@@ -3124,6 +3228,44 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                       </div>
                     )
                   })()
+          )}
+
+          {/* Weather tab */}
+          {dashTab === 'weather' && (
+            weatherLoading
+              ? <div style={{ textAlign: 'center', padding: 48, color: '#64748b' }}>
+                  <div style={{ ...styles.spinner, margin: '0 auto 16px' }} />
+                  Loading weather...
+                </div>
+              : (() => {
+                  const WMO = { 0:'☀️ Clear', 1:'🌤️ Mostly Clear', 2:'⛅ Partly Cloudy', 3:'☁️ Overcast', 45:'🌫️ Foggy', 48:'🌫️ Icy Fog', 51:'🌦️ Light Drizzle', 53:'🌦️ Drizzle', 55:'🌧️ Heavy Drizzle', 61:'🌧️ Light Rain', 63:'🌧️ Rain', 65:'🌧️ Heavy Rain', 80:'🌦️ Showers', 81:'🌧️ Showers', 82:'⛈️ Heavy Showers', 95:'⛈️ Thunderstorm', 96:'⛈️ Thunderstorm', 99:'⛈️ Thunderstorm' }
+                  const dayName = d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
+                  const days = weatherData || []
+                  const rainColor = r => r >= 70 ? '#dc2626' : r >= 40 ? '#d97706' : '#16a34a'
+                  return (
+                    <div>
+                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>Next trading days — Palmwoods QLD · Open-Meteo forecast</div>
+                      {days.length === 0
+                        ? <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Weather data unavailable</div>
+                        : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
+                            {days.map(d => (
+                              <div key={d.date} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{dayName(d)}</div>
+                                <div style={{ fontSize: 22, marginBottom: 6 }}>{(WMO[d.code] || '🌡️ Unknown').split(' ')[0]}</div>
+                                <div style={{ fontSize: 12, color: '#475569', marginBottom: 2 }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
+                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 11 }}>/ {d.min}°</span></div>
+                                <div style={{ marginTop: 6, fontSize: 11, color: rainColor(d.rain), fontWeight: 600 }}>💧 {d.rain}% rain chance</div>
+                              </div>
+                            ))}
+                          </div>
+                      }
+                      <button onClick={() => { setWeatherData(null); loadWeather() }}
+                        style={{ marginTop: 12, padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
+                        🔄 Refresh
+                      </button>
+                    </div>
+                  )
+                })()
           )}
 
           <div style={{ marginTop: 14, fontSize: 10, color: '#cbd5e1', textAlign: 'center' }}>
@@ -3378,6 +3520,7 @@ function isHidden(item) {
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Item</th>
                   <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Alc%</th>
+                  <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Std Drinks</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Price</th>
 
                 </tr>
@@ -3408,6 +3551,33 @@ function isHidden(item) {
                         }
                       </td>
 
+                      {/* Standard drinks */}
+                      <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                        {(() => {
+                          const abv = parseFloat(item.alcoholPct)
+                          if (!abv) return <span style={{ fontSize: 12, color: '#cbd5e1' }}>—</span>
+                          const spiritCats = ['Spirits','Fortified & Liqueurs']
+                          const wineCats = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+                          const vars = getVariations(item)
+                          if (vars) {
+                            return (
+                              <table style={{ borderCollapse: 'collapse', margin: '0 auto' }}>
+                                {vars.map(v => {
+                                  const ml = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : null
+                                  const sd = ml ? ((ml * abv) / 1000).toFixed(1) : null
+                                  return <tr key={v.name}><td style={{ fontSize: 11, color: '#64748b', textAlign: 'center', padding: '1px 0' }}>{sd ?? '—'}</td></tr>
+                                })}
+                              </table>
+                            )
+                          }
+                          let ml = null
+                          if (spiritCats.includes(item.category)) ml = item.nipML || 30
+                          else if (wineCats.includes(item.category)) ml = 150
+                          else ml = 375  // beer/cider default
+                          const sd = ((ml * abv) / 1000).toFixed(1)
+                          return <span style={{ fontSize: 12, color: '#0f172a', fontFamily: 'monospace' }}>{sd}</span>
+                        })()}
+                      </td>
 
                       {/* Price — from Square only */}
                       <td style={{ padding: '7px 14px', textAlign: 'right' }}>
