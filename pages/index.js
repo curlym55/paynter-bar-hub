@@ -2966,38 +2966,14 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
     finally { setWeatherLoading(false) }
   }
 
-  async function loadFyChart() {
+  async function loadFyChart(forceRefresh = false) {
     setFyLoading(true); setFyError(null)
-    const now = new Date()
-    const fyStartYear = now.getMonth() >= 4 ? now.getFullYear() : now.getFullYear() - 1
-    const months = []
-    for (let m = 0; m < 12; m++) {
-      const jsMonth = (4 + m) % 12
-      const year    = jsMonth < 4 ? fyStartYear + 1 : fyStartYear
-      const start   = new Date(year, jsMonth, 1)
-      if (start > now) break
-      const rawEnd = new Date(year, jsMonth + 1, 0, 23, 59, 59, 999)
-      const end = rawEnd > now ? new Date(now) : rawEnd
-      months.push({ jsMonth, year, start, end, partial: rawEnd > now })
-    }
     try {
-      const results = []
-      for (const { jsMonth, year, start, end, partial } of months) {
-        const params = new URLSearchParams({
-          start:        start.toISOString(),
-          end:          end.toISOString(),
-          compareStart: new Date(0).toISOString(),
-          compareEnd:   new Date(0).toISOString(),
-        })
-        const r = await fetch(`/api/sales?${params}`)
-        const d = r.ok ? await r.json() : null
-        results.push({
-          label:   start.toLocaleDateString('en-AU', { month: 'short' }),
-          revenue: d?.totals?.revenue || 0,
-          partial,
-        })
-      }
-      setFyData(results)
+      const url = forceRefresh ? '/api/fy-chart?refresh=true' : '/api/fy-chart'
+      const r = await fetch(url)
+      if (!r.ok) throw new Error('Failed to load FY chart')
+      const d = await r.json()
+      setFyData(d.months || [])
     } catch(e) { setFyError(e.message) }
     finally { setFyLoading(false) }
   }
@@ -3092,7 +3068,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                   <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>📊 FY Sales</div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     {fyData && <div style={{ fontSize: 18, fontWeight: 800, color: '#7c3aed', fontFamily: 'IBM Plex Mono, monospace' }}>{fmt(fyData.reduce((s, m) => s + m.revenue, 0))}</div>}
-                    <button onClick={() => { setFyData(null); loadFyChart() }}
+                    <button onClick={() => { setFyData(null); loadFyChart(true) }}
                       style={{ padding: '3px 10px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>🔄</button>
                   </div>
                 </div>
