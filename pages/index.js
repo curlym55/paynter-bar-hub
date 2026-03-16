@@ -2903,6 +2903,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   const [targetInput, setTargetInput] = useState('')
 
   const onOrderCount = Object.keys(orderedItems).length
+  const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order/i
   const critCount    = items.filter(i => i.priority === 'CRITICAL' && !dontOrderRe.test(i.notes || '')).length
   const lowCount     = items.filter(i => i.priority === 'LOW'      && !dontOrderRe.test(i.notes || '')).length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length
@@ -3011,7 +3012,6 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
     { icon: '❓', label: 'Help & Guide',         desc: 'Full documentation for all features',             tab: 'help',       color: '#475569' },
   ]
 
-  const dontOrderRe = /do\s*n'?t\s+order|do\s+not\s+order/i
   const alertItems = items
     .filter(i => (i.priority === 'CRITICAL' || i.priority === 'LOW') && !dontOrderRe.test(i.notes || ''))
     .sort((a, b) => (a.priority === 'CRITICAL' ? 0 : 1) - (b.priority === 'CRITICAL' ? 0 : 1) || (a.onHand ?? 999) - (b.onHand ?? 999))
