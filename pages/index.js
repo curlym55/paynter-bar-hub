@@ -2917,10 +2917,11 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
     return `${Math.floor(mins/60)}h ${mins%60}m ago`
   })() : 'Not yet refreshed'
 
+  // Auto-load FY chart and weather on mount
   useEffect(() => {
-    if (dashTab === 'fy' && !fyData && !fyLoading) loadFyChart()
-    if (dashTab === 'weather' && !weatherData && !weatherLoading) loadWeather()
-  }, [dashTab])
+    if (!fyData && !fyLoading) loadFyChart()
+    if (!weatherData && !weatherLoading) loadWeather()
+  }, [])
 
   // Load revenue target from settings
   useEffect(() => {
@@ -3027,8 +3028,6 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   const dashTabs = [
     { id: 'overview', label: '🏠 Overview' },
     { id: 'alerts',   label: `⚠️ Stock Alerts${critCount + lowCount > 0 ? ` (${critCount + lowCount})` : ''}` },
-    { id: 'fy',       label: '📊 FY Sales' },
-    { id: 'weather',  label: '🌤️ Trading Weather' },
   ]
 
   const fmt = v => '$' + Math.round(v).toLocaleString('en-AU')
@@ -3066,22 +3065,134 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
             ))}
           </div>
 
-          {/* Overview tab */}
+          {/* Overview tab — feature grid + FY chart + weather */}
           {dashTab === 'overview' && (
-            <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-              {features.map(f => (
-                <div key={f.tab}
-                  onClick={() => f.external ? window.open('https://paynter-bar-roster.vercel.app/', '_blank') : onNav(f.tab)}
-                  style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                  onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
-                  onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
-                  <div style={{ width: 36, height: 36, borderRadius: 8, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
-                  <div style={{ minWidth: 0 }}>
-                    <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}{f.external ? ' ↗' : ''}</div>
-                    <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+
+              {/* Feature grid */}
+              <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
+                {features.map(f => (
+                  <div key={f.tab}
+                    onClick={() => f.external ? window.open('https://paynter-bar-roster.vercel.app/', '_blank') : onNav(f.tab)}
+                    style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
+                    onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
+                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
+                    <div style={{ width: 36, height: 36, borderRadius: 8, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}{f.external ? ' ↗' : ''}</div>
+                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* FY Sales chart + revenue target */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>📊 FY Sales</div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    {fyData && <div style={{ fontSize: 18, fontWeight: 800, color: '#7c3aed', fontFamily: 'IBM Plex Mono, monospace' }}>{fmt(fyData.reduce((s, m) => s + m.revenue, 0))}</div>}
+                    <button onClick={() => { setFyData(null); loadFyChart() }}
+                      style={{ padding: '3px 10px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>🔄</button>
                   </div>
                 </div>
-              ))}
+                {fyLoading
+                  ? <div style={{ textAlign: 'center', padding: 24, color: '#94a3b8', fontSize: 12 }}>Loading sales...</div>
+                  : fyError
+                    ? <div style={{ color: '#dc2626', fontSize: 12 }}>⚠️ {fyError}</div>
+                    : fyData && (() => {
+                        const maxRev = Math.max(...fyData.map(m => m.revenue), 1)
+                        const fyTotal = fyData.reduce((s, m) => s + m.revenue, 0)
+                        return (
+                          <div>
+                            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 4, height: 120, paddingBottom: 20, paddingLeft: 40, position: 'relative' }}>
+                              {[0.5, 1].map(pct => (
+                                <div key={pct} style={{ position: 'absolute', left: 0, right: 0, bottom: 20 + pct * 94, pointerEvents: 'none' }}>
+                                  <span style={{ fontSize: 8, color: '#94a3b8', position: 'absolute', left: 0, top: -5, whiteSpace: 'nowrap' }}>{fmt(maxRev * pct)}</span>
+                                  <div style={{ position: 'absolute', left: 36, right: 0, borderTop: '1px dashed #f1f5f9' }} />
+                                </div>
+                              ))}
+                              {fyData.map(m => {
+                                const barH = Math.max(2, Math.round((m.revenue / maxRev) * 94))
+                                return (
+                                  <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}
+                                    title={`${m.label}: ${fmt(m.revenue)}${m.partial ? ' (partial)' : ''}`}>
+                                    <div style={{ width: '80%', height: barH, background: m.partial ? '#a78bfa' : '#7c3aed', borderRadius: '2px 2px 0 0', opacity: m.revenue === 0 ? 0.1 : 1 }} />
+                                    <div style={{ fontSize: 8, color: m.partial ? '#7c3aed' : '#94a3b8', marginTop: 3 }}>{m.label}{m.partial ? '*' : ''}</div>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                            {revenueTarget && (() => {
+                              const pct = Math.min(100, (fyTotal / revenueTarget) * 100)
+                              const remaining = revenueTarget - fyTotal
+                              const color = pct >= 100 ? '#16a34a' : pct >= 75 ? '#7c3aed' : pct >= 50 ? '#d97706' : '#dc2626'
+                              return (
+                                <div style={{ marginTop: 8 }}>
+                                  <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
+                                    <span style={{ color, fontWeight: 700 }}>Target: {pct.toFixed(1)}% of {fmt(revenueTarget)}</span>
+                                    <span style={{ color: remaining > 0 ? '#64748b' : '#16a34a' }}>{remaining > 0 ? `${fmt(remaining)} to go` : `🎉 Exceeded by ${fmt(-remaining)}`}</span>
+                                  </div>
+                                  <div style={{ background: '#e2e8f0', borderRadius: 99, height: 8, overflow: 'hidden' }}>
+                                    <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99 }} />
+                                  </div>
+                                </div>
+                              )
+                            })()}
+                            {!revenueTarget && !editingTarget && (
+                              <button onClick={() => { setTargetInput(''); setEditingTarget(true) }}
+                                style={{ marginTop: 6, fontSize: 10, color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer' }}>✎ Set revenue target</button>
+                            )}
+                            {editingTarget && (
+                              <div style={{ display: 'flex', gap: 6, alignItems: 'center', marginTop: 6 }}>
+                                <span style={{ fontSize: 11, color: '#64748b' }}>$</span>
+                                <input type="number" value={targetInput} onChange={e => setTargetInput(e.target.value)}
+                                  style={{ width: 80, fontSize: 11, border: '1px solid #7c3aed', borderRadius: 4, padding: '2px 6px' }}
+                                  onKeyDown={e => e.key === 'Enter' && saveRevenueTarget(targetInput)} autoFocus />
+                                <button onClick={() => saveRevenueTarget(targetInput)}
+                                  style={{ fontSize: 10, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, padding: '2px 8px', cursor: 'pointer' }}>Save</button>
+                                <button onClick={() => setEditingTarget(false)}
+                                  style={{ fontSize: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()
+                }
+              </div>
+
+              {/* Weather */}
+              <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>🌤️ Trading Weather</div>
+                  <button onClick={() => { setWeatherData(null); loadWeather() }}
+                    style={{ padding: '3px 10px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 10, cursor: 'pointer' }}>🔄</button>
+                </div>
+                {weatherLoading
+                  ? <div style={{ color: '#94a3b8', fontSize: 12 }}>Loading weather...</div>
+                  : (() => {
+                      const WMO = { 0:'☀️ Clear', 1:'🌤️ Mostly Clear', 2:'⛅ Partly Cloudy', 3:'☁️ Overcast', 45:'🌫️ Foggy', 48:'🌫️ Icy Fog', 51:'🌦️ Light Drizzle', 53:'🌦️ Drizzle', 55:'🌧️ Heavy Drizzle', 61:'🌧️ Light Rain', 63:'🌧️ Rain', 65:'🌧️ Heavy Rain', 80:'🌦️ Showers', 81:'🌧️ Showers', 82:'⛈️ Heavy Showers', 95:'⛈️ Thunderstorm', 96:'⛈️ Thunderstorm', 99:'⛈️ Thunderstorm' }
+                      const dayName = d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short', day: 'numeric', month: 'short' })
+                      const days = weatherData || []
+                      const rainColor = r => r >= 70 ? '#dc2626' : r >= 40 ? '#d97706' : '#16a34a'
+                      if (days.length === 0) return <div style={{ color: '#94a3b8', fontSize: 12 }}>Weather data unavailable</div>
+                      return (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 8 }}>
+                          {days.map(d => (
+                            <div key={d.date} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 12px' }}>
+                              <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 2 }}>{dayName(d)}</div>
+                              <div style={{ fontSize: 20, margin: '4px 0' }}>{(WMO[d.code] || '🌡️').split(' ')[0]}</div>
+                              <div style={{ fontSize: 11, color: '#475569' }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', marginTop: 2 }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 10 }}>/ {d.min}°</span></div>
+                              <div style={{ fontSize: 10, color: rainColor(d.rain), fontWeight: 600, marginTop: 4 }}>💧 {d.rain}% rain</div>
+                            </div>
+                          ))}
+                        </div>
+                      )
+                    })()
+                }
+              </div>
+
             </div>
           )}
 
@@ -3133,147 +3244,6 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                 </div>
           )}
 
-          {/* FY Sales chart tab */}
-          {dashTab === 'fy' && (
-            fyLoading
-              ? <div style={{ textAlign: 'center', padding: 64, color: '#64748b' }}>
-                  <div style={{ ...styles.spinner, margin: '0 auto 16px' }} />
-                  Loading FY sales from Square...
-                </div>
-              : fyError
-                ? <div style={{ textAlign: 'center', padding: 48, color: '#dc2626', fontSize: 13 }}>⚠️ {fyError}</div>
-                : fyData && (() => {
-                    const maxRev  = Math.max(...fyData.map(m => m.revenue), 1)
-                    const fyTotal = fyData.reduce((s, m) => s + m.revenue, 0)
-                    const firstYear = fyData[0]?.label ? new Date(fyData[0].label + ' 1 2000').getMonth() : null
-                    return (
-                      <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '20px 24px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 20 }}>
-                          <div>
-                            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Financial Year Sales by Month</div>
-                            <div style={{ fontSize: 11, color: '#64748b', marginTop: 2 }}>May – April · Revenue ex-GST from Square</div>
-                          </div>
-                          <div style={{ textAlign: 'right' }}>
-                            <div style={{ fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.06em' }}>FY Total</div>
-                            <div style={{ fontSize: 20, fontWeight: 800, color: '#7c3aed', fontFamily: 'IBM Plex Mono, monospace' }}>{fmt(fyTotal)}</div>
-                          </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 6, height: 200, paddingBottom: 24, paddingLeft: 48, position: 'relative' }}>
-                          {[0.25, 0.5, 0.75, 1].map(pct => (
-                            <div key={pct} style={{ position: 'absolute', left: 0, right: 0, bottom: 24 + pct * 160, pointerEvents: 'none' }}>
-                              <span style={{ fontSize: 9, color: '#94a3b8', position: 'absolute', left: 0, top: -6, whiteSpace: 'nowrap' }}>{fmt(maxRev * pct)}</span>
-                              <div style={{ position: 'absolute', left: 44, right: 0, borderTop: '1px dashed #e2e8f0' }} />
-                            </div>
-                          ))}
-                          {fyData.map(m => {
-                            const barH = Math.max(2, Math.round((m.revenue / maxRev) * 160))
-                            return (
-                              <div key={m.label} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', height: '100%' }}
-                                title={`${m.label}: ${fmt(m.revenue)}${m.partial ? ' (partial month)' : ''}`}>
-                                <div style={{ fontSize: 8, color: '#7c3aed', fontWeight: 700, marginBottom: 2, opacity: m.revenue > 0 ? 1 : 0, whiteSpace: 'nowrap' }}>{fmt(m.revenue)}</div>
-                                <div style={{ width: '80%', height: barH, background: m.partial ? '#a78bfa' : '#7c3aed', borderRadius: '3px 3px 0 0', opacity: m.revenue === 0 ? 0.12 : 1 }} />
-                                <div style={{ fontSize: 9, color: m.partial ? '#7c3aed' : '#64748b', marginTop: 4, fontWeight: m.partial ? 700 : 400 }}>{m.label}{m.partial ? '*' : ''}</div>
-                              </div>
-                            )
-                          })}
-                        </div>
-                        <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 6 }}>* Current month (partial)</div>
-                        {/* Revenue target gauge */}
-                        <div style={{ marginTop: 16, background: '#f8fafc', borderRadius: 8, padding: '14px 16px', border: '1px solid #e2e8f0' }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                            <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a' }}>FY Revenue Target</div>
-                            {!editingTarget
-                              ? <button onClick={() => { setTargetInput(revenueTarget || ''); setEditingTarget(true) }}
-                                  style={{ fontSize: 11, color: '#7c3aed', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
-                                  ✎ {revenueTarget ? 'Edit' : 'Set target'}
-                                </button>
-                              : <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                                  <span style={{ fontSize: 11, color: '#64748b' }}>$</span>
-                                  <input type="number" value={targetInput} onChange={e => setTargetInput(e.target.value)}
-                                    style={{ width: 90, fontSize: 12, border: '1px solid #7c3aed', borderRadius: 4, padding: '3px 6px' }}
-                                    onKeyDown={e => e.key === 'Enter' && saveRevenueTarget(targetInput)}
-                                    autoFocus />
-                                  <button onClick={() => saveRevenueTarget(targetInput)}
-                                    style={{ fontSize: 11, background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 4, padding: '3px 10px', cursor: 'pointer' }}>Save</button>
-                                  <button onClick={() => setEditingTarget(false)}
-                                    style={{ fontSize: 11, background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-                                </div>
-                            }
-                          </div>
-                          {revenueTarget
-                            ? (() => {
-                                const pct = Math.min(100, (fyTotal / revenueTarget) * 100)
-                                const remaining = revenueTarget - fyTotal
-                                const color = pct >= 100 ? '#16a34a' : pct >= 75 ? '#7c3aed' : pct >= 50 ? '#d97706' : '#dc2626'
-                                return (
-                                  <div>
-                                    <div style={{ background: '#e2e8f0', borderRadius: 99, height: 12, overflow: 'hidden', marginBottom: 8 }}>
-                                      <div style={{ height: '100%', width: `${pct}%`, background: color, borderRadius: 99, transition: 'width 0.5s ease' }} />
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11 }}>
-                                      <span style={{ color, fontWeight: 700 }}>{pct.toFixed(1)}% of {fmt(revenueTarget)}</span>
-                                      <span style={{ color: remaining > 0 ? '#64748b' : '#16a34a', fontWeight: 600 }}>
-                                        {remaining > 0 ? `${fmt(remaining)} to go` : `🎉 Target exceeded by ${fmt(-remaining)}`}
-                                      </span>
-                                    </div>
-                                  </div>
-                                )
-                              })()
-                            : <div style={{ fontSize: 11, color: '#94a3b8' }}>Set a FY revenue target to track progress</div>
-                          }
-                        </div>
-                        <div style={{ marginTop: 10, display: 'flex', gap: 8 }}>
-                          <button onClick={() => { setFyData(null); loadFyChart() }}
-                            style={{ padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
-                            🔄 Refresh
-                          </button>
-                          <button onClick={() => onNav('trends')}
-                            style={{ padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
-                            📈 Quarterly Trends →
-                          </button>
-                        </div>
-                      </div>
-                    )
-                  })()
-          )}
-
-          {/* Weather tab */}
-          {dashTab === 'weather' && (
-            weatherLoading
-              ? <div style={{ textAlign: 'center', padding: 48, color: '#64748b' }}>
-                  <div style={{ ...styles.spinner, margin: '0 auto 16px' }} />
-                  Loading weather...
-                </div>
-              : (() => {
-                  const WMO = { 0:'☀️ Clear', 1:'🌤️ Mostly Clear', 2:'⛅ Partly Cloudy', 3:'☁️ Overcast', 45:'🌫️ Foggy', 48:'🌫️ Icy Fog', 51:'🌦️ Light Drizzle', 53:'🌦️ Drizzle', 55:'🌧️ Heavy Drizzle', 61:'🌧️ Light Rain', 63:'🌧️ Rain', 65:'🌧️ Heavy Rain', 80:'🌦️ Showers', 81:'🌧️ Showers', 82:'⛈️ Heavy Showers', 95:'⛈️ Thunderstorm', 96:'⛈️ Thunderstorm', 99:'⛈️ Thunderstorm' }
-                  const dayName = d => new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'short' })
-                  const days = weatherData || []
-                  const rainColor = r => r >= 70 ? '#dc2626' : r >= 40 ? '#d97706' : '#16a34a'
-                  return (
-                    <div>
-                      <div style={{ fontSize: 11, color: '#64748b', marginBottom: 12 }}>Next trading days — Palmwoods QLD · Open-Meteo forecast</div>
-                      {days.length === 0
-                        ? <div style={{ textAlign: 'center', padding: 32, color: '#94a3b8' }}>Weather data unavailable</div>
-                        : <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 10 }}>
-                            {days.map(d => (
-                              <div key={d.date} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '14px 16px' }}>
-                                <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a', marginBottom: 4 }}>{dayName(d)}</div>
-                                <div style={{ fontSize: 22, marginBottom: 6 }}>{(WMO[d.code] || '🌡️ Unknown').split(' ')[0]}</div>
-                                <div style={{ fontSize: 12, color: '#475569', marginBottom: 2 }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
-                                <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 11 }}>/ {d.min}°</span></div>
-                                <div style={{ marginTop: 6, fontSize: 11, color: rainColor(d.rain), fontWeight: 600 }}>💧 {d.rain}% rain chance</div>
-                              </div>
-                            ))}
-                          </div>
-                      }
-                      <button onClick={() => { setWeatherData(null); loadWeather() }}
-                        style={{ marginTop: 12, padding: '5px 12px', background: '#f1f5f9', color: '#475569', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer' }}>
-                        🔄 Refresh
-                      </button>
-                    </div>
-                  )
-                })()
-          )}
 
           <div style={{ marginTop: 14, fontSize: 10, color: '#cbd5e1', textAlign: 'center' }}>
             Paynter Bar Hub · GemLife Palmwoods · {totalItems} items tracked
