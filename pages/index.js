@@ -434,7 +434,10 @@ export default function Home() {
   }
 
   // ── GENERATE AGM ANNUAL REPORT PDF ────────────────────────────────────────
-  async function savePriceListSetting(itemName, field, value) {
+  async function savePriceListSetting(itemName, field, value, useItemSettings = false) {
+    if (useItemSettings) {
+      return saveSetting(itemName, field, value)
+    }
     const key = `${itemName}_${field}`
     setPlSaving(s => ({ ...s, [key]: true }))
     try {
@@ -494,7 +497,7 @@ export default function Home() {
           .sort((a, b) => a.name === 'Glass' ? -1 : b.name === 'Glass' ? 1 : 0)
       }
       if (!grouped[cat]) grouped[cat] = []
-      grouped[cat].push({ label, price, variations })
+      grouped[cat].push({ label, price, variations, alcoholPct: (settings[item.name] || {}).alcoholPct || item.alcoholPct || '' })
     }
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
@@ -515,9 +518,9 @@ export default function Home() {
         <div class="card">
           <div class="cat-hdr">${cat}</div>
           <table>
-            ${grouped[cat].map(({ label, price, variations }) => `
+            ${grouped[cat].map(({ label, price, variations, alcoholPct }) => `
               <tr>
-                <td class="nm">${label}</td>
+                <td class="nm">${label}${alcoholPct ? `<span class="alc">${alcoholPct}%</span>` : ''}</td>
                 <td class="pr">${variations
                   ? `<table style="border-collapse:collapse;width:100%;line-height:1.3">${variations.map(v => `<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">${v.name}</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$${Number(v.price).toFixed(2)}</td></tr>`).join('')}</table>`
                   : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
@@ -567,6 +570,7 @@ export default function Home() {
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
   .nm { padding: 7px 14px; font-size: 15px; }
+  .alc { font-size: 10px; color: #6b7280; font-weight: 400; margin-left: 6px; font-family: Arial; }
   .pr {
     padding: 7px 14px; text-align: right;
     font-size: 16px; font-weight: 700;
@@ -3373,6 +3377,7 @@ function isHidden(item) {
               <thead>
                 <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
                   <th style={{ padding: '7px 14px', textAlign: 'left', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Item</th>
+                  <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Alc%</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Price</th>
 
                 </tr>
@@ -3388,6 +3393,19 @@ function isHidden(item) {
                       {/* Display name */}
                       <td style={{ padding: '7px 14px', fontSize: 13, color: '#0f172a' }}>
                         {item.name}
+                      </td>
+
+                      {/* Alc% — editable inline */}
+                      <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                        {readOnly
+                          ? <span style={{ fontSize: 12, color: '#64748b' }}>{item.alcoholPct ? `${item.alcoholPct}%` : '—'}</span>
+                          : <input
+                              type="text" placeholder="—"
+                              value={(settings[item.name] || {}).alcoholPct ?? item.alcoholPct ?? ''}
+                              onChange={e => onSave(item.name, 'alcoholPct', e.target.value, true)}
+                              style={{ width: 52, textAlign: 'center', fontSize: 12, border: '1px solid #e2e8f0', borderRadius: 4, padding: '3px 6px', fontFamily: 'monospace', background: '#f8fafc' }}
+                            />
+                        }
                       </td>
 
 
