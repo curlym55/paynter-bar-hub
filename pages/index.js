@@ -2927,7 +2927,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(d => {
       const s = d.settings || d || {}
-      if (s.__revenueTarget) setRevenueTarget(Number(s.__revenueTarget))
+      if (d.revenueTarget) setRevenueTarget(Number(d.revenueTarget))
     }).catch(() => {})
   }, [])
 
@@ -2938,7 +2938,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName: '__revenueTarget', field: '__revenueTarget', value: v, who: 'committee' })
+        body: JSON.stringify({ itemName: '__revenueTarget', field: 'revenueTarget', value: v, who: 'committee' })
       })
     }
     setEditingTarget(false)

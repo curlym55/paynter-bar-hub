@@ -19,7 +19,8 @@ export default async function handler(req, res) {
       }
 
       const settings     = (await kvGet('itemSettings')) || {}
-      const targetWeeks  = (await kvGet('targetWeeks'))  || 6
+      const targetWeeks     = (await kvGet('targetWeeks'))     || 6
+      const revenueTarget   = (await kvGet('revenueTarget'))   || null
       const suppliers          = (await kvGet('suppliers'))          || ['Dan Murphy', 'Coles Woolies', 'ACW']
       const supplierVendorNames = (await kvGet('supplierVendorNames')) || {}
 
@@ -31,7 +32,7 @@ export default async function handler(req, res) {
       if (migrated) await kvSet('itemSettings', settings)
       const fixedSuppliers = suppliers.map(s => s === 'Dan Murphys' ? 'Dan Murphy' : s)
       if (fixedSuppliers.some((s, i) => s !== suppliers[i])) await kvSet('suppliers', fixedSuppliers)
-      res.status(200).json({ settings, targetWeeks, suppliers: fixedSuppliers, supplierVendorNames })
+      res.status(200).json({ settings, targetWeeks, revenueTarget, suppliers: fixedSuppliers, supplierVendorNames })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }
@@ -69,6 +70,10 @@ export default async function handler(req, res) {
 
       if (field === 'targetWeeks') {
         await kvSet('targetWeeks', Number(value))
+        return res.status(200).json({ ok: true })
+      }
+      if (field === 'revenueTarget') {
+        await kvSet('revenueTarget', value === null ? null : Number(value))
         return res.status(200).json({ ok: true })
       }
 
