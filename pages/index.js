@@ -501,7 +501,7 @@ export default function Home() {
       const wineCatsPrint = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
       const serveML = spiritCatsPrint.includes(item.category) ? (item.nipML || 30)
                     : wineCatsPrint.includes(item.category) ? 150
-                    : 375
+                    : (item.containerML || 375)
       grouped[cat].push({ label, price, variations, alcoholPct: (settings[item.name] || {}).alcoholPct || item.alcoholPct || '', serveML })
     }
 
@@ -3531,7 +3531,7 @@ function isHidden(item) {
                           let ml = null
                           if (spiritCats.includes(item.category)) ml = item.nipML || 30
                           else if (wineCats.includes(item.category)) ml = 150
-                          else ml = 375  // beer/cider default
+                          else ml = item.containerML || 375  // beer/cider — use stored container size
                           const sd = ((ml * abv) / 1000).toFixed(1)
                           return <span style={{ fontSize: 12, color: '#0f172a', fontFamily: 'monospace' }}>{sd}</span>
                         })()}
