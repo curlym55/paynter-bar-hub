@@ -3153,19 +3153,18 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                       const rainColor = r => r >= 70 ? '#dc2626' : r >= 40 ? '#d97706' : '#16a34a'
                       if (days.length === 0) return <div style={{ color: '#94a3b8', fontSize: 12 }}>Weather data unavailable</div>
                       return (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))', gap: 8 }}>
+                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
                           {days.map(d => {
                             const isTrading = tradingDays.includes(d.dayOfWeek)
                             return (
-                              <div key={d.date} style={{ background: isTrading ? '#eff6ff' : '#f8fafc', border: `1px solid ${isTrading ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 8, padding: '10px 12px' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2 }}>
-                                  <div style={{ fontSize: 11, fontWeight: 700, color: '#0f172a' }}>{dayName(d)}</div>
-                                  {isTrading && <span style={{ fontSize: 9, fontWeight: 700, color: '#2563eb', background: '#dbeafe', padding: '1px 5px', borderRadius: 3 }}>BAR</span>}
+                              <div key={d.date} style={{ background: isTrading ? '#eff6ff' : '#f8fafc', border: `1px solid ${isTrading ? '#93c5fd' : '#e2e8f0'}`, borderRadius: 6, padding: '7px 8px', textAlign: 'center' }}>
+                                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: 3, marginBottom: 2 }}>
+                                  <div style={{ fontSize: 10, fontWeight: 700, color: '#0f172a' }}>{new Date(d.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'short' })}</div>
+                                  {isTrading && <span style={{ fontSize: 8, fontWeight: 700, color: '#2563eb', background: '#dbeafe', padding: '0 3px', borderRadius: 2 }}>BAR</span>}
                                 </div>
-                                <div style={{ fontSize: 20, margin: '4px 0' }}>{(WMO[d.code] || '🌡️').split(' ')[0]}</div>
-                                <div style={{ fontSize: 11, color: '#475569' }}>{(WMO[d.code] || 'Unknown').split(' ').slice(1).join(' ')}</div>
-                                <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace', marginTop: 2 }}>{d.max}° <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 10 }}>/ {d.min}°</span></div>
-                                <div style={{ fontSize: 10, color: rainColor(d.rain), fontWeight: 600, marginTop: 4 }}>💧 {d.rain}% rain</div>
+                                <div style={{ fontSize: 16, margin: '2px 0' }}>{(WMO[d.code] || '🌡️').split(' ')[0]}</div>
+                                <div style={{ fontSize: 10, fontWeight: 700, color: '#0f172a', fontFamily: 'monospace' }}>{d.max}°<span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 9 }}>/{d.min}°</span></div>
+                                <div style={{ fontSize: 9, color: rainColor(d.rain), fontWeight: 600, marginTop: 2 }}>💧{d.rain}%</div>
                               </div>
                             )
                           })}
