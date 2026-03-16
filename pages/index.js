@@ -530,7 +530,7 @@ export default function Home() {
                 ? '<table style="border-collapse:collapse;width:100%;line-height:1.3">' + variations.map(v => {
                     const vML = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : serveML
                     const vSd = abv && vML ? (abv * vML / 1000).toFixed(1) : ''
-                    return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#9ca3af">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
+                    return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
                   }).join('') + '</table>'
                 : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
               return '<tr><td class="nm">' + label + (alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
@@ -579,8 +579,8 @@ export default function Home() {
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
   .nm { padding: 7px 14px; font-size: 15px; }
-  .alc { font-size: 10px; color: #6b7280; font-weight: 400; margin-left: 6px; font-family: Arial; }
-  .sd  { font-size: 10px; color: #9ca3af; font-weight: 400; margin-left: 6px; font-family: Arial; }
+  .alc { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
+  .sd  { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
   .pr {
     padding: 7px 14px; text-align: right;
     font-size: 16px; font-weight: 700;
