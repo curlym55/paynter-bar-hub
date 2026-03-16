@@ -525,11 +525,11 @@ export default function Home() {
           <table>
             ${grouped[cat].map(({ label, price, variations, alcoholPct, serveML }) => {
               const abv = parseFloat(alcoholPct)
-              const stdDrinksStr = abv && serveML ? (abv * serveML / 1000).toFixed(1) : ''
+              const stdDrinksStr = abv && serveML ? (Math.ceil(abv / 100 * serveML * 0.789 / 10 * 10) / 10).toFixed(1) : ''
               const priceCell = variations
                 ? '<table style="border-collapse:collapse;width:100%;line-height:1.3">' + variations.map(v => {
                     const vML = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : serveML
-                    const vSd = abv && vML ? (abv * vML / 1000).toFixed(1) : ''
+                    const vSd = abv && vML ? (Math.ceil(abv / 100 * vML * 0.789 / 10 * 10) / 10).toFixed(1) : ''
                     return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
                   }).join('') + '</table>'
                 : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
@@ -3522,7 +3522,7 @@ function isHidden(item) {
                               <table style={{ borderCollapse: 'collapse', margin: '0 auto' }}>
                                 {vars.map(v => {
                                   const ml = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : null
-                                  const sd = ml ? ((ml * abv) / 1000).toFixed(1) : null
+                                  const sd = ml ? (Math.ceil(abv / 100 * ml * 0.789 / 10 * 10) / 10).toFixed(1) : null
                                   return <tr key={v.name}><td style={{ fontSize: 11, color: '#64748b', textAlign: 'center', padding: '1px 0' }}>{sd ?? '—'}</td></tr>
                                 })}
                               </table>
@@ -3532,7 +3532,7 @@ function isHidden(item) {
                           if (spiritCats.includes(item.category)) ml = item.nipML || 30
                           else if (wineCats.includes(item.category)) ml = 150
                           else ml = item.containerML || 375  // beer/cider — use stored container size
-                          const sd = ((ml * abv) / 1000).toFixed(1)
+                          const sd = (Math.ceil(abv / 100 * ml * 0.789 / 10 * 10) / 10).toFixed(1)
                           return <span style={{ fontSize: 12, color: '#0f172a', fontFamily: 'monospace' }}>{sd}</span>
                         })()}
                       </td>
