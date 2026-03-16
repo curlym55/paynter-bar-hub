@@ -2951,8 +2951,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
       const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.70&longitude=152.76&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Australia%2FBrisbane&forecast_days=7'
       const r = await fetch(url)
       const d = await r.json()
-      // Find next 3 trading days (Wed=3, Fri=5, Sun=0)
-      const tradingDays = [0, 3, 5]
+      // Wed=3, Fri=5, Sun=0
       const days = d.daily.time.map((date, i) => ({
         date,
         dayOfWeek: new Date(date + 'T12:00:00').getDay(),
@@ -3007,6 +3006,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   ]
 
   const fmt = v => '$' + Math.round(v).toLocaleString('en-AU')
+  const tradingDays = [0, 3, 5] // Sun=0, Wed=3, Fri=5
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
