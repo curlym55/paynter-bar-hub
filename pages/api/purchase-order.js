@@ -39,6 +39,17 @@ export default async function handler(req, res) {
       return res.json({ ok: true, ordered })
     }
 
+    if (action === 'partialReceive') {
+      // Clear only the specified item names
+      const { receivedItems } = req.body // array of item names received
+      const ordered = (await kvGet('orderedItems')) || {}
+      for (const name of (receivedItems || [])) {
+        delete ordered[name]
+      }
+      await kvSet('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
+    }
+
     return res.status(400).json({ error: 'Unknown action' })
   }
 

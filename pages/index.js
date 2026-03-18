@@ -51,6 +51,8 @@ export default function Home() {
   const [poPlacing, setPoPlacing]             = useState(false)
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
+  const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
+  const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
@@ -245,30 +247,45 @@ export default function Home() {
     }
   }
 
-  async function receiveOrder(supplier) {
-    if (!confirm(`Mark all items from ${supplier} as received?\n\nRemember to also receive the PO in Square Dashboard to update stock.`)) return
+  function openReceiveModal(supplier, supplierItems) {
+    const checked = {}
+    for (const i of supplierItems) checked[i.name] = true  // all ticked by default
+    setReceiveChecked(checked)
+    setReceiveModal({ supplier, items: supplierItems })
+  }
+
+  async function confirmReceive() {
+    const { supplier } = receiveModal
+    const receivedNames = Object.entries(receiveChecked).filter(([, v]) => v).map(([k]) => k)
+    const allItems = receiveModal.items.map(i => i.name)
+    const allReceived = allItems.every(n => receiveChecked[n])
     setPoReceiving(supplier)
     try {
+      const action = allReceived ? 'receive' : 'partialReceive'
+      const body = allReceived
+        ? { action, supplier }
+        : { action: 'partialReceive', supplier, receivedItems: receivedNames }
       const r = await fetch('/api/purchase-order', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'receive', supplier })
+        body: JSON.stringify(body)
       })
       const d = await r.json()
       if (d.ok) {
         setOrderedItems(d.ordered)
-        const supplierItems = items.filter(i => i.supplier === supplier)
+        // Clear overrides for received items
         setOrderQtyOverrides(prev => {
           const next = { ...prev }
-          for (const item of supplierItems) delete next[item.name]
+          for (const name of receivedNames) delete next[name]
           return next
         })
-        for (const item of supplierItems) {
-          saveSetting(item.name, 'orderQtyOverride', null)
+        for (const name of receivedNames) {
+          if (orderQtyOverrides[name] !== undefined) saveSetting(name, 'orderQtyOverride', null)
         }
       }
     } finally {
       setPoReceiving(null)
+      setReceiveModal(null)
     }
   }
   function generatePoExcel(supplier, poItems) {
@@ -1705,6 +1722,66 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           </div>
         </header>
 
+        {/* Partial Receive Modal */}
+        {receiveModal && (
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>✓ Receive from {receiveModal.supplier}</div>
+                <button onClick={() => setReceiveModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
+              </div>
+              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>Tick the items that arrived. Unticked items stay on order.</p>
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+                {/* Select all row */}
+                <div style={{ padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  <input type="checkbox"
+                    checked={receiveModal.items.every(i => receiveChecked[i.name])}
+                    onChange={e => {
+                      const next = {}
+                      receiveModal.items.forEach(i => next[i.name] = e.target.checked)
+                      setReceiveChecked(next)
+                    }}
+                    style={{ width: 15, height: 15, cursor: 'pointer' }} />
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Select All</span>
+                </div>
+                {receiveModal.items.map(i => {
+                  const override = orderQtyOverrides[i.name]
+                  const nips = override !== undefined ? override : i.orderQty
+                  const btl = i.isSpirit && nips > 0 ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                  const qtyLabel = i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`
+                  return (
+                    <div key={i.name} onClick={() => setReceiveChecked(prev => ({ ...prev, [i.name]: !prev[i.name] }))}
+                      style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
+                        background: receiveChecked[i.name] ? '#f0fdf4' : '#fff' }}>
+                      <input type="checkbox" checked={!!receiveChecked[i.name]} onChange={() => {}}
+                        style={{ width: 15, height: 15, cursor: 'pointer', pointerEvents: 'none' }} />
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{i.name}</div>
+                        <div style={{ fontSize: 11, color: '#64748b' }}>{qtyLabel}</div>
+                      </div>
+                      {receiveChecked[i.name]
+                        ? <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>✓ Received</span>
+                        : <span style={{ fontSize: 10, color: '#94a3b8' }}>Still on order</span>}
+                    </div>
+                  )
+                })}
+              </div>
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+                <button onClick={() => setReceiveModal(null)}
+                  style={{ padding: '8px 18px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
+                  Cancel
+                </button>
+                <button onClick={confirmReceive}
+                  disabled={!Object.values(receiveChecked).some(v => v) || poReceiving}
+                  style={{ padding: '8px 18px', background: Object.values(receiveChecked).some(v => v) ? '#16a34a' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  {poReceiving ? '…' : `✓ Confirm ${Object.values(receiveChecked).filter(v=>v).length} of ${receiveModal.items.length} Received`}
+                </button>
+              </div>
+              <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 10 }}>Remember to also update stock in Square Dashboard for received items.</p>
+            </div>
+          </div>
+        )}
+
         {sohModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
@@ -1911,10 +1988,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
                         <span style={{ fontSize: 12, color: '#64748b' }}>— {supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order since {supplierItems[0]?.date}</span>
                         {!readOnly && (
-                          <button onClick={() => receiveOrder(supplier)}
+                          <button onClick={() => openReceiveModal(supplier, supplierItems)}
                             disabled={poReceiving === supplier}
                             style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
-                            {poReceiving === supplier ? '…' : `✓ ${supplier} Received`}
+                            {poReceiving === supplier ? '…' : '✓ Receive'}
                           </button>
                         )}
                       </div>
