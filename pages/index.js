@@ -3018,7 +3018,7 @@ function BarcodeSheetView({ items }) {
     ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ / SPARKLING' }, ...roseItems] : []),
     ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED / LIQUEURS' }, ...fortifiedItems] : []),
   ]
-  const col3 = items.filter(i => i.category === 'Red Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
+  const col3 = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name))
 
   function renderRows(colItems, colours, isWine) {
     let idx = 0
@@ -3026,15 +3026,17 @@ function BarcodeSheetView({ items }) {
       if (item._divider) return (
         <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #888' }}>{item.name}</td></tr>
       )
-      const bg = idx++ % 2 === 0 ? colours.rowA : colours.rowB
+      const rowIdx = idx++
+      const bg = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
       const sku = (isWine && item._useGlass !== false) ? getGlassSku(item) : (item.sku || '')
       const label = item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
+      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 700, fontSize: 11, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '46%' }}>{label}</td>
+      const bcCell = <td key="bc" style={{ padding: '2px 6px 2px 4px', textAlign: rowIdx % 2 === 0 ? 'right' : 'left', background: bg, border: '1px solid #888', verticalAlign: 'middle' }}>
+        {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: rowIdx % 2 === 0 ? 'auto' : '0' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>—</span>}
+      </td>
       return (
         <tr key={item.name}>
-          <td style={{ padding: '4px 6px 4px 8px', fontWeight: 700, fontSize: 11, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '46%' }}>{label}</td>
-          <td style={{ padding: '2px 6px 2px 4px', textAlign: 'right', background: bg, border: '1px solid #888', verticalAlign: 'middle' }}>
-            {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: 'auto' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>—</span>}
-          </td>
+          {rowIdx % 2 === 0 ? [labelCell, bcCell] : [bcCell, labelCell]}
         </tr>
       )
     })
