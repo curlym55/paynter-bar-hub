@@ -3061,16 +3061,28 @@ function BarcodeSheetView({ items }) {
           <button onClick={() => {
             const w = window.open('', '_blank')
             const html = sheetRef.current?.innerHTML || ''
+            const printDate = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
             w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
 <style>
   @page { size: A4 landscape; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; display: flex; gap: 8px; padding: 4px; }
-  body > div { flex: 1; border: 2px solid #666; border-radius: 4px; overflow: hidden; }
+  body { font-family: Arial, sans-serif; padding: 0; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; }
+  .hdr-title { font-size: 15px; font-weight: 800; letter-spacing: 0.03em; }
+  .hdr-sub { font-size: 11px; color: #94a3b8; }
+  .hdr-date { font-size: 11px; color: #cbd5e1; }
+  .cols { display: flex; gap: 8px; }
+  .cols > div { flex: 1; border: 2px solid #666; border-radius: 4px; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; }
   td { font-size: 11px; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
-</style></head><body>${html}</body></html>`)
+</style></head><body>
+<div class="hdr">
+  <div><div class="hdr-title">🍺 Paynter Bar — GemLife Palmwoods</div><div class="hdr-sub">By the Glass Codes Only</div></div>
+  <div class="hdr-date">${printDate}</div>
+</div>
+<div class="cols">${html}</div>
+</body></html>`)
             w.document.close()
             setTimeout(() => { w.focus(); w.print() }, 800)
           }} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
