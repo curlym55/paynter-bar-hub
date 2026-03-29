@@ -3069,7 +3069,7 @@ function BarcodeSheetView({ items }) {
   body { font-family: Arial, sans-serif; padding: 0; }
   .hdr { display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; }
   .hdr-title { font-size: 15px; font-weight: 800; letter-spacing: 0.03em; }
-  .hdr-sub { font-size: 11px; color: #94a3b8; }
+  .hdr-sub { font-size: 15px; font-weight: 800; letter-spacing: 0.03em; color: #fff; margin-top: 2px; }
   .hdr-date { font-size: 11px; color: #cbd5e1; }
   .cols { display: flex; gap: 8px; }
   .cols > div { flex: 1; border: 2px solid #666; border-radius: 4px; overflow: hidden; }
