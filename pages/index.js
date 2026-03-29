@@ -3011,12 +3011,12 @@ function BarcodeSheetView({ items }) {
   const col1 = [
     ...items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name)),
   ]
-  const roseItems = items.filter(i => ['Rose','Sparkling'].includes(i.category) && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
-  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
+  const roseItems = items.filter(i => ['Rose','Sparkling'].includes(i.category) && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
+  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: false }))
   const col2 = [
-    ...items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)),
+    ...items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true })),
     ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ / SPARKLING' }, ...roseItems] : []),
-    ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED' }, ...fortifiedItems] : []),
+    ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED / LIQUEURS' }, ...fortifiedItems] : []),
   ]
   const col3 = items.filter(i => i.category === 'Red Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
 
@@ -3027,7 +3027,7 @@ function BarcodeSheetView({ items }) {
         <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #999' }}>{item.name}</td></tr>
       )
       const bg = idx++ % 2 === 0 ? colours.rowA : colours.rowB
-      const sku = isWine ? getGlassSku(item) : (item.sku || '')
+      const sku = (isWine && item._useGlass !== false) ? getGlassSku(item) : (item.sku || '')
       const label = item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
       return (
         <tr key={item.name}>
