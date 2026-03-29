@@ -2976,9 +2976,9 @@ function BarcodeSheetView({ items }) {
   const sheetRef = useRef(null)
 
   const COLS = {
-    spirits: { hdr: '#1A2F45', rowA: '#D6E4F0', rowB: '#EAF4FB', div: '#5B8DB5' },
-    white:   { hdr: '#A0306A', rowA: '#FFF8DC', rowB: '#FFFAEB', div: '#C8960C' },
-    red:     { hdr: '#6B1414', rowA: '#FADADD', rowB: '#FFF0F1', div: '#C04040' },
+    spirits: { hdr: '#2C3E50', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#4A6278' },
+    white:   { hdr: '#D4AC0D', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#B8940A' },
+    red:     { hdr: '#8B0000', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#6B1414' },
   }
 
   useEffect(() => {
@@ -3024,16 +3024,16 @@ function BarcodeSheetView({ items }) {
     let idx = 0
     return colItems.map((item, i) => {
       if (item._divider) return (
-        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #999' }}>{item.name}</td></tr>
+        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #888' }}>{item.name}</td></tr>
       )
       const bg = idx++ % 2 === 0 ? colours.rowA : colours.rowB
       const sku = (isWine && item._useGlass !== false) ? getGlassSku(item) : (item.sku || '')
       const label = item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
       return (
         <tr key={item.name}>
-          <td style={{ padding: '3px 6px 3px 8px', fontWeight: 700, fontSize: 11, color: '#111', background: bg, border: '1px solid #aaa', verticalAlign: 'middle', width: '45%' }}>{label}</td>
-          <td style={{ padding: '2px 4px', textAlign: 'right', background: bg, border: '1px solid #aaa', verticalAlign: 'middle' }}>
-            {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: 'auto' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>No SKU</span>}
+          <td style={{ padding: '4px 6px 4px 8px', fontWeight: 700, fontSize: 11, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '46%' }}>{label}</td>
+          <td style={{ padding: '2px 6px 2px 4px', textAlign: 'right', background: bg, border: '1px solid #888', verticalAlign: 'middle' }}>
+            {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: 'auto' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>—</span>}
           </td>
         </tr>
       )
@@ -3042,8 +3042,8 @@ function BarcodeSheetView({ items }) {
 
   function ColTable({ title, colItems, colours, isWine }) {
     return (
-      <div style={{ flex: 1, border: '2px solid #666', borderRadius: 4, overflow: 'hidden' }}>
-        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 800, fontSize: 13, textAlign: 'center', padding: '7px 10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{title}</div>
+      <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
+        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 800, fontSize: 15, textAlign: 'center', padding: '8px 10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{title}</div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
       </div>
     )
@@ -3072,7 +3072,7 @@ function BarcodeSheetView({ items }) {
   .hdr-sub { font-size: 15px; font-weight: 800; letter-spacing: 0.03em; color: #fff; margin-top: 2px; }
   .hdr-date { font-size: 11px; color: #cbd5e1; }
   .cols { display: flex; gap: 8px; }
-  .cols > div { flex: 1; border: 2px solid #666; border-radius: 4px; overflow: hidden; }
+  .cols > div { flex: 1; border: 2px solid #888; overflow: hidden; }
   table { width: 100%; border-collapse: collapse; }
   td { font-size: 11px; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
