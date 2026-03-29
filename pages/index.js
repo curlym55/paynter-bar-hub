@@ -3058,15 +3058,29 @@ function BarcodeSheetView({ items }) {
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           {!loaded && <span style={{ fontSize: 12, color: '#94a3b8' }}>Loading barcodes…</span>}
-          <button onClick={() => window.print()} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
+          <button onClick={() => {
+            const w = window.open('', '_blank')
+            const html = sheetRef.current?.innerHTML || ''
+            w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
+<style>
+  @page { size: A4 landscape; margin: 8mm; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: Arial, sans-serif; display: flex; gap: 8px; padding: 4px; }
+  body > div { flex: 1; border: 2px solid #666; border-radius: 4px; overflow: hidden; }
+  table { width: 100%; border-collapse: collapse; }
+  td { font-size: 11px; }
+  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+</style></head><body>${html}</body></html>`)
+            w.document.close()
+            setTimeout(() => { w.focus(); w.print() }, 800)
+          }} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
         </div>
       </div>
-      <div ref={sheetRef} id="barcode-print-sheet" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+      <div ref={sheetRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
         <ColTable title="Spirits & Fortified"  colItems={col1} colours={COLS.spirits} isWine={false} />
         <ColTable title="Wines – White / Rosé"  colItems={col2} colours={COLS.white}   isWine={true}  />
         <ColTable title="Wines – Red"           colItems={col3} colours={COLS.red}     isWine={true}  />
       </div>
-      <style>{`@media print { body > * { display: none !important; } #barcode-print-sheet { display: flex !important; gap: 6px; width: 100%; } #barcode-print-sheet > div { flex: 1; } @page { size: A4 landscape; margin: 8mm; } }`}</style>
     </div>
   )
 }
