@@ -3013,12 +3013,12 @@ function BarcodeSheetView({ items }) {
     { _divider: true, name: 'FORTIFIED' },
     ...items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name)),
   ]
+  const roseItems = items.filter(i => ['Rose','Sparkling'].includes(i.category) && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
   const col2 = [
-    ...items.filter(i => i.category === 'White Wine').sort((a,b) => a.name.localeCompare(b.name)),
-    { _divider: true, name: 'ROSÉ / SPARKLING' },
-    ...items.filter(i => ['Rose','Sparkling'].includes(i.category)).sort((a,b) => a.name.localeCompare(b.name)),
+    ...items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)),
+    ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ / SPARKLING' }, ...roseItems] : []),
   ]
-  const col3 = items.filter(i => i.category === 'Red Wine').sort((a,b) => a.name.localeCompare(b.name))
+  const col3 = items.filter(i => i.category === 'Red Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
 
   function renderRows(colItems, colours, isWine) {
     let idx = 0
