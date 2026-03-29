@@ -1497,7 +1497,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     document.head.appendChild(script)
   }
 
-  const dontOrder = item => /do\s*n'?t\s+order|do\s+not\s+order/i.test(item.notes || '')
+  const dontOrder = item => /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i.test(item.notes || '')
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
