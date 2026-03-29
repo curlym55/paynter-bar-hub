@@ -3010,13 +3010,13 @@ function BarcodeSheetView({ items }) {
 
   const col1 = [
     ...items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name)),
-    { _divider: true, name: 'FORTIFIED' },
-    ...items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name)),
   ]
   const roseItems = items.filter(i => ['Rose','Sparkling'].includes(i.category) && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
+  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
   const col2 = [
     ...items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)),
     ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ / SPARKLING' }, ...roseItems] : []),
+    ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED' }, ...fortifiedItems] : []),
   ]
   const col3 = items.filter(i => i.category === 'Red Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name))
 
@@ -3077,7 +3077,7 @@ function BarcodeSheetView({ items }) {
         </div>
       </div>
       <div ref={sheetRef} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <ColTable title="Spirits & Fortified"  colItems={col1} colours={COLS.spirits} isWine={false} />
+        <ColTable title="Spirits"               colItems={col1} colours={COLS.spirits} isWine={false} />
         <ColTable title="Wines – White / Rosé"  colItems={col2} colours={COLS.white}   isWine={true}  />
         <ColTable title="Wines – Red"           colItems={col3} colours={COLS.red}     isWine={true}  />
       </div>
