@@ -1576,6 +1576,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
               { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+              { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank') },
             ]},
             { label: 'Reports', icon: '📋', items: [
@@ -1678,6 +1679,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
               { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
+              { label: '🖨️ Barcode Sheet',       action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
               { label: '👥 Roster',              action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank'), active: false },
               { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
               { label: '❓ Help & Guide',        action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
@@ -2315,6 +2317,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         )}
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
+        {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
         {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to committee members.</div>}
         {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} daysBack={daysBack} />}
@@ -2966,6 +2969,107 @@ function WastageView({ items, log, readOnly, onRefresh }) {
   )
 }
 
+
+// ─── BARCODE SHEET VIEW ───────────────────────────────────────────────────────
+function BarcodeSheetView({ items }) {
+  const [loaded, setLoaded] = useState(false)
+  const sheetRef = useRef(null)
+
+  const COLS = {
+    spirits: { hdr: '#1A2F45', rowA: '#D6E4F0', rowB: '#EAF4FB', div: '#5B8DB5' },
+    white:   { hdr: '#A0306A', rowA: '#FFF8DC', rowB: '#FFFAEB', div: '#C8960C' },
+    red:     { hdr: '#6B1414', rowA: '#FADADD', rowB: '#FFF0F1', div: '#C04040' },
+  }
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.JsBarcode) { setLoaded(true); return }
+    const s = document.createElement('script')
+    s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js'
+    s.onload = () => setLoaded(true)
+    document.head.appendChild(s)
+  }, [])
+
+  useEffect(() => {
+    if (!loaded || !sheetRef.current) return
+    const svgs = sheetRef.current.querySelectorAll('svg[data-sku]')
+    svgs.forEach(svg => {
+      const sku = svg.getAttribute('data-sku')
+      if (!sku) return
+      while (svg.firstChild) svg.removeChild(svg.firstChild)
+      svg.removeAttribute('style')
+      try {
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 1.8, height: 52, displayValue: false, margin: 3 })
+      } catch(e) {}
+    })
+  }, [loaded, items])
+
+  function getGlassSku(item) {
+    const v = (item.variations || []).find(v => v.name.toLowerCase().includes('glass') || v.name.toLowerCase().includes('wine glass'))
+    return v?.sku || ''
+  }
+
+  const col1 = [
+    ...items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name)),
+    { _divider: true, name: 'FORTIFIED' },
+    ...items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name)),
+  ]
+  const col2 = [
+    ...items.filter(i => i.category === 'White Wine').sort((a,b) => a.name.localeCompare(b.name)),
+    { _divider: true, name: 'ROSÉ / SPARKLING' },
+    ...items.filter(i => ['Rose','Sparkling'].includes(i.category)).sort((a,b) => a.name.localeCompare(b.name)),
+  ]
+  const col3 = items.filter(i => i.category === 'Red Wine').sort((a,b) => a.name.localeCompare(b.name))
+
+  function renderRows(colItems, colours, isWine) {
+    let idx = 0
+    return colItems.map((item, i) => {
+      if (item._divider) return (
+        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #999' }}>{item.name}</td></tr>
+      )
+      const bg = idx++ % 2 === 0 ? colours.rowA : colours.rowB
+      const sku = isWine ? getGlassSku(item) : (item.sku || '')
+      const label = item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
+      return (
+        <tr key={item.name}>
+          <td style={{ padding: '3px 6px 3px 8px', fontWeight: 700, fontSize: 11, color: '#111', background: bg, border: '1px solid #aaa', verticalAlign: 'middle', width: '45%' }}>{label}</td>
+          <td style={{ padding: '2px 4px', textAlign: 'right', background: bg, border: '1px solid #aaa', verticalAlign: 'middle' }}>
+            {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: 'auto' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>No SKU</span>}
+          </td>
+        </tr>
+      )
+    })
+  }
+
+  function ColTable({ title, colItems, colours, isWine }) {
+    return (
+      <div style={{ flex: 1, border: '2px solid #666', borderRadius: 4, overflow: 'hidden' }}>
+        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 800, fontSize: 13, textAlign: 'center', padding: '7px 10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{title}</div>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
+      </div>
+    )
+  }
+
+  return (
+    <div style={{ padding: '16px 20px', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>🖨️ Barcode Sheet</div>
+          <div style={{ fontSize: 12, color: '#64748b' }}>By the glass codes only — print landscape A4</div>
+        </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {!loaded && <span style={{ fontSize: 12, color: '#94a3b8' }}>Loading barcodes…</span>}
+          <button onClick={() => window.print()} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
+        </div>
+      </div>
+      <div ref={sheetRef} id="barcode-print-sheet" style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
+        <ColTable title="Spirits & Fortified"  colItems={col1} colours={COLS.spirits} isWine={false} />
+        <ColTable title="Wines – White / Rosé"  colItems={col2} colours={COLS.white}   isWine={true}  />
+        <ColTable title="Wines – Red"           colItems={col3} colours={COLS.red}     isWine={true}  />
+      </div>
+      <style>{`@media print { body > * { display: none !important; } #barcode-print-sheet { display: flex !important; gap: 6px; width: 100%; } #barcode-print-sheet > div { flex: 1; } @page { size: A4 landscape; margin: 8mm; } }`}</style>
+    </div>
+  )
+}
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
 function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache = false }) {
