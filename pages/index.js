@@ -3045,7 +3045,7 @@ function BarcodeSheetView({ items }) {
   function ColTable({ title, colItems, colours, isWine }) {
     return (
       <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
-        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 20, textAlign: 'center', padding: '10px 10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
+        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 24, textAlign: 'center', padding: '10px 10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
       </div>
     )
