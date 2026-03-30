@@ -2998,7 +2998,7 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 1.8, height: 52, displayValue: false, margin: 3 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 1.4, height: 44, displayValue: false, margin: 2 })
       } catch(e) {}
     })
   }, [loaded, items])
@@ -3030,9 +3030,9 @@ function BarcodeSheetView({ items }) {
       const bg = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
       const sku = (isWine && item._useGlass !== false) ? getGlassSku(item) : (item.sku || '')
       const label = item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
-      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 16, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '46%' }}>{label}</td>
-      const bcCell = <td key="bc" style={{ padding: '2px 6px 2px 4px', textAlign: rowIdx % 2 === 0 ? 'right' : 'left', background: bg, border: '1px solid #888', verticalAlign: 'middle' }}>
-        {sku ? <svg data-sku={sku} style={{ display: 'block', marginLeft: rowIdx % 2 === 0 ? 'auto' : '0' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>—</span>}
+      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 16, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '46%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{label}</td>
+      const bcCell = <td key="bc" style={{ padding: '2px 4px', textAlign: rowIdx % 2 === 0 ? 'right' : 'left', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '54%', overflow: 'hidden' }}>
+        {sku ? <svg data-sku={sku} style={{ display: 'block', maxWidth: '100%', marginLeft: rowIdx % 2 === 0 ? 'auto' : '0' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>—</span>}
       </td>
       return (
         <tr key={item.name}>
@@ -3046,7 +3046,7 @@ function BarcodeSheetView({ items }) {
     return (
       <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
         <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 24, textAlign: 'center', padding: '10px 10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
+        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
       </div>
     )
   }
