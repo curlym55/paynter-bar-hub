@@ -2976,9 +2976,9 @@ function BarcodeSheetView({ items }) {
   const sheetRef = useRef(null)
 
   const COLS = {
-    spirits: { hdr: '#2C3E50', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#4A6278' },
-    white:   { hdr: '#D4AC0D', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#B8940A' },
-    red:     { hdr: '#8B0000', rowA: '#E0E0E0', rowB: '#FFFFFF', div: '#6B1414' },
+    spirits: { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF', div: '#4A6278' },
+    white:   { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0', div: '#B8940A' },
+    red:     { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6', div: '#6B1414' },
   }
 
   useEffect(() => {
@@ -3045,7 +3045,7 @@ function BarcodeSheetView({ items }) {
   function ColTable({ title, colItems, colours, isWine }) {
     return (
       <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
-        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 800, fontSize: 15, textAlign: 'center', padding: '8px 10px', letterSpacing: '0.05em', textTransform: 'uppercase' }}>{title}</div>
+        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 20, textAlign: 'center', padding: '10px 10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
       </div>
     )
