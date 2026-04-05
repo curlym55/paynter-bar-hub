@@ -386,6 +386,35 @@ export default function Home() {
     })
     setTargetWeeks(weeks)
     setEditingTarget(false)
+    // Immediately recalculate targetStock and orderQty for all items using new weeks
+    // without waiting for a full Square refresh (which takes ~50s due to Orders API)
+    setItems(prev => prev.map(item => {
+      const isSpirit = item.isSpirit
+      const weeklyAvg = item.weeklyAvg || 0
+      const pack = item.pack || 1
+      const targetStock = isSpirit
+        ? Math.ceil(weeklyAvg * weeks)
+        : Math.ceil(weeklyAvg * weeks)
+      const unitsNeeded = Math.max(0, targetStock - (item.onHand || 0))
+      const nipsPerBottle = item.nipsPerBottle || null
+      const nipsToOrder = isSpirit && unitsNeeded > 0 && nipsPerBottle
+        ? Math.ceil(Math.ceil(unitsNeeded / nipsPerBottle) * nipsPerBottle)
+        : null
+      const bottlesToOrder = isSpirit && unitsNeeded > 0 && nipsPerBottle
+        ? Math.ceil(unitsNeeded / nipsPerBottle)
+        : null
+      const orderQty = isSpirit
+        ? (nipsToOrder || 0)
+        : (unitsNeeded === 0 ? 0 : Math.ceil(unitsNeeded / pack) * pack)
+      const weeksLeft = isSpirit
+        ? (item.onHand || 0) / (weeklyAvg || 1)
+        : (item.onHand || 0) / (weeklyAvg || 1)
+      const priority = (isSpirit ? nipsToOrder > 0 : orderQty > 0)
+        ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW')
+        : 'OK'
+      return { ...item, targetStock, orderQty, nipsToOrder, bottlesToOrder, priority }
+    }))
+    // Also trigger background refresh to rebuild cache with correct targetWeeks
     loadItems(true)
   }
 

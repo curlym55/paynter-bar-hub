@@ -21,7 +21,7 @@ export default async function handler(req, res) {
     }
 
     // ── Fetch live from Square ──────────────────────────────────────────────
-    const squareItems = await fetchSquareData(token, daysBack)
+    const squareItems = await fetchSquareData(token, daysBack, kvGet, kvSet)
     const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
     const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
     const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
