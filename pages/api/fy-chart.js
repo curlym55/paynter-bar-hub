@@ -35,7 +35,6 @@ export default async function handler(req, res) {
       let revenue = 0
       try {
         const report = await fetchSalesReport(token, start.toISOString(), end.toISOString())
-        // fetchSalesReport returns { itemName: { units, revenue } } — sum all revenue
         for (const item of Object.values(report || {})) {
           revenue += item.revenue || 0
         }
@@ -51,7 +50,8 @@ export default async function handler(req, res) {
     }
 
     const payload = { months: results, generatedAt: new Date().toISOString() }
-    kvSet(CACHE_KEY, payload).catch(e => console.error('FY cache write failed:', e))
+    // Cache for 6 hours — partial month data stays reasonably fresh
+    kvSet(CACHE_KEY, payload, 6 * 60 * 60).catch(e => console.error('FY cache write failed:', e))
     res.status(200).json({ ...payload, fromCache: false })
 
   } catch (err) {
