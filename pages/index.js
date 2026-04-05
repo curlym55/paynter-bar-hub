@@ -1383,7 +1383,7 @@ export default function Home() {
   }
 
   function printOrderSheet(supplier) {
-    const orderItems = items.filter(i => i.supplier === supplier && i.orderQty > 0)
+    const orderItems = items.filter(i => i.supplier === supplier && i.orderQty > 0 && !dontOrder(i))
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = orderItems.map(item => `
       <tr>
@@ -2019,7 +2019,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               return (
                 <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                   {suppliersWithOrders.map(supplier => {
-                    const count = items.filter(i => i.supplier === supplier && i.orderQty > 0 && !orderedItems[i.name]).length
+                    const count = items.filter(i => i.supplier === supplier && i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).length
                     return (
                       <button key={supplier} onClick={() => { setPoSupplier(supplier); setPoModal(true) }}
                         style={{ padding: '7px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
@@ -3115,7 +3115,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
   const [targetInput, setTargetInput] = useState('')
 
   const onOrderCount = Object.keys(orderedItems).length
-  const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order/i
+  const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
   const critCount    = items.filter(i => i.priority === 'CRITICAL' && !dontOrderRe.test(i.notes || '')).length
   const lowCount     = items.filter(i => i.priority === 'LOW'      && !dontOrderRe.test(i.notes || '')).length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length
