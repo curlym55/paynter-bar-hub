@@ -1749,7 +1749,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 {receiveModal.items.map(i => {
                   const override = orderQtyOverrides[i.name]
                   const nips = override !== undefined ? override : i.orderQty
-                  const btl = i.isSpirit && nips > 0 ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                  const btl = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
                   const qtyLabel = i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`
                   return (
                     <div key={i.name} onClick={() => setReceiveChecked(prev => ({ ...prev, [i.name]: !prev[i.name] }))}
@@ -1916,7 +1916,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 .map(i => {
                   const nipOverride = orderQtyOverrides[i.name]
                   const nips = nipOverride !== undefined ? nipOverride : (i.isSpirit ? i.nipsToOrder : i.orderQty)
-                  const btl  = i.isSpirit ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                  const btl  = i.isSpirit ? (nipOverride !== undefined ? Math.ceil(nipOverride / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
                   return { ...i, _nips: nips, _btl: btl, _qty: i.isSpirit ? nips : nips }
                 })
               return (
@@ -2001,7 +2001,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         {supplierItems.map(i => {
                           const override = orderQtyOverrides[i.name]
                           const nips = override !== undefined ? override : i.orderQty
-                          const btl = i.isSpirit && nips > 0 ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+                          const btl = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
                           const edited = override !== undefined && override !== i.orderQty
                           return `${i.name} (${i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`})${edited ? ' ✎' : ''}`
                         }).join(' · ')}
@@ -2141,9 +2141,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79' }}>
                           {item.isSpirit ? (() => {
-                            const nipOverride = orderQtyOverrides[item.name]
-                            const nips = nipOverride !== undefined ? nipOverride : item.nipsToOrder
-                            const btl = nips > 0 ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30))) : 0
+                            const btl = item.bottlesToOrder || 0
                             return btl > 0 ? btl : '-'
                           })() : '-'}
                         </td>
