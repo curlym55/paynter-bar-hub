@@ -290,7 +290,7 @@ export default function Home() {
   }
   function generatePoExcel(supplier, poItems) {
     const squareName = supplierVendorNames[supplier] || ''
-    const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date().toISOString().split('T')[0]}.csv`
+    const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date(Date.now() + 10*60*60*1000).toISOString().split('T')[0]}.csv`
     const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
     const rows = [
