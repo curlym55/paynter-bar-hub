@@ -2,7 +2,7 @@ import { fetchSquareData } from '../../lib/square'
 import { calculateItem, CATEGORY_ORDER } from '../../lib/calculations'
 import { kvGet, kvSet } from '../../lib/redis'
 
-const CACHE_KEY = 'itemsCache'
+const CACHE_KEY = (days) => `itemsCache_${days}`
 
 export default async function handler(req, res) {
   const token = process.env.SQUARE_ACCESS_TOKEN
@@ -14,7 +14,7 @@ export default async function handler(req, res) {
   try {
     // ── Serve from cache unless forced refresh ──────────────────────────────
     if (!forceRefresh) {
-      const cached = await kvGet(CACHE_KEY).catch(() => null)
+      const cached = await kvGet(CACHE_KEY(daysBack)).catch(() => null)
       if (cached) {
         return res.status(200).json({ ...cached, fromCache: true })
       }
@@ -73,15 +73,15 @@ export default async function handler(req, res) {
     const lastUpdated = new Date().toISOString()
     const payload = { items, targetWeeks, suppliers, daysBack, lastUpdated }
 
-    // Save to cache (fire and forget)
-    kvSet(CACHE_KEY, payload).catch(e => console.error('Cache write failed:', e))
+    // Save to cache keyed by daysBack (fire and forget)
+    kvSet(CACHE_KEY(daysBack), payload).catch(e => console.error('Cache write failed:', e))
 
     res.status(200).json({ ...payload, fromCache: false })
   } catch (err) {
     console.error('Items API error:', err)
 
     // On Square failure, fall back to stale cache rather than hard error
-    const stale = await kvGet(CACHE_KEY).catch(() => null)
+    const stale = await kvGet(CACHE_KEY(daysBack)).catch(() => null)
     if (stale) {
       console.warn('Square fetch failed - serving stale cache')
       return res.status(200).json({ ...stale, fromCache: true, stale: true })
