@@ -2126,12 +2126,15 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 )}
                                 <input
                                   type="number" min="0" step="0.1"
-                                  value={item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg}
-                                  onChange={e => {
+                                  defaultValue={item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg}
+                                  key={item.name + '_wavg_' + item.weeklyAvgOverride}
+                                  onBlur={e => {
                                     const v = parseFloat(e.target.value)
-                                    if (!isNaN(v) && v !== item.squareWeeklyAvg) saveSetting(item.name, 'weeklyAvgOverride', v)
-                                    else if (!isNaN(v) && v === item.squareWeeklyAvg) saveSetting(item.name, 'weeklyAvgOverride', null)
+                                    if (isNaN(v)) return
+                                    if (v === item.squareWeeklyAvg) saveSetting(item.name, 'weeklyAvgOverride', null)
+                                    else saveSetting(item.name, 'weeklyAvgOverride', v)
                                   }}
+                                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
                                   style={{
                                     width: 58, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13,
                                     border: item.weeklyAvgOverride != null ? '1px solid #f59e0b' : '1px solid #e2e8f0',
