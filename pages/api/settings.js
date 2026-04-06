@@ -1,4 +1,4 @@
-import { kvGet, kvSet } from '../../lib/redis'
+import { kvGet, kvSet, kvDelete } from '../../lib/redis'
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
@@ -108,6 +108,13 @@ export default async function handler(req, res) {
       await kvSet('settingsAudit', audit)
 
       await kvSet('itemSettings', allSettings)
+      // Bust the items cache so the next load recalculates with new settings
+      // We delete all known daysBack variants (60 and 90 are the common ones)
+      await Promise.all([
+        kvDelete('itemsCache_60'),
+        kvDelete('itemsCache_90'),
+        kvDelete('itemsCache_30'),
+      ]).catch(() => {})
       res.status(200).json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: err.message })
