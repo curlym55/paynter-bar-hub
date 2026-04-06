@@ -390,7 +390,7 @@ export default function Home() {
     // without waiting for a full Square refresh (which takes ~50s due to Orders API)
     setItems(prev => prev.map(item => {
       const isSpirit = item.isSpirit
-      const weeklyAvg = item.weeklyAvg || 0
+      const weeklyAvg = (item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg) || 0
       const pack = item.pack || 1
       const targetStock = isSpirit
         ? Math.ceil(weeklyAvg * weeks)
@@ -2112,7 +2112,37 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                             saving={saving[`${item.name}_supplier`]} colorMap={SUPPLIER_COLORS} readOnly={readOnly} />
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.onHand}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.weeklyAvg}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>
+                          {readOnly
+                            ? <span title={item.weeklyAvgOverride != null ? `Square avg: ${item.squareWeeklyAvg}` : ''}>
+                                {item.weeklyAvg}{item.weeklyAvgOverride != null && <span style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700, marginLeft: 2 }}>★</span>}
+                              </span>
+                            : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
+                                {item.weeklyAvgOverride != null && (
+                                  <button
+                                    onClick={() => saveSetting(item.name, 'weeklyAvgOverride', null)}
+                                    title={`Reset to Square avg (${item.squareWeeklyAvg})`}
+                                    style={{ fontSize: 10, background: 'none', border: 'none', cursor: 'pointer', color: '#f59e0b', padding: 0 }}>★</button>
+                                )}
+                                <input
+                                  type="number" min="0" step="0.1"
+                                  value={item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg}
+                                  onChange={e => {
+                                    const v = parseFloat(e.target.value)
+                                    if (!isNaN(v) && v !== item.squareWeeklyAvg) saveSetting(item.name, 'weeklyAvgOverride', v)
+                                    else if (!isNaN(v) && v === item.squareWeeklyAvg) saveSetting(item.name, 'weeklyAvgOverride', null)
+                                  }}
+                                  style={{
+                                    width: 58, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13,
+                                    border: item.weeklyAvgOverride != null ? '1px solid #f59e0b' : '1px solid #e2e8f0',
+                                    borderRadius: 5, padding: '2px 4px',
+                                    background: item.weeklyAvgOverride != null ? '#fffbeb' : '#f8fafc',
+                                    color: item.weeklyAvgOverride != null ? '#92400e' : 'inherit'
+                                  }}
+                                />
+                              </div>
+                          }
+                        </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <EditNumber value={item.pack} onChange={v => saveSetting(item.name, 'pack', v)}

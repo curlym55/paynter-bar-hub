@@ -38,8 +38,7 @@ export default async function handler(req, res) {
       const effectiveItem = settings.stockOverride !== undefined && settings.stockOverride !== null
         ? { ...item, onHand: settings.stockOverride }
         : item
-      const calculated = calculateItem(effectiveItem, settings, targetWeeks)
-      const sellPrice = settings.sellPrice !== undefined && settings.sellPrice !== ''
+      const calculated = calculateItem(effectiveItem, settings, targetWeeks)      const sellPrice = settings.sellPrice !== undefined && settings.sellPrice !== ''
         ? settings.sellPrice
         : (item.squareSellPrice ?? '')
       const sellPriceBottle = settings.sellPriceBottle !== undefined && settings.sellPriceBottle !== ''
@@ -60,6 +59,8 @@ export default async function handler(req, res) {
         sellPriceBottle,
         bottleOnly:            settings.bottleOnly === true || settings.bottleOnly === 'yes',
         orderQtyOverride:      settings.orderQtyOverride != null ? Number(settings.orderQtyOverride) : null,
+        weeklyAvgOverride:     settings.weeklyAvgOverride != null ? Number(settings.weeklyAvgOverride) : null,
+        squareWeeklyAvg:       item.weeklyAvg,
         alcoholPct:            settings.alcoholPct || '',
         containerML:           settings.containerML ? Number(settings.containerML) : null,
       }
