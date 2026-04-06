@@ -38,7 +38,8 @@ export default async function handler(req, res) {
       const effectiveItem = settings.stockOverride !== undefined && settings.stockOverride !== null
         ? { ...item, onHand: settings.stockOverride }
         : item
-      const calculated = calculateItem(effectiveItem, settings, targetWeeks)      const sellPrice = settings.sellPrice !== undefined && settings.sellPrice !== ''
+      const calculated = calculateItem(effectiveItem, settings, targetWeeks)
+      const sellPrice = settings.sellPrice !== undefined && settings.sellPrice !== ''
         ? settings.sellPrice
         : (item.squareSellPrice ?? '')
       const sellPriceBottle = settings.sellPriceBottle !== undefined && settings.sellPriceBottle !== ''
