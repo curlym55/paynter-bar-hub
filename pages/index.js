@@ -2094,7 +2094,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   )}
                   {displayed.map((item, idx) => {
                     const p = PRIORITY_COLORS[item.priority]
-                    const rowBg = item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc')
+                    const isOnOrder = !!orderedItems[item.name]
+                    const rowBg = isOnOrder ? '#f0f9ff' : (item.orderQty > 0 ? p.bg : (idx % 2 === 0 ? '#fff' : '#f8fafc'))
                     return (
                       <tr key={item.name} style={{ background: rowBg }}>
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
@@ -2175,7 +2176,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           })() : '-'}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
-                          <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{dontOrder(item) ? 'RUNDOWN' : item.priority}</span>
+                          {orderedItems[item.name]
+                            ? <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: '#0e7490', color: '#fff' }}>ON ORDER</span>
+                            : <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{dontOrder(item) ? 'RUNDOWN' : item.priority}</span>
+                          }
                         </td>
 
                         <td style={styles.td}>
