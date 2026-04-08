@@ -3076,7 +3076,7 @@ function BarcodeSheetView({ items }) {
             svg.removeAttribute('width')
             svg.removeAttribute('height')
             svg.style.width = '100%'
-            svg.style.height = 'auto'
+            svg.style.height = `${h}px`
             svg.style.display = 'block'
           }
         } catch(e) {}
