@@ -3035,18 +3035,16 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 
+
 // === BARCODE SHEET VIEW =====================================================
 function BarcodeSheetView({ items }) {
   const [loaded, setLoaded] = useState(false)
-  const page1Ref = useRef(null)
-  const page2Ref = useRef(null)
+  const sheetRef = useRef(null)
 
   const COLS = {
-    spirits:    { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF', div: '#4A6278' },
-    fortified:  { hdr: '#5C3D1E', rowA: '#E8D5B8', rowB: '#F5E8D0', div: '#7A5533' },
-    white:      { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0', div: '#B8940A' },
-    rose:       { hdr: '#A0522D', rowA: '#F5D0C0', rowB: '#FFE8E0', div: '#7A3F20' },
-    red:        { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6', div: '#6B1414' },
+    spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF', div: '#4A6278' },
+    white:     { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0', div: '#B8940A' },
+    red:       { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6', div: '#6B1414' },
   }
 
   useEffect(() => {
@@ -3058,34 +3056,26 @@ function BarcodeSheetView({ items }) {
   }, [])
 
   useEffect(() => {
-    if (!loaded) return
-    const refs = [page1Ref.current, page2Ref.current].filter(Boolean)
-    refs.forEach(ref => {
-      ref.querySelectorAll('svg[data-sku]').forEach(svg => {
-        const sku = svg.getAttribute('data-sku')
-        if (!sku) return
-        while (svg.firstChild) svg.removeChild(svg.firstChild)
-        svg.removeAttribute('style')
-        try {
-          window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.8, height: 58, displayValue: false, margin: 3 })
-          // Make SVG responsive: replace fixed width/height with viewBox so it scales in any cell
-          const w = svg.getAttribute('width')
-          const h = svg.getAttribute('height')
-          if (w && h) {
-            svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-            svg.removeAttribute('width')
-            svg.removeAttribute('height')
-            svg.style.width = '100%'
-            svg.style.height = `${h}px`
-            svg.style.display = 'block'
-          }
-        } catch(e) {}
-      })
+    if (!loaded || !sheetRef.current) return
+    sheetRef.current.querySelectorAll('svg[data-sku]').forEach(svg => {
+      const sku = svg.getAttribute('data-sku')
+      if (!sku) return
+      while (svg.firstChild) svg.removeChild(svg.firstChild)
+      svg.removeAttribute('style')
+      try {
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.4, height: 55, displayValue: false, margin: 2 })
+        const w = svg.getAttribute('width'), h = svg.getAttribute('height')
+        if (w && h) {
+          svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+          svg.removeAttribute('width'); svg.removeAttribute('height')
+          svg.style.cssText = `display:block;width:100%;height:${h}px`
+        }
+      } catch(e) {}
     })
   }, [loaded, items])
 
   function getGlassSku(item) {
-    const v = (item.variations || []).find(v => v.name.toLowerCase().includes('glass') || v.name.toLowerCase().includes('wine glass'))
+    const v = (item.variations || []).find(v => v.name.toLowerCase().includes('glass'))
     return v?.sku || ''
   }
 
@@ -3094,33 +3084,33 @@ function BarcodeSheetView({ items }) {
     return LABEL_OVERRIDES[item.name] || item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
   }
 
-  // Page 1: Spirits (one column) | Fortified & Liqueurs
   const spiritsItems   = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
   const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
+  const whiteItems     = items.filter(i => i.category === 'White Wine'  && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
+  const roseItems      = items.filter(i => i.category === 'Rose'        && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
+  const redItems       = items.filter(i => i.category === 'Red Wine'    && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
 
-  // Page 2: White Wine | Red Wine + Rosé
-  const whiteItems  = items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
-  const roseItems   = items.filter(i => i.category === 'Rose' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
-  const redAndRose  = [
-    ...items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true })),
-    ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ' }, ...roseItems] : []),
+  const col2 = [
+    ...whiteItems,
+    ...(roseItems.length    ? [{ _divider: true, name: 'ROSÉ',               _colours: COLS.red      }, ...roseItems]      : []),
+    ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED & LIQUEURS', _colours: COLS.spirits }, ...fortifiedItems] : []),
   ]
 
   function renderRows(colItems, colours, isWine) {
     let idx = 0
     return colItems.map((item, i) => {
-      if (item._divider) return (
-        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 18, textAlign: 'center', padding: '8px 10px', border: '1px solid #888', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{item.name}</td></tr>
-      )
+      if (item._divider) {
+        const c = item._colours || colours
+        return <tr key={`div-${i}`}><td colSpan={2} style={{ background: c.hdr, color: '#fff', fontWeight: 900, fontSize: 14, textAlign: 'center', padding: '6px 8px', border: '1px solid #888', letterSpacing: '0.07em', textTransform: 'uppercase' }}>{item.name}</td></tr>
+      }
       const rowIdx = idx++
       const bg  = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
       const sku = isWine && item._useGlass !== false ? getGlassSku(item) : (item.sku || '')
       const label = getLabel(item)
-      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 15, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{label}</td>
-      const bcCell    = <td key="bc" style={{ padding: '2px 4px', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', overflow: 'hidden' }}>
-        {sku
-          ? <div style={{ overflow: 'hidden', width: '100%' }}><svg data-sku={sku} /></div>
-          : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>-</span>}
+      const labelCell = <td key="lbl" style={{ padding: '3px 6px', fontWeight: 900, fontSize: 14, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', wordBreak: 'break-word' }}>{label}</td>
+      const bcCell    = <td key="bc"  style={{ padding: '2px 3px', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', overflow: 'hidden' }}>
+        {sku ? <div style={{ overflow: 'hidden', width: '100%' }}><svg data-sku={sku} /></div>
+             : <span style={{ fontSize: 9, color: '#999', fontStyle: 'italic' }}>-</span>}
       </td>
       return <tr key={item.name}>{rowIdx % 2 === 0 ? [labelCell, bcCell] : [bcCell, labelCell]}</tr>
     })
@@ -3129,73 +3119,51 @@ function BarcodeSheetView({ items }) {
   function ColTable({ title, colItems, colours, isWine }) {
     return (
       <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
-        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 22, textAlign: 'center', padding: '10px 10px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
+        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 18, textAlign: 'center', padding: '7px 8px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
         <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
       </div>
     )
   }
 
-  const printDate = new Date(Date.now() + 10*60*60*1000).toISOString().slice(0,10).split('-').reverse().join(' ').replace(/(\d{4})/, (_, y) => ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][parseInt(new Date().getMonth())] + ' ' + y).replace(/\d{2} \d{2}/, d => d)
-
   function doPrint() {
     const w = window.open('', '_blank')
-    const p1 = page1Ref.current?.innerHTML || ''
-    const p2 = page2Ref.current?.innerHTML || ''
-    const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    const html = sheetRef.current?.innerHTML || ''
+    const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
 <style>
-  @page { size: A4 landscape; margin: 8mm; }
+  @page { size: A4 landscape; margin: 6mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; }
-  .page { page-break-after: always; }
-  .page:last-child { page-break-after: avoid; }
-  .hdr { display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 6px 12px; margin-bottom: 6px; border-radius: 4px; }
-  .hdr-title { font-size: 15px; font-weight: 800; letter-spacing: 0.03em; }
-  .hdr-sub { font-size: 13px; font-weight: 700; color: #cbd5e1; margin-top: 2px; }
+  .hdr { display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 4px 10px; margin-bottom: 5px; }
+  .hdr-title { font-size: 13px; font-weight: 800; }
   .hdr-date { font-size: 11px; color: #cbd5e1; }
-  .cols { display: flex; gap: 8px; }
+  .cols { display: flex; gap: 6px; }
   .cols > div { flex: 1; border: 2px solid #888; overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; }
+  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
   td { font-size: 11px; }
+  svg { display: block; width: 100%; }
   @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
 </style></head><body>
-<div class="page">
-  <div class="hdr"><div><div class="hdr-title">🍺 Paynter Bar — GemLife Palmwoods</div><div class="hdr-sub">Spirits & Fortified — Barcode Reference</div></div><div class="hdr-date">${dateStr}</div></div>
-  <div class="cols">${p1}</div>
-</div>
-<div class="page">
-  <div class="hdr"><div><div class="hdr-title">🍺 Paynter Bar — GemLife Palmwoods</div><div class="hdr-sub">Wines — By the Glass Barcode Reference</div></div><div class="hdr-date">${dateStr}</div></div>  <div class="cols">${p2}</div>
-</div>
+<div class="hdr"><div class="hdr-title">🍺 Paynter Bar — By the Glass Barcodes</div><div class="hdr-date">${dateStr}</div></div>
+<div class="cols">${html}</div>
 </body></html>`)
     w.document.close()
-    setTimeout(() => { w.focus(); w.print() }, 900)
+    setTimeout(() => { w.focus(); w.print() }, 800)
   }
 
   return (
-    <div style={{ padding: '16px 20px', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <div>
-          <div style={{ fontSize: 18, fontWeight: 700, color: '#0f172a' }}>🏷️ Barcode Sheet</div>
-          <div style={{ fontSize: 12, color: '#64748b' }}>2 pages — Spirits/Fortified + Wines · Print landscape A4</div>
-        </div>
+    <div style={{ padding: '12px 20px', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>🏷️ Barcode Sheet <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>— print landscape A4</span></div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {!loaded && <span style={{ fontSize: 12, color: '#94a3b8' }}>Loading barcodes…</span>}
-          <button onClick={doPrint} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print (2 pages)</button>
+          {!loaded && <span style={{ fontSize: 12, color: '#94a3b8' }}>Loading…</span>}
+          <button onClick={doPrint} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
         </div>
       </div>
-
-      {/* Page 1 preview — Spirits + Fortified */}
-      <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Page 1 — Spirits & Fortified</div>
-      <div ref={page1Ref} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 24 }}>
-        <ColTable title="Spirits"              colItems={spiritsItems}   colours={COLS.spirits}   isWine={false} />
-        <ColTable title="Fortified & Liqueurs" colItems={fortifiedItems} colours={COLS.fortified} isWine={false} />
-      </div>
-
-      {/* Page 2 preview — Wines */}
-      <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Page 2 — Wines</div>
-      <div ref={page2Ref} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <ColTable title="White Wine" colItems={whiteItems} colours={COLS.white} isWine={true} />
-        <ColTable title="Red Wine"   colItems={redAndRose} colours={COLS.red}   isWine={true} />
+      <div ref={sheetRef} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+        <ColTable title="Spirits"    colItems={spiritsItems} colours={COLS.spirits} isWine={false} />
+        <ColTable title="White Wine" colItems={col2}         colours={COLS.white}   isWine={true}  />
+        <ColTable title="Red Wine"   colItems={redItems}     colours={COLS.red}     isWine={true}  />
       </div>
     </div>
   )
