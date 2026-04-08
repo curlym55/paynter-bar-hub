@@ -3087,15 +3087,14 @@ function BarcodeSheetView({ items }) {
   const spiritsItems   = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
   const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
 
-  // Page 2: White Wine | Rose + Sparkling | Red Wine
+  // Page 2: White Wine | Sparkling | Red Wine + Rosé
   const whiteItems  = items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
   const roseItems   = items.filter(i => i.category === 'Rose' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
   const sparkItems  = items.filter(i => i.category === 'Sparkling' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
-  const roseSpark   = [
-    ...roseItems,
-    ...(sparkItems.length ? [{ _divider: true, name: 'SPARKLING' }, ...sparkItems] : []),
+  const redAndRose  = [
+    ...items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true })),
+    ...(roseItems.length ? [{ _divider: true, name: 'ROSÉ' }, ...roseItems] : []),
   ]
-  const redItems    = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
 
   function renderRows(colItems, colours, isWine) {
     let idx = 0
@@ -3153,8 +3152,7 @@ function BarcodeSheetView({ items }) {
   <div class="cols">${p1}</div>
 </div>
 <div class="page">
-  <div class="hdr"><div><div class="hdr-title">🍺 Paynter Bar — GemLife Palmwoods</div><div class="hdr-sub">Wines — By the Glass Barcode Reference</div></div><div class="hdr-date">${dateStr}</div></div>
-  <div class="cols">${p2}</div>
+  <div class="hdr"><div><div class="hdr-title">🍺 Paynter Bar — GemLife Palmwoods</div><div class="hdr-sub">Wines — By the Glass Barcode Reference</div></div><div class="hdr-date">${dateStr}</div></div>  <div class="cols">${p2}</div>
 </div>
 </body></html>`)
     w.document.close()
@@ -3184,9 +3182,9 @@ function BarcodeSheetView({ items }) {
       {/* Page 2 preview — Wines */}
       <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Page 2 — Wines</div>
       <div ref={page2Ref} style={{ display: 'flex', gap: 10, alignItems: 'flex-start' }}>
-        <ColTable title="White Wine"      colItems={whiteItems} colours={COLS.white}     isWine={true} />
-        <ColTable title="Rosé & Sparkling" colItems={roseSpark}  colours={COLS.rose}      isWine={true} />
-        <ColTable title="Red Wine"        colItems={redItems}   colours={COLS.red}       isWine={true} />
+        <ColTable title="White Wine"  colItems={whiteItems}  colours={COLS.white}     isWine={true} />
+        <ColTable title="Sparkling"   colItems={sparkItems}  colours={COLS.rose}      isWine={true} />
+        <ColTable title="Red Wine"    colItems={redAndRose}  colours={COLS.red}       isWine={true} />
       </div>
     </div>
   )
