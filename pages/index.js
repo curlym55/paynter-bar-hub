@@ -3083,9 +3083,12 @@ function BarcodeSheetView({ items }) {
     return LABEL_OVERRIDES[item.name] || item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
   }
 
-  // Page 1: Spirits | Fortified & Liqueurs
-  const spiritsItems    = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
-  const fortifiedItems  = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
+  // Page 1: Spirits (split into 2 columns to fit page) | Fortified & Liqueurs
+  const spiritsAll     = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
+  const spiritsMid     = Math.ceil(spiritsAll.length / 2)
+  const spiritsCol1    = spiritsAll.slice(0, spiritsMid)
+  const spiritsCol2    = spiritsAll.slice(spiritsMid)
+  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
 
   // Page 2: White Wine | Rose + Sparkling | Red Wine
   const whiteItems  = items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
@@ -3177,7 +3180,8 @@ function BarcodeSheetView({ items }) {
       {/* Page 1 preview — Spirits + Fortified */}
       <div style={{ marginBottom: 8, fontSize: 12, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Page 1 — Spirits & Fortified</div>
       <div ref={page1Ref} style={{ display: 'flex', gap: 10, alignItems: 'flex-start', marginBottom: 24 }}>
-        <ColTable title="Spirits"             colItems={spiritsItems}   colours={COLS.spirits}   isWine={false} />
+        <ColTable title="Spirits"              colItems={spiritsCol1}   colours={COLS.spirits}   isWine={false} />
+        <ColTable title="Spirits (cont.)"      colItems={spiritsCol2}   colours={COLS.spirits}   isWine={false} />
         <ColTable title="Fortified & Liqueurs" colItems={fortifiedItems} colours={COLS.fortified} isWine={false} />
       </div>
 
