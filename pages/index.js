@@ -3131,7 +3131,7 @@ function BarcodeSheetView({ items }) {
       </div>
       return (
         <div key={item.name} className="bc-row">
-          {[labelEl, bcEl]}
+          {rowIdx % 2 === 0 ? [labelEl, bcEl] : [bcEl, labelEl]}
         </div>
       )
     })
@@ -3153,7 +3153,7 @@ function BarcodeSheetView({ items }) {
     const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
 <style>
-  @page { size: A4 landscape; margin: 6mm 8mm; }
+  @page { size: A4 landscape; margin: 6mm 8mm 6mm 14mm; }
   html,body { height:100%; margin:0; padding:0; font-family:Arial,sans-serif; }
   .bc-page { height:100%; display:flex; flex-direction:column; }
   .bc-hdr { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; background:#1A2F45; color:#fff; padding:3px 8px; margin-bottom:4px; font-size:12px; font-weight:800; }
