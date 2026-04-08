@@ -3037,16 +3037,20 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 
+
 // === BARCODE SHEET VIEW =====================================================
 function BarcodeSheetView({ items }) {
   const [loaded, setLoaded] = useState(false)
-  const sheetRef = useRef(null)
+  const allRef   = useRef(null)  // wrapper for all previews - used for SVG rasterisation
+  const sheetRef = useRef(null)  // single-page 3-col
+  const p1Ref    = useRef(null)  // 2-page: page 1 (Spirits + Fortified)
+  const p2Ref    = useRef(null)  // 2-page: page 2 (White + Red/Rose)
 
   const C = {
     spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF' },
     white:     { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0' },
     red:       { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6' },
-    fortified: { hdr: '#5C3D1E' },
+    fortified: { hdr: '#5C3D1E', rowA: '#E8D5B8', rowB: '#F5E8D0' },
     rose:      { hdr: '#8B0045' },
   }
 
@@ -3059,18 +3063,15 @@ function BarcodeSheetView({ items }) {
   }, [])
 
   useEffect(() => {
-    if (!loaded || !sheetRef.current) return
-    sheetRef.current.querySelectorAll('svg[data-sku]').forEach(svg => {
+    if (!loaded || !allRef.current) return
+    allRef.current.querySelectorAll('svg[data-sku]').forEach(svg => {
       const sku = svg.getAttribute('data-sku')
       if (!sku) return
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 100, displayValue: false, margin: 4 })
-        const w = parseInt(svg.getAttribute('width'))
-        const h = parseInt(svg.getAttribute('height'))
-        // Rasterise to PNG at 3x resolution — renders identically on screen and in print
-        // Avoids SVG scaling distortion that causes scan failures on printed output
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 80, displayValue: false, margin: 4 })
+        const w = parseInt(svg.getAttribute('width')), h = parseInt(svg.getAttribute('height'))
         const svgData = new XMLSerializer().serializeToString(svg)
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
         const url = URL.createObjectURL(blob)
@@ -3079,8 +3080,7 @@ function BarcodeSheetView({ items }) {
           const canvas = document.createElement('canvas')
           canvas.width = w * 3; canvas.height = h * 3
           const ctx = canvas.getContext('2d')
-          ctx.fillStyle = '#fff'
-          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height)
           ctx.drawImage(tmpImg, 0, 0, canvas.width, canvas.height)
           URL.revokeObjectURL(url)
           const img = document.createElement('img')
@@ -3107,19 +3107,31 @@ function BarcodeSheetView({ items }) {
   const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
   const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
 
-  const col2 = [
+  const col2single = [
     ...whiteItems,
-    ...(roseItems.length    ? [{_div:true, name:'ROSÉ',                _hdr: C.rose.hdr     }, ...roseItems]      : []),
-    ...(fortifiedItems.length ? [{_div:true, name:'FORTIFIED & LIQUEURS',_hdr: C.fortified.hdr}, ...fortifiedItems] : []),
+    ...(roseItems.length    ? [{_div:true, name:'ROSÉ',                _hdr:C.rose.hdr     }, ...roseItems]      : []),
+    ...(fortifiedItems.length ? [{_div:true, name:'FORTIFIED & LIQUEURS',_hdr:C.fortified.hdr}, ...fortifiedItems] : []),
   ]
+  const col2wines = [
+    ...redItems,
+    ...(roseItems.length ? [{_div:true, name:'ROSÉ', _hdr:C.rose.hdr}, ...roseItems] : []),
+  ]
+
+  const COL_CSS = `
+    .bc-col{flex:1;display:flex;flex-direction:column;border:2px solid #888;overflow:hidden;}
+    .bc-col-hdr{flex:0 0 auto;padding:5px 8px;text-align:center;font-weight:900;font-size:17px;letter-spacing:.07em;text-transform:uppercase;color:#fff;}
+    .bc-div{flex:0 0 22px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:#fff;border-top:1px solid #888;}
+    .bc-row{flex:1;display:flex;border-top:1px solid #ccc;min-height:0;}
+    .bc-label{flex:1;display:flex;align-items:center;padding:0 5px;font-weight:900;font-size:13px;word-break:break-word;border-right:1px solid #ccc;}
+    .bc-cell{flex:1;display:flex;align-items:center;overflow:hidden;min-width:0;}
+    .bc-cell img{width:100%;height:auto;display:block;}
+  `
 
   function renderCol(colItems, colours, isWine) {
     let idx = 0
     return colItems.map((item, i) => {
       if (item._div) return (
-        <div key={`d${i}`} className="bc-div" style={{ background: item._hdr }}>
-          {item.name}
-        </div>
+        <div key={`d${i}`} className="bc-div" style={{ background: item._hdr }}>{item.name}</div>
       )
       const rowIdx = idx++
       const bg = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
@@ -3137,61 +3149,89 @@ function BarcodeSheetView({ items }) {
     })
   }
 
-  const COL_STYLE = `
-    .bc-col { flex:1; display:flex; flex-direction:column; border:2px solid #888; overflow:hidden; }
-    .bc-col-hdr { flex:0 0 auto; padding:5px 8px; text-align:center; font-weight:900; font-size:17px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; }
-    .bc-div { flex:0 0 22px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; border-top:1px solid #888; }
-    .bc-row { flex:1; display:flex; border-top:1px solid #ccc; min-height:0; }
-    .bc-label { flex:1; display:flex; align-items:center; padding:0 6px; font-weight:900; font-size:16px; word-break:break-word; line-height:1.2; border-right:1px solid #ccc; }
-    .bc-cell { flex:1; display:flex; align-items:stretch; overflow:hidden; min-width:0; }
-    .bc-cell img { width:100%; height:100%; object-fit:contain; display:block; }
+  function ColDiv({ title, colItems, colours, isWine }) {
+    return (
+      <div className="bc-col">
+        <div className="bc-col-hdr" style={{ background: colours.hdr }}>{title}</div>
+        {renderCol(colItems, colours, isWine)}
+      </div>
+    )
+  }
+
+  const PAGE_CSS = (leftMargin) => `
+    @page{size:A4 landscape;margin:6mm 8mm 6mm ${leftMargin};}
+    html,body{height:100%;margin:0;padding:0;font-family:Arial,sans-serif;}
+    .bc-page{height:100%;display:flex;flex-direction:column;}
+    .bc-hdr{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;background:#1A2F45;color:#fff;padding:3px 8px;margin-bottom:4px;font-size:12px;font-weight:800;}
+    .bc-hdr-date{font-size:10px;color:#cbd5e1;}
+    .bc-cols{flex:1;display:flex;gap:5px;min-height:0;}
+    ${COL_CSS}
+    @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   `
 
-  function doPrint() {
+  function printWindow(pages, leftMargin = '14mm') {
     const w = window.open('', '_blank')
-    const html = sheetRef.current?.innerHTML || ''
     const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
+    const pageBlocks = pages.map((p, idx) => `
+      <div class="bc-page" style="${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
+        <div class="bc-hdr"><span>🍺 Paynter Bar — ${p.subtitle}</span><span class="bc-hdr-date">${dateStr}</span></div>
+        <div class="bc-cols">${p.html}</div>
+      </div>`).join('')
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
-<style>
-  @page { size: A4 landscape; margin: 5mm; }
-  html,body { height:100%; margin:0; padding:0; font-family:Arial,sans-serif; }
-  .bc-page { height:100%; display:flex; flex-direction:column; }
-  .bc-hdr { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; background:#1A2F45; color:#fff; padding:3px 8px; margin-bottom:4px; font-size:12px; font-weight:800; }
-  .bc-hdr-date { font-size:10px; color:#cbd5e1; }
-  .bc-cols { flex:1; display:flex; gap:5px; min-height:0; }
-  ${COL_STYLE}
-  @media print { *{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
-</style></head><body>
-<div class="bc-page">
-  <div class="bc-hdr"><span>🍺 Paynter Bar — By the Glass Barcodes</span><span class="bc-hdr-date">${dateStr}</span></div>
-  <div class="bc-cols">${html}</div>
-</div></body></html>`)
+<style>${PAGE_CSS(leftMargin)}</style></head><body>${pageBlocks}</body></html>`)
     w.document.close()
     setTimeout(() => { w.focus(); w.print() }, 900)
   }
 
+  function doPrint1Page() {
+    printWindow([{ subtitle: 'By the Glass Barcodes', html: sheetRef.current?.innerHTML || '' }])
+  }
+
+  function doPrint2Page() {
+    printWindow([
+      { subtitle: 'Spirits & Fortified — Barcodes', html: p1Ref.current?.innerHTML || '' },
+      { subtitle: 'Wines — By the Glass Barcodes',  html: p2Ref.current?.innerHTML || '' },
+    ])
+  }
+
+  const btnStyle = (active) => ({
+    background: active ? '#1A2F45' : '#94a3b8', color:'#fff', border:'none',
+    borderRadius:6, padding:'7px 16px', fontSize:13, fontWeight:700,
+    cursor: active ? 'pointer' : 'not-allowed'
+  })
+
   return (
     <div style={{ padding:'12px 20px', fontFamily:'Arial,sans-serif' }}>
-      <style>{COL_STYLE}</style>
-      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+      <style>{COL_CSS}</style>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:12 }}>
         <div style={{ fontSize:16, fontWeight:700, color:'#0f172a' }}>🏷️ Barcode Sheet <span style={{ fontSize:11, color:'#64748b', fontWeight:400 }}>— landscape A4</span></div>
         <div style={{ display:'flex', gap:8, alignItems:'center' }}>
           {!loaded && <span style={{ fontSize:12, color:'#94a3b8' }}>Loading…</span>}
-          <button onClick={doPrint} disabled={!loaded} style={{ background:loaded?'#1A2F45':'#94a3b8', color:'#fff', border:'none', borderRadius:6, padding:'7px 18px', fontSize:13, fontWeight:700, cursor:loaded?'pointer':'not-allowed' }}>🖨️ Print</button>
+          <button onClick={doPrint1Page} disabled={!loaded} style={btnStyle(loaded)}>🖨️ Print (1 page)</button>
+          <button onClick={doPrint2Page} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#7c3aed' : '#94a3b8'}}>🖨️ Print (2 pages)</button>
         </div>
       </div>
-      <div ref={sheetRef} style={{ display:'flex', gap:8, height:680, minHeight:0 }}>
-        <div className="bc-col">
-          <div className="bc-col-hdr" style={{ background:C.spirits.hdr }}>Spirits</div>
-          {renderCol(spiritsItems, C.spirits, false)}
+
+      <div ref={allRef}>
+        {/* Single-page preview */}
+        <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>1-page layout</div>
+        <div ref={sheetRef} style={{ display:'flex', gap:8, height:640, minHeight:0, marginBottom:20 }}>
+          <ColDiv title="Spirits"    colItems={spiritsItems} colours={C.spirits} isWine={false} />
+          <ColDiv title="White Wine" colItems={col2single}   colours={C.white}   isWine={true}  />
+          <ColDiv title="Red Wine"   colItems={redItems}     colours={C.red}     isWine={true}  />
         </div>
-        <div className="bc-col">
-          <div className="bc-col-hdr" style={{ background:C.white.hdr }}>White Wine</div>
-          {renderCol(col2, C.white, true)}
+
+        {/* 2-page preview */}
+        <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>2-page layout — page 1: Spirits & Fortified</div>
+        <div ref={p1Ref} style={{ display:'flex', gap:8, height:580, minHeight:0, marginBottom:12 }}>
+          <ColDiv title="Spirits"              colItems={spiritsItems}   colours={C.spirits}   isWine={false} />
+          <ColDiv title="Fortified & Liqueurs" colItems={fortifiedItems} colours={C.fortified} isWine={false} />
         </div>
-        <div className="bc-col">
-          <div className="bc-col-hdr" style={{ background:C.red.hdr }}>Red Wine</div>
-          {renderCol(redItems, C.red, true)}
+
+        <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>2-page layout — page 2: Wines</div>
+        <div ref={p2Ref} style={{ display:'flex', gap:8, height:580, minHeight:0, marginBottom:12 }}>
+          <ColDiv title="White Wine" colItems={whiteItems} colours={C.white} isWine={true} />
+          <ColDiv title="Red Wine"   colItems={col2wines}  colours={C.red}   isWine={true} />
         </div>
       </div>
     </div>
