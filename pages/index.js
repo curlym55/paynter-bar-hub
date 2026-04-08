@@ -3158,7 +3158,7 @@ function BarcodeSheetView({ items }) {
     )
   }
 
-  const PAGE_CSS = (leftMargin) => `
+  const PAGE_CSS = (leftMargin, largeTitles = false) => `
     @page{size:A4 landscape;margin:6mm 8mm 6mm ${leftMargin};}
     html,body{height:100%;margin:0;padding:0;font-family:Arial,sans-serif;}
     .bc-page{height:100%;display:flex;flex-direction:column;}
@@ -3166,10 +3166,11 @@ function BarcodeSheetView({ items }) {
     .bc-hdr-date{font-size:10px;color:#cbd5e1;}
     .bc-cols{flex:1;display:flex;gap:5px;min-height:0;}
     ${COL_CSS}
+    ${largeTitles ? '.bc-col-hdr{font-size:28px!important;padding:8px 10px!important;}' : ''}
     @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   `
 
-  function printWindow(pages, leftMargin = '14mm') {
+  function printWindow(pages, leftMargin = '14mm', largeTitles = false) {
     const w = window.open('', '_blank')
     const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
     const pageBlocks = pages.map((p, idx) => `
@@ -3178,7 +3179,7 @@ function BarcodeSheetView({ items }) {
         <div class="bc-cols">${p.html}</div>
       </div>`).join('')
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
-<style>${PAGE_CSS(leftMargin)}</style></head><body>${pageBlocks}</body></html>`)
+<style>${PAGE_CSS(leftMargin, largeTitles)}</style></head><body>${pageBlocks}</body></html>`)
     w.document.close()
     setTimeout(() => { w.focus(); w.print() }, 900)
   }
@@ -3191,7 +3192,7 @@ function BarcodeSheetView({ items }) {
     printWindow([
       { subtitle: 'Spirits & Fortified — Barcodes', html: p1Ref.current?.innerHTML || '' },
       { subtitle: 'Wines — By the Glass Barcodes',  html: p2Ref.current?.innerHTML || '' },
-    ])
+    ], '14mm', true)
   }
 
   const btnStyle = (active) => ({
