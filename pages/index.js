@@ -3068,6 +3068,17 @@ function BarcodeSheetView({ items }) {
         svg.removeAttribute('style')
         try {
           window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.8, height: 58, displayValue: false, margin: 3 })
+          // Make SVG responsive: replace fixed width/height with viewBox so it scales in any cell
+          const w = svg.getAttribute('width')
+          const h = svg.getAttribute('height')
+          if (w && h) {
+            svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+            svg.removeAttribute('width')
+            svg.removeAttribute('height')
+            svg.style.width = '100%'
+            svg.style.height = 'auto'
+            svg.style.display = 'block'
+          }
         } catch(e) {}
       })
     })
