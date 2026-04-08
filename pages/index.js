@@ -3116,8 +3116,8 @@ function BarcodeSheetView({ items }) {
       const bg  = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
       const sku = isWine && item._useGlass !== false ? getGlassSku(item) : (item.sku || '')
       const label = getLabel(item)
-      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 15, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '42%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{label}</td>
-      const bcCell    = <td key="bc" style={{ padding: '2px 4px', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '58%', overflow: 'hidden' }}>
+      const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 15, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{label}</td>
+      const bcCell    = <td key="bc" style={{ padding: '2px 4px', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', overflow: 'hidden' }}>
         {sku
           ? <div style={{ overflow: 'hidden', width: '100%' }}><svg data-sku={sku} /></div>
           : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>-</span>}
