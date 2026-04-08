@@ -3099,17 +3099,17 @@ function BarcodeSheetView({ items }) {
     let idx = 0
     return colItems.map((item, i) => {
       if (item._divider) return (
-        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.div, color: '#fff', fontWeight: 700, fontSize: 11, textAlign: 'center', padding: '5px 8px', border: '1px solid #888' }}>{item.name}</td></tr>
+        <tr key={`div-${i}`}><td colSpan={2} style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 18, textAlign: 'center', padding: '8px 10px', border: '1px solid #888', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{item.name}</td></tr>
       )
       const rowIdx = idx++
       const bg  = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
       const sku = isWine && item._useGlass !== false ? getGlassSku(item) : (item.sku || '')
       const label = getLabel(item)
       const labelCell = <td key="lbl" style={{ padding: '4px 6px 4px 8px', fontWeight: 900, fontSize: 15, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '42%', wordBreak: 'break-word', overflowWrap: 'break-word' }}>{label}</td>
-      const bcCell    = <td key="bc"  style={{ padding: '2px 4px', textAlign: rowIdx % 2 === 0 ? 'right' : 'left', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '58%', overflow: 'hidden' }}>
-        {sku ? <svg data-sku={sku} style={{ display: 'block', maxWidth: '100%', marginLeft: rowIdx % 2 === 0 ? 'auto' : '0' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>-</span>}
+      const bcCell    = <td key="bc"  style={{ padding: '2px 4px', textAlign: 'right', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '58%', overflow: 'hidden' }}>
+        {sku ? <svg data-sku={sku} style={{ display: 'block', maxWidth: '100%', marginLeft: 'auto' }} /> : <span style={{ fontSize: 10, color: '#999', fontStyle: 'italic' }}>-</span>}
       </td>
-      return <tr key={item.name}>{rowIdx % 2 === 0 ? [labelCell, bcCell] : [bcCell, labelCell]}</tr>
+      return <tr key={item.name}>{[labelCell, bcCell]}</tr>
     })
   }
 
