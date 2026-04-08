@@ -3066,14 +3066,29 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.6, height: 70, displayValue: false, margin: 2 })
-        const w = svg.getAttribute('width'), h = svg.getAttribute('height')
-        if (w && h) {
-          svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
-          svg.setAttribute('preserveAspectRatio', 'none')
-          svg.removeAttribute('width'); svg.removeAttribute('height')
-          svg.style.cssText = 'width:100%;height:100%;display:block'
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 80, displayValue: false, margin: 4 })
+        const w = parseInt(svg.getAttribute('width'))
+        const h = parseInt(svg.getAttribute('height'))
+        // Rasterise to PNG at 3x resolution — renders identically on screen and in print
+        // Avoids SVG scaling distortion that causes scan failures on printed output
+        const svgData = new XMLSerializer().serializeToString(svg)
+        const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
+        const url = URL.createObjectURL(blob)
+        const tmpImg = new Image()
+        tmpImg.onload = () => {
+          const canvas = document.createElement('canvas')
+          canvas.width = w * 3; canvas.height = h * 3
+          const ctx = canvas.getContext('2d')
+          ctx.fillStyle = '#fff'
+          ctx.fillRect(0, 0, canvas.width, canvas.height)
+          ctx.drawImage(tmpImg, 0, 0, canvas.width, canvas.height)
+          URL.revokeObjectURL(url)
+          const img = document.createElement('img')
+          img.src = canvas.toDataURL('image/png')
+          img.style.cssText = 'width:100%;height:auto;display:block'
+          if (svg.parentNode) svg.parentNode.replaceChild(img, svg)
         }
+        tmpImg.src = url
       } catch(e) {}
     })
   }, [loaded, items])
@@ -3128,8 +3143,8 @@ function BarcodeSheetView({ items }) {
     .bc-div { flex:0 0 22px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; border-top:1px solid #888; }
     .bc-row { flex:1; display:flex; border-top:1px solid #ccc; min-height:0; }
     .bc-label { flex:1; display:flex; align-items:center; padding:0 5px; font-weight:900; font-size:13px; word-break:break-word; border-right:1px solid #ccc; }
-    .bc-cell { flex:1; display:flex; align-items:stretch; overflow:hidden; min-width:0; }
-    .bc-cell svg { width:100%; height:100%; display:block; }
+    .bc-cell { flex:1; display:flex; align-items:center; overflow:hidden; min-width:0; }
+    .bc-cell img { width:100%; height:auto; display:block; }
   `
 
   function doPrint() {
