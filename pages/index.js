@@ -3066,7 +3066,7 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 80, displayValue: false, margin: 4 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 100, displayValue: false, margin: 4 })
         const w = parseInt(svg.getAttribute('width'))
         const h = parseInt(svg.getAttribute('height'))
         // Rasterise to PNG at 3x resolution — renders identically on screen and in print
@@ -3142,9 +3142,9 @@ function BarcodeSheetView({ items }) {
     .bc-col-hdr { flex:0 0 auto; padding:5px 8px; text-align:center; font-weight:900; font-size:17px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; }
     .bc-div { flex:0 0 22px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; border-top:1px solid #888; }
     .bc-row { flex:1; display:flex; border-top:1px solid #ccc; min-height:0; }
-    .bc-label { flex:1; display:flex; align-items:center; padding:0 5px; font-weight:900; font-size:13px; word-break:break-word; border-right:1px solid #ccc; }
-    .bc-cell { flex:1; display:flex; align-items:center; overflow:hidden; min-width:0; }
-    .bc-cell img { width:100%; height:auto; display:block; }
+    .bc-label { flex:1; display:flex; align-items:center; padding:0 6px; font-weight:900; font-size:16px; word-break:break-word; line-height:1.2; border-right:1px solid #ccc; }
+    .bc-cell { flex:1; display:flex; align-items:stretch; overflow:hidden; min-width:0; }
+    .bc-cell img { width:100%; height:100%; object-fit:contain; display:block; }
   `
 
   function doPrint() {
@@ -3153,7 +3153,7 @@ function BarcodeSheetView({ items }) {
     const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
 <style>
-  @page { size: A4 landscape; margin: 6mm 8mm 6mm 14mm; }
+  @page { size: A4 landscape; margin: 5mm; }
   html,body { height:100%; margin:0; padding:0; font-family:Arial,sans-serif; }
   .bc-page { height:100%; display:flex; flex-direction:column; }
   .bc-hdr { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; background:#1A2F45; color:#fff; padding:3px 8px; margin-bottom:4px; font-size:12px; font-weight:800; }
