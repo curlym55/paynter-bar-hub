@@ -3036,15 +3036,18 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 
+
 // === BARCODE SHEET VIEW =====================================================
 function BarcodeSheetView({ items }) {
   const [loaded, setLoaded] = useState(false)
   const sheetRef = useRef(null)
 
-  const COLS = {
-    spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF', div: '#4A6278' },
-    white:     { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0', div: '#B8940A' },
-    red:       { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6', div: '#6B1414' },
+  const C = {
+    spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF' },
+    white:     { hdr: '#D4AC0D', rowA: '#FFF0A0', rowB: '#FFFDD0' },
+    red:       { hdr: '#8B0000', rowA: '#F5B8B8', rowB: '#FFD6D6' },
+    fortified: { hdr: '#5C3D1E' },
+    rose:      { hdr: '#8B0045' },
   }
 
   useEffect(() => {
@@ -3063,22 +3066,21 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.4, height: 55, displayValue: false, margin: 2 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2.6, height: 70, displayValue: false, margin: 2 })
         const w = svg.getAttribute('width'), h = svg.getAttribute('height')
         if (w && h) {
           svg.setAttribute('viewBox', `0 0 ${w} ${h}`)
+          svg.setAttribute('preserveAspectRatio', 'none')
           svg.removeAttribute('width'); svg.removeAttribute('height')
-          svg.style.cssText = `display:block;width:100%;height:${h}px`
+          svg.style.cssText = 'width:100%;height:100%;display:block'
         }
       } catch(e) {}
     })
   }, [loaded, items])
 
   function getGlassSku(item) {
-    const v = (item.variations || []).find(v => v.name.toLowerCase().includes('glass'))
-    return v?.sku || ''
+    return (item.variations || []).find(v => v.name.toLowerCase().includes('glass'))?.sku || ''
   }
-
   const LABEL_OVERRIDES = { 'Curtis Legion Cabernet Sauvignon': 'Curtis Legion Cab Sauv' }
   function getLabel(item) {
     return LABEL_OVERRIDES[item.name] || item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
@@ -3086,84 +3088,96 @@ function BarcodeSheetView({ items }) {
 
   const spiritsItems   = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
   const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
-  const whiteItems     = items.filter(i => i.category === 'White Wine'  && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
-  const roseItems      = items.filter(i => i.category === 'Rose'        && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
-  const redItems       = items.filter(i => i.category === 'Red Wine'    && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({ ...i, _useGlass: true }))
+  const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
 
   const col2 = [
     ...whiteItems,
-    ...(roseItems.length    ? [{ _divider: true, name: 'ROSÉ',               _colours: COLS.red      }, ...roseItems]      : []),
-    ...(fortifiedItems.length ? [{ _divider: true, name: 'FORTIFIED & LIQUEURS', _colours: COLS.spirits }, ...fortifiedItems] : []),
+    ...(roseItems.length    ? [{_div:true, name:'ROSÉ',                _hdr: C.rose.hdr     }, ...roseItems]      : []),
+    ...(fortifiedItems.length ? [{_div:true, name:'FORTIFIED & LIQUEURS',_hdr: C.fortified.hdr}, ...fortifiedItems] : []),
   ]
 
-  function renderRows(colItems, colours, isWine) {
+  function renderCol(colItems, colours, isWine) {
     let idx = 0
     return colItems.map((item, i) => {
-      if (item._divider) {
-        const c = item._colours || colours
-        return <tr key={`div-${i}`}><td colSpan={2} style={{ background: c.hdr, color: '#fff', fontWeight: 900, fontSize: 14, textAlign: 'center', padding: '6px 8px', border: '1px solid #888', letterSpacing: '0.07em', textTransform: 'uppercase' }}>{item.name}</td></tr>
-      }
+      if (item._div) return (
+        <div key={`d${i}`} className="bc-div" style={{ background: item._hdr }}>
+          {item.name}
+        </div>
+      )
       const rowIdx = idx++
-      const bg  = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
-      const sku = isWine && item._useGlass !== false ? getGlassSku(item) : (item.sku || '')
+      const bg = rowIdx % 2 === 0 ? colours.rowA : colours.rowB
+      const sku = isWine && item._glass ? getGlassSku(item) : (item.sku || '')
       const label = getLabel(item)
-      const labelCell = <td key="lbl" style={{ padding: '3px 6px', fontWeight: 900, fontSize: 14, color: '#000', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', wordBreak: 'break-word' }}>{label}</td>
-      const bcCell    = <td key="bc"  style={{ padding: '2px 3px', background: bg, border: '1px solid #888', verticalAlign: 'middle', width: '50%', overflow: 'hidden' }}>
-        {sku ? <div style={{ overflow: 'hidden', width: '100%' }}><svg data-sku={sku} /></div>
-             : <span style={{ fontSize: 9, color: '#999', fontStyle: 'italic' }}>-</span>}
-      </td>
-      return <tr key={item.name}>{rowIdx % 2 === 0 ? [labelCell, bcCell] : [bcCell, labelCell]}</tr>
+      const labelEl = <div key="lbl" className="bc-label" style={{ background: bg }}>{label}</div>
+      const bcEl    = <div key="bc"  className="bc-cell"  style={{ background: bg }}>
+        {sku ? <svg data-sku={sku} /> : <span style={{fontSize:9,color:'#999',fontStyle:'italic'}}>—</span>}
+      </div>
+      return (
+        <div key={item.name} className="bc-row">
+          {rowIdx % 2 === 0 ? [labelEl, bcEl] : [bcEl, labelEl]}
+        </div>
+      )
     })
   }
 
-  function ColTable({ title, colItems, colours, isWine }) {
-    return (
-      <div style={{ flex: 1, border: '2px solid #888', overflow: 'hidden' }}>
-        <div style={{ background: colours.hdr, color: '#fff', fontWeight: 900, fontSize: 18, textAlign: 'center', padding: '7px 8px', letterSpacing: '0.08em', textTransform: 'uppercase' }}>{title}</div>
-        <table style={{ width: '100%', borderCollapse: 'collapse', tableLayout: 'fixed' }}><tbody>{renderRows(colItems, colours, isWine)}</tbody></table>
-      </div>
-    )
-  }
+  const COL_STYLE = `
+    .bc-col { flex:1; display:flex; flex-direction:column; border:2px solid #888; overflow:hidden; }
+    .bc-col-hdr { flex:0 0 auto; padding:5px 8px; text-align:center; font-weight:900; font-size:17px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; }
+    .bc-div { flex:0 0 22px; display:flex; align-items:center; justify-content:center; font-weight:900; font-size:12px; letter-spacing:0.07em; text-transform:uppercase; color:#fff; border-top:1px solid #888; }
+    .bc-row { flex:1; display:flex; border-top:1px solid #ccc; min-height:0; }
+    .bc-label { flex:1; display:flex; align-items:center; padding:0 5px; font-weight:900; font-size:13px; word-break:break-word; border-right:1px solid #ccc; }
+    .bc-cell { flex:1; display:flex; align-items:stretch; overflow:hidden; min-width:0; }
+    .bc-cell svg { width:100%; height:100%; display:block; }
+  `
 
   function doPrint() {
     const w = window.open('', '_blank')
     const html = sheetRef.current?.innerHTML || ''
-    const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+    const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
 <style>
-  @page { size: A4 landscape; margin: 6mm; }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: Arial, sans-serif; }
-  .hdr { display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 4px 10px; margin-bottom: 5px; }
-  .hdr-title { font-size: 13px; font-weight: 800; }
-  .hdr-date { font-size: 11px; color: #cbd5e1; }
-  .cols { display: flex; gap: 6px; }
-  .cols > div { flex: 1; border: 2px solid #888; overflow: hidden; }
-  table { width: 100%; border-collapse: collapse; table-layout: fixed; }
-  td { font-size: 11px; }
-  svg { display: block; width: 100%; }
-  @media print { body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+  @page { size: A4 landscape; margin: 3mm; }
+  html,body { height:100%; margin:0; padding:0; font-family:Arial,sans-serif; }
+  .bc-page { height:100%; display:flex; flex-direction:column; }
+  .bc-hdr { flex:0 0 auto; display:flex; justify-content:space-between; align-items:center; background:#1A2F45; color:#fff; padding:3px 8px; margin-bottom:4px; font-size:12px; font-weight:800; }
+  .bc-hdr-date { font-size:10px; color:#cbd5e1; }
+  .bc-cols { flex:1; display:flex; gap:5px; min-height:0; }
+  ${COL_STYLE}
+  @media print { *{-webkit-print-color-adjust:exact;print-color-adjust:exact;} }
 </style></head><body>
-<div class="hdr"><div class="hdr-title">🍺 Paynter Bar — By the Glass Barcodes</div><div class="hdr-date">${dateStr}</div></div>
-<div class="cols">${html}</div>
-</body></html>`)
+<div class="bc-page">
+  <div class="bc-hdr"><span>🍺 Paynter Bar — By the Glass Barcodes</span><span class="bc-hdr-date">${dateStr}</span></div>
+  <div class="bc-cols">${html}</div>
+</div></body></html>`)
     w.document.close()
-    setTimeout(() => { w.focus(); w.print() }, 800)
+    setTimeout(() => { w.focus(); w.print() }, 900)
   }
 
   return (
-    <div style={{ padding: '12px 20px', fontFamily: 'Arial, sans-serif' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-        <div style={{ fontSize: 16, fontWeight: 700, color: '#0f172a' }}>🏷️ Barcode Sheet <span style={{ fontSize: 11, color: '#64748b', fontWeight: 400 }}>— print landscape A4</span></div>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-          {!loaded && <span style={{ fontSize: 12, color: '#94a3b8' }}>Loading…</span>}
-          <button onClick={doPrint} disabled={!loaded} style={{ background: loaded ? '#1A2F45' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, padding: '7px 18px', fontSize: 13, fontWeight: 700, cursor: loaded ? 'pointer' : 'not-allowed' }}>🖨️ Print</button>
+    <div style={{ padding:'12px 20px', fontFamily:'Arial,sans-serif' }}>
+      <style>{COL_STYLE}</style>
+      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
+        <div style={{ fontSize:16, fontWeight:700, color:'#0f172a' }}>🏷️ Barcode Sheet <span style={{ fontSize:11, color:'#64748b', fontWeight:400 }}>— landscape A4</span></div>
+        <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+          {!loaded && <span style={{ fontSize:12, color:'#94a3b8' }}>Loading…</span>}
+          <button onClick={doPrint} disabled={!loaded} style={{ background:loaded?'#1A2F45':'#94a3b8', color:'#fff', border:'none', borderRadius:6, padding:'7px 18px', fontSize:13, fontWeight:700, cursor:loaded?'pointer':'not-allowed' }}>🖨️ Print</button>
         </div>
       </div>
-      <div ref={sheetRef} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
-        <ColTable title="Spirits"    colItems={spiritsItems} colours={COLS.spirits} isWine={false} />
-        <ColTable title="White Wine" colItems={col2}         colours={COLS.white}   isWine={true}  />
-        <ColTable title="Red Wine"   colItems={redItems}     colours={COLS.red}     isWine={true}  />
+      <div ref={sheetRef} style={{ display:'flex', gap:8, height:680, minHeight:0 }}>
+        <div className="bc-col">
+          <div className="bc-col-hdr" style={{ background:C.spirits.hdr }}>Spirits</div>
+          {renderCol(spiritsItems, C.spirits, false)}
+        </div>
+        <div className="bc-col">
+          <div className="bc-col-hdr" style={{ background:C.white.hdr }}>White Wine</div>
+          {renderCol(col2, C.white, true)}
+        </div>
+        <div className="bc-col">
+          <div className="bc-col-hdr" style={{ background:C.red.hdr }}>Red Wine</div>
+          {renderCol(redItems, C.red, true)}
+        </div>
       </div>
     </div>
   )
