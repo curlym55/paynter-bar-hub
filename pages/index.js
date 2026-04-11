@@ -52,6 +52,10 @@ export default function Home() {
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
+  const [receiptData,  setReceiptData]        = useState(null) // after confirm: { supplier, date, items }
+  const [invoiceFile,  setInvoiceFile]        = useState(null) // { base64, filename, mimeType }
+  const [sendingEmail, setSendingEmail]       = useState(false)
+  const [emailSent,    setEmailSent]          = useState(false)
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
@@ -273,7 +277,6 @@ export default function Home() {
       const d = await r.json()
       if (d.ok) {
         setOrderedItems(d.ordered)
-        // Clear overrides for received items
         setOrderQtyOverrides(prev => {
           const next = { ...prev }
           for (const name of receivedNames) delete next[name]
@@ -282,10 +285,28 @@ export default function Home() {
         for (const name of receivedNames) {
           if (orderQtyOverrides[name] !== undefined) saveSetting(name, 'orderQtyOverride', null)
         }
+        // Build receipt for email step
+        const receivedItems = receiveModal.items
+          .filter(i => receiveChecked[i.name])
+          .map(i => {
+            const override = orderQtyOverrides[i.name]
+            const nips = override !== undefined ? override : i.orderQty
+            const btl  = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
+            return {
+              name:     i.name,
+              sku:      i.sku || '',
+              qty:      i.isSpirit ? `${nips} nips (${btl} btl)` : `${nips} units`,
+              unitCost: i.buyPrice || '',
+            }
+          })
+        const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
+        setReceiptData({ supplier, date: dateStr, items: receivedItems })
+        setInvoiceFile(null)
+        setEmailSent(false)
+        setReceiveModal(null)
       }
     } finally {
       setPoReceiving(null)
-      setReceiveModal(null)
     }
   }
   function generatePoExcel(supplier, poItems) {
@@ -1809,6 +1830,108 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 </button>
               </div>
               <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 10 }}>Remember to also update stock in Square Dashboard for received items.</p>
+            </div>
+          </div>
+        )}
+
+        {/* ── RECEIPT & EMAIL MODAL ── shown after confirming receipt */}
+        {receiptData && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+            <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto' }}>
+              <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>✅ Stock Received — {receiptData.supplier}</div>
+                <button onClick={() => setReceiptData(null)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
+              </div>
+
+              {/* Receipt summary */}
+              <div style={{ background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', padding:'12px 14px', marginBottom:16 }}>
+                <div style={{ fontSize:11, color:'#64748b', marginBottom:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                  {receiptData.date} · {receiptData.items.length} item{receiptData.items.length !== 1 ? 's' : ''}
+                </div>
+                {receiptData.items.map(i => (
+                  <div key={i.name} style={{ display:'flex', justifyContent:'space-between', alignItems:'center', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
+                    <div>
+                      <span style={{ fontWeight:600 }}>{i.name}</span>
+                      {i.sku && <span style={{ fontSize:11, color:'#94a3b8', marginLeft:6 }}>SKU: {i.sku}</span>}
+                    </div>
+                    <span style={{ fontFamily:'monospace', fontSize:12, color:'#475569' }}>{i.qty}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Invoice upload */}
+              <div style={{ marginBottom:16 }}>
+                <label style={{ fontSize:13, fontWeight:700, color:'#374151', display:'block', marginBottom:6 }}>
+                  📎 Attach Invoice (optional)
+                </label>
+                {invoiceFile
+                  ? <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6 }}>
+                      <span style={{ fontSize:13, flex:1, color:'#16a34a', fontWeight:600 }}>✓ {invoiceFile.filename}</span>
+                      <button onClick={() => setInvoiceFile(null)} style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:16 }}>×</button>
+                    </div>
+                  : <label style={{ display:'block', padding:'10px 14px', border:'2px dashed #e2e8f0', borderRadius:6, cursor:'pointer', textAlign:'center', fontSize:13, color:'#64748b' }}>
+                      Click to upload PDF or image
+                      <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }}
+                        onChange={e => {
+                          const file = e.target.files?.[0]
+                          if (!file) return
+                          const reader = new FileReader()
+                          reader.onload = ev => {
+                            const dataUrl = ev.target.result
+                            const base64 = dataUrl.split(',')[1]
+                            setInvoiceFile({ base64, filename: file.name, mimeType: file.type })
+                          }
+                          reader.readAsDataURL(file)
+                        }} />
+                    </label>
+                }
+              </div>
+
+              {/* Email status */}
+              {emailSent && (
+                <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6, fontSize:13, color:'#16a34a', fontWeight:600, marginBottom:12 }}>
+                  ✅ Email sent to treasurer@gemwoods.com.au
+                </div>
+              )}
+
+              <div style={{ display:'flex', gap:8 }}>
+                <button onClick={() => setReceiptData(null)}
+                  style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, cursor:'pointer' }}>
+                  Close
+                </button>
+                <button
+                  disabled={sendingEmail || emailSent}
+                  onClick={async () => {
+                    setSendingEmail(true)
+                    try {
+                      const r = await fetch('/api/send-receipt', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                          supplier:       receiptData.supplier,
+                          date:           receiptData.date,
+                          items:          receiptData.items,
+                          invoiceBase64:  invoiceFile?.base64   || null,
+                          invoiceFilename:invoiceFile?.filename || null,
+                          invoiceMimeType:invoiceFile?.mimeType || null,
+                        })
+                      })
+                      const d = await r.json()
+                      if (d.ok) setEmailSent(true)
+                      else alert('Email failed: ' + (d.error || 'unknown error'))
+                    } catch(e) {
+                      alert('Email failed: ' + e.message)
+                    } finally {
+                      setSendingEmail(false)
+                    }
+                  }}
+                  style={{ flex:2, padding:'9px 0', background: emailSent ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor: emailSent ? 'not-allowed' : 'pointer' }}>
+                  {sendingEmail ? 'Sending…' : emailSent ? '✓ Sent' : '📧 Email Receipt to Treasurer'}
+                </button>
+              </div>
+              <p style={{ fontSize:11, color:'#94a3b8', marginTop:8, textAlign:'center' }}>
+                Sends to treasurer@gemwoods.com.au · CC paynterbar@gemwoods.com.au
+              </p>
             </div>
           </div>
         )}
