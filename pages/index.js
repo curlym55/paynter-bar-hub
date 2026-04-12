@@ -294,14 +294,16 @@ export default function Home() {
     const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
     const rows = [
-      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
+      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty (nips for spirits - for Square import only - order BOTTLES from supplier)', 'Unit Cost'],
     ]
     poItems.forEach((item) => {
       // Spirits/Fortified: export nips quantity (how Square tracks inventory)
       // Non-spirits: export units (cases/bottles/cans as ordered)
       const qty = item.isSpirit ? (item._nips || item.nipsToOrder || 0) : (item._qty || item.orderQty || 0)
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', squareName, '', String(qty), unitCost])
+      // For spirits: add a note showing bottles to order from supplier
+      const notes = item.isSpirit ? `ORDER ${item._btl || item.bottlesToOrder || 0} BOTTLE(S) FROM SUPPLIER` : ''
+      rows.push([item.name, 'Regular', item.sku || '', '', squareName, notes, String(qty), unitCost])
     })
 
     const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
