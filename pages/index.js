@@ -297,7 +297,9 @@ export default function Home() {
       ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
     poItems.forEach((item) => {
-      const qty = item.isSpirit ? (item._btl || item.bottlesToOrder || 0) : (item._qty || item.orderQty || 0)
+      // Spirits/Fortified: export nips quantity (how Square tracks inventory)
+      // Non-spirits: export units (cases/bottles/cans as ordered)
+      const qty = item.isSpirit ? (item._nips || item.nipsToOrder || 0) : (item._qty || item.orderQty || 0)
       const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
       rows.push([item.name, 'Regular', item.sku || '', '', squareName, '', String(qty), unitCost])
     })
