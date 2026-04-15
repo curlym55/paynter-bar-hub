@@ -129,8 +129,13 @@ export default function Home() {
         fetch(`/api/items?days=${effectiveDays}${refreshParam}`),
         fetch('/api/purchase-order')
       ])
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed to load')
-      const data = await r.json()
+      if (!r.ok) {
+        let msg = 'Failed to load from Square'
+        try { const e = await r.json(); msg = e.error || msg } catch {}
+        throw new Error(msg)
+      }
+      let data
+      try { data = await r.json() } catch { throw new Error('Invalid response from server — try refreshing') }
       setItems(data.items.map(i => i.supplier === 'Dan Murphys' ? { ...i, supplier: 'Dan Murphy' } : i))
       setTargetWeeks(data.targetWeeks)
       setLastUpdated(data.lastUpdated)

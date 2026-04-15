@@ -1,6 +1,6 @@
 import { fetchSquareData } from '../../lib/square'
 import { calculateItem, CATEGORY_ORDER } from '../../lib/calculations'
-import { kvGet, kvSet } from '../../lib/redis'
+import { kvGet, kvSet, kvDelete } from '../../lib/redis'
 
 export const config = { maxDuration: 60 }
 
@@ -16,7 +16,12 @@ export default async function handler(req, res) {
   try {
     // ── Serve from cache unless forced refresh ──────────────────────────────
     if (!forceRefresh) {
-      const cached = await kvGet(CACHE_KEY(daysBack)).catch(() => null)
+      const cached = await kvGet(CACHE_KEY(daysBack)).catch(async (e) => {
+        // Corrupted cache entry — delete it so next load fetches fresh
+        console.warn('Cache read failed, deleting corrupted key:', e.message)
+        await kvDelete(CACHE_KEY(daysBack)).catch(() => {})
+        return null
+      })
       if (cached) {
         return res.status(200).json({ ...cached, fromCache: true })
       }
@@ -85,8 +90,11 @@ export default async function handler(req, res) {
     console.error('Items API error:', err)
 
     // On Square failure, fall back to stale cache rather than hard error
-    const stale = await kvGet(CACHE_KEY(daysBack)).catch(() => null)
-    if (stale) {
+    const stale = await kvGet(CACHE_KEY(daysBack)).catch(async () => {
+      await kvDelete(CACHE_KEY(daysBack)).catch(() => {})
+      return null
+    })
+    if (stale && stale.items) {
       console.warn('Square fetch failed - serving stale cache')
       return res.status(200).json({ ...stale, fromCache: true, stale: true })
     }
