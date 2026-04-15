@@ -11,6 +11,7 @@ export default async function handler(req, res) {
   const forceRefresh = req.query.refresh === 'true'
   const daysBack     = parseInt(req.query.days) || 60
 
+  let _step = 'cache-check'
   try {
     // ── Serve from cache unless forced refresh ──────────────────────────────
     if (!forceRefresh) {
@@ -25,7 +26,7 @@ export default async function handler(req, res) {
       }
     }
 
-    let _step = 'fetchSquareData'
+    _step = 'fetchSquareData'
     const squareItems = await fetchSquareData(token, daysBack, kvGet, kvSet)
     _step = 'itemSettings'; const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
     _step = 'targetWeeks';  const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
@@ -97,6 +98,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...stale, fromCache: true, stale: true })
     }
 
-    res.status(500).json({ error: err.message, step: typeof _step !== 'undefined' ? _step : 'unknown' })
+    res.status(500).json({ error: err.message, step: _step })
   }
 }
