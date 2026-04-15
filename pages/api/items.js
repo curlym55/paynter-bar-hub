@@ -25,11 +25,11 @@ export default async function handler(req, res) {
       }
     }
 
-    // ── Fetch live from Square ──────────────────────────────────────────────
+    let _step = 'fetchSquareData'
     const squareItems = await fetchSquareData(token, daysBack, kvGet, kvSet)
-    const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
-    const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
-    const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
+    _step = 'itemSettings'; const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
+    _step = 'targetWeeks';  const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
+    _step = 'suppliers';    const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
 
     // One-time migration: rename "Dan Murphys" -> "Dan Murphy" in item settings
     let migrated = false
@@ -97,6 +97,6 @@ export default async function handler(req, res) {
       return res.status(200).json({ ...stale, fromCache: true, stale: true })
     }
 
-    res.status(500).json({ error: err.message })
+    res.status(500).json({ error: err.message, step: typeof _step !== 'undefined' ? _step : 'unknown' })
   }
 }
