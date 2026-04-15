@@ -3566,7 +3566,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                             <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.category}</td>
                             <td style={{ padding: '8px 12px', color: '#64748b' }}>{item.supplier || '—'}</td>
                             <td style={{ padding: '8px 12px', fontFamily: 'monospace', fontWeight: 700, color: isCrit ? '#dc2626' : '#d97706' }}>{item.onHand ?? '—'}</td>
-                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#64748b' }}>{item.targetQty ?? '—'}</td>
+                            <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: '#64748b' }}>{item.targetStock ?? '—'}</td>
                             <td style={{ padding: '8px 12px', fontFamily: 'monospace', color: isOnOrder ? '#16a34a' : '#2563eb', fontWeight: item.orderQty > 0 ? 700 : 400 }}>
                               {isOnOrder ? '✓ Ordered' : item.orderQty > 0 ? item.orderQty : '—'}
                             </td>
