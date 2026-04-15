@@ -371,7 +371,33 @@ export default function Home() {
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
-        return { ...item, [field]: ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle'].includes(field) ? Number(value) : value }
+        const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
+        const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
+        // Recalculate targetStock/orderQty when weeklyAvgOverride changes
+        if (field === 'weeklyAvgOverride') {
+          const avg = (value !== null && value !== '' ? Number(value) : item.squareWeeklyAvg) || 0
+          const targetStock = Math.ceil(avg * targetWeeks)
+          const onHand = updated.onHand || 0
+          if (updated.isSpirit) {
+            const nipML = updated.nipML || 30
+            const bottleML = updated.bottleML || 700
+            const nipsPerBottle = bottleML / nipML
+            const nipsNeeded = Math.max(0, targetStock - onHand)
+            const bottlesToOrder = nipsNeeded > 0 ? Math.ceil(nipsNeeded / nipsPerBottle) : 0
+            const nipsToOrder = bottlesToOrder > 0 ? Math.ceil(bottlesToOrder * nipsPerBottle) : 0
+            const weeksLeft = avg > 0 ? onHand / avg : 999
+            return { ...updated, targetStock, nipsToOrder, bottlesToOrder, orderQty: nipsToOrder,
+              priority: nipsToOrder > 0 ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW') : 'OK' }
+          } else {
+            const pack = updated.pack || 1
+            const unitsNeeded = Math.max(0, targetStock - onHand)
+            const orderQty = unitsNeeded > 0 ? Math.ceil(unitsNeeded / pack) * pack : 0
+            const weeksLeft = avg > 0 ? onHand / avg : 999
+            return { ...updated, targetStock, orderQty,
+              priority: orderQty > 0 ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW') : 'OK' }
+          }
+        }
+        return updated
       }))
       // Update local audit state
       const auditKey = `${itemName}__${field}`
@@ -2123,8 +2149,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.onHand}</td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>
                           {readOnly
-                            ? <span title={item.weeklyAvgOverride != null ? `Square avg: ${item.squareWeeklyAvg}` : ''}>
-                                {item.weeklyAvg}{item.weeklyAvgOverride != null && <span style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700, marginLeft: 2 }}>★</span>}
+                            ? <span title={item.weeklyAvgOverride != null ? `Square avg: ${Math.round(item.squareWeeklyAvg)}` : ''}>
+                                {Math.round(item.weeklyAvg)}{item.weeklyAvgOverride != null && <span style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700, marginLeft: 2 }}>★</span>}
                               </span>
                             : <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 3 }}>
                                 {item.weeklyAvgOverride != null && (
@@ -2135,7 +2161,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                                 )}
                                 <input
                                   type="number" min="0" step="0.1"
-                                  defaultValue={item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg}
+                                  defaultValue={item.weeklyAvgOverride != null ? item.weeklyAvgOverride : Math.round(item.weeklyAvg)}
                                   key={item.name + '_wavg_' + item.weeklyAvgOverride}
                                   onBlur={e => {
                                     const v = parseFloat(e.target.value)
