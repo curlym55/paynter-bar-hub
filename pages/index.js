@@ -1696,7 +1696,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               {mainTab !== 'home' && (
                 <button style={{ ...styles.btn, padding: '7px 16px', fontSize: 12, background: '#1e3a5f' }} onClick={() => setMainTab('home')}>🏠 Dashboard</button>
               )}
-              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true); loadFyChart(true) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : '🔄 Refresh from Square'}</button>
+              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true); fetch('/api/fy-chart?refresh=true').catch(()=>{}) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
             </div>
           </div>
 

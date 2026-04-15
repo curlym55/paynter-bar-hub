@@ -1,5 +1,10 @@
 {
   "framework": "nextjs",
   "buildCommand": "next build",
-  "outputDirectory": ".next"
+  "outputDirectory": ".next",
+  "functions": {
+    "pages/api/items.js":    { "maxDuration": 60 },
+    "pages/api/fy-chart.js": { "maxDuration": 60 },
+    "pages/api/sales.js":    { "maxDuration": 60 }
+  }
 }

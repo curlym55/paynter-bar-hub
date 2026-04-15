@@ -2,6 +2,8 @@ import { fetchSalesReport } from '../../lib/square'
 import { kvGet, kvSet } from '../../lib/redis'
 import { nowAEST, startOfDayAEST, endOfDayAEST } from '../../lib/timezone'
 
+export const config = { maxDuration: 60 }
+
 const CACHE_KEY = 'fyChartCache'
 
 export default async function handler(req, res) {

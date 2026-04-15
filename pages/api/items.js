@@ -2,6 +2,8 @@ import { fetchSquareData } from '../../lib/square'
 import { calculateItem, CATEGORY_ORDER } from '../../lib/calculations'
 import { kvGet, kvSet } from '../../lib/redis'
 
+export const config = { maxDuration: 60 }
+
 const CACHE_KEY = (days) => `itemsCache_${days}`
 
 export default async function handler(req, res) {
