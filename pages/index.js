@@ -563,15 +563,17 @@ export default function Home() {
       if ((item.onHand || 0) <= 0) continue   // skip zero stock
       const cat = item.category || 'Other'
       const label = pl.label || item.name
+      const bottleOnly = pl.bottleOnly || item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
       const rawVars = (item.variations || []).filter(v => {
         if (v.price == null) return false
         // Strip glass variation for bottle-only items and known non-glass wines
         const isGlass = v.name.toLowerCase().includes('glass')
-        if (isGlass && (pl.bottleOnly || item.bottleOnly || /minchinbury|curtis legion/i.test(item.name))) return false
+        if (isGlass && bottleOnly) return false
         return true
       })
-      // Use bottle/regular variation price if only one remains after filtering
-      const price = item.sellPrice != null ? item.sellPrice
+      // For bottle-only items, always use bottle price not glass price
+      const price = item.sellPrice != null && !bottleOnly ? item.sellPrice
+                  : bottleOnly ? (item.sellPriceBottle || item.squareSellPriceBottle || (rawVars[0]?.price ?? null))
                   : rawVars.length === 1 ? rawVars[0].price
                   : item.squareSellPrice
       let variations = null
