@@ -583,7 +583,7 @@ export default function Home() {
                   : rawVars.length === 1 ? rawVars[0].price
                   : item.squareSellPrice
       let variations = null
-      if (rawVars.length > 1) {
+      if (!bottleOnly && rawVars.length > 1) {
         variations = rawVars
           .map(v => {
             const n = v.name.toLowerCase()
