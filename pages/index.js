@@ -299,7 +299,7 @@ export default function Home() {
     const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
 
     const rows = [
-      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty (nips for spirits - for Square import only - order BOTTLES from supplier)', 'Unit Cost'],
+      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
     ]
     poItems.forEach((item) => {
       // Spirits/Fortified: export nips quantity (how Square tracks inventory)
