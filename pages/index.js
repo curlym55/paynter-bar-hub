@@ -564,7 +564,14 @@ export default function Home() {
       const cat = item.category || 'Other'
       const price = item.sellPrice != null ? item.sellPrice : item.squareSellPrice
       const label = pl.label || item.name
-      const rawVars = (item.variations || []).filter(v => v.price != null)
+      const rawVars = (item.variations || []).filter(v => {
+        if (v.price == null) return false
+        // Items marked bottle-only or known non-glass items: strip glass variation
+        if (pl.bottleOnly || item.bottleOnly || /minchinbury/i.test(item.name)) {
+          if (v.name.toLowerCase().includes('glass')) return false
+        }
+        return true
+      })
       let variations = null
       if (rawVars.length > 1) {
         variations = rawVars
