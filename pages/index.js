@@ -3825,12 +3825,18 @@ function PriceListView({ items, settings, readOnly, saving, onSave, onPrint }) {
   }
 
   function getPrice(item) {
+    const isBottleOnly = item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
+    if (isBottleOnly) return item.sellPriceBottle || item.squareSellPriceBottle
+                           || (item.variations || []).find(v => /bottle|regular/i.test(v.name) && !/glass/i.test(v.name))?.price
+                           || null
     if (item.sellPrice != null)       return item.sellPrice
     if (item.squareSellPrice != null) return item.squareSellPrice
     return null
   }
 
   function getVariations(item) {
+    const isBottleOnly = item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
+    if (isBottleOnly) return null
     const vars = (item.variations || []).filter(v => v.price != null)
     if (vars.length > 1) return normaliseVariations(vars)
     return null
