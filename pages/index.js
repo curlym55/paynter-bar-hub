@@ -566,14 +566,20 @@ export default function Home() {
       const bottleOnly = pl.bottleOnly || item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
       const rawVars = (item.variations || []).filter(v => {
         if (v.price == null) return false
-        // Strip glass variation for bottle-only items and known non-glass wines
-        const isGlass = v.name.toLowerCase().includes('glass')
+        // Strip any glass variation for bottle-only items
+        // Matches: "Glass", "Wine Glass", "Regular - Wine Glass" etc
+        const isGlass = /glass/i.test(v.name)
         if (isGlass && bottleOnly) return false
         return true
       })
-      // For bottle-only items, always use bottle price not glass price
-      const price = item.sellPrice != null && !bottleOnly ? item.sellPrice
-                  : bottleOnly ? (item.sellPriceBottle || item.squareSellPriceBottle || (rawVars[0]?.price ?? null))
+      // For bottle-only items: use explicit bottle price, fall back to non-glass variation price
+      // Never use item.sellPrice for these as it may be the glass price from Square
+      const bottlePrice = item.sellPriceBottle || item.squareSellPriceBottle
+                       || rawVars.find(v => /bottle|regular/i.test(v.name))?.price
+                       || rawVars[0]?.price
+                       || null
+      const price = bottleOnly ? bottlePrice
+                  : item.sellPrice != null ? item.sellPrice
                   : rawVars.length === 1 ? rawVars[0].price
                   : item.squareSellPrice
       let variations = null
