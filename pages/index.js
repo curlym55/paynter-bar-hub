@@ -4347,8 +4347,6 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
               {saving ? 'Saving...' : 'Save Note'}
             </button>
           </div>
-            </div>
-          </div>
         </div>
       )}
 
