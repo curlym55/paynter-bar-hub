@@ -702,18 +702,39 @@ export default function Home() {
     .hdr, .cat-hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 </head><body>
 
   ${hdr}
   <div class="cols">${renderCards(page1cats)}</div>
-  <div class="ftr">Page 1 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</div>
+  <div class="ftr" style="display:flex;justify-content:space-between;align-items:center">
+    <span>Page 1 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</span>
+    <div style="text-align:center;line-height:1.2">
+      <div id="qr1" style="display:inline-block"></div>
+      <div style="font-size:9px;color:#64748b;margin-top:2px">Scan for live prices</div>
+    </div>
+  </div>
 
   <div class="page-break">
     ${hdr}
     <div class="cols">${renderCards(page2cats)}</div>
-    <div class="ftr">Page 2 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</div>
+    <div class="ftr" style="display:flex;justify-content:space-between;align-items:center">
+      <span>Page 2 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</span>
+      <div style="text-align:center;line-height:1.2">
+        <div id="qr2" style="display:inline-block"></div>
+        <div style="font-size:9px;color:#64748b;margin-top:2px">Scan for live prices</div>
+      </div>
+    </div>
   </div>
 
+<script>
+  const QR_URL = 'https://paynter-bar-hub.vercel.app/?view=pricelist'
+  const opts = { width: 56, height: 56, colorDark: '#1e3a5f', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }
+  if (typeof QRCode !== 'undefined') {
+    new QRCode(document.getElementById('qr1'), { ...opts, text: QR_URL })
+    new QRCode(document.getElementById('qr2'), { ...opts, text: QR_URL })
+  }
+</script>
 </body></html>`
 
 
@@ -4134,7 +4155,7 @@ function TrendsView({ data, loading, error }) {
 
 // ─── NOTES VIEW ────────────────────────────────────────────────────────────────
 function NotesView({ items, notes, readOnly, onRefresh }) {
-  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '' })
+  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '', shiftType: '' })
   const [saving, setSaving]     = useState(false)
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
@@ -4221,7 +4242,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, noteDate: form.noteDate || todayBrisbane })
       })
-      setForm({ noteDate: '', itemName: '', comment: '', author: '' })
+        setForm({ noteDate: '', itemName: '', comment: '', author: '', shiftType: '' })
       setShowForm(false)
       onRefresh()
     } catch(e) { alert('Save failed') }
@@ -4306,16 +4327,29 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
               style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Author</label>
-              <input type="text" value={form.author} onChange={e => ef('author', e.target.value)} placeholder="Your name"
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+            <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 140 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Duty Manager</label>
+                <input type="text" value={form.author} onChange={e => ef("author", e.target.value)} placeholder="Your name"
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }} />
+              </div>
+              <div style={{ flex: 1, minWidth: 130 }}>
+                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Shift</label>
+                <select value={form.shiftType} onChange={e => ef("shiftType", e.target.value)}
+                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, boxSizing: "border-box", background: "#fff" }}>
+                  <option value="">- General -</option>
+                  <option value="Opening">Opening</option>
+                  <option value="Closing">Closing</option>
+                  <option value="Event">Event</option>
+                  <option value="Handover">Handover</option>
+                </select>
+              </div>
+              <button onClick={saveNote} disabled={saving || !form.comment.trim()}
+                style={{ background: saving || !form.comment.trim() ? "#94a3b8" : "#7c3aed", color: "#fff", border: "none", borderRadius: 8,
+                  padding: "10px 24px", fontSize: 14, fontWeight: 700, cursor: saving || !form.comment.trim() ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
+                {saving ? "Saving..." : "Save Note"}
+              </button>
             </div>
-            <button onClick={saveNote} disabled={saving || !form.comment.trim()}
-              style={{ background: saving || !form.comment.trim() ? '#94a3b8' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 8,
-                padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: saving || !form.comment.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
-              {saving ? 'Saving...' : '✓ Save Note'}
-            </button>
           </div>
         </div>
       )}
@@ -4394,11 +4428,20 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
                 /* ── Read view ── */
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 99 }}>
                         {new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
                       {n.itemName && (
+                      {n.shiftType && (
+                        <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background:
+                          n.shiftType === 'Opening' ? '#16a34a' :
+                          n.shiftType === 'Closing' ? '#dc2626' :
+                          n.shiftType === 'Event'   ? '#d97706' : '#0e7490',
+                          padding: '3px 10px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          {n.shiftType}
+                        </span>
+                      )}
                         <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490', background: '#ecfeff', padding: '3px 10px', borderRadius: 99 }}>
                           {n.itemName}
                         </span>
