@@ -25,6 +25,7 @@ export default function Home() {
   const [authed, setAuthed]             = useState(false)
   const [readOnly, setReadOnly]         = useState(false)
   const [publicMode, setPublicMode]     = useState(false)
+  const [pin, setPin]                   = useState('')
   const [pinError, setPinError]         = useState(false)
   const [items, setItems]               = useState([])
   const [loading, setLoading]           = useState(true)
