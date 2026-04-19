@@ -649,9 +649,15 @@ export default function Home() {
 
     const hdr = `
       <div class="hdr">
-        <div><div class="title">🍺 Paynter Bar</div><div class="sub">GemLife Palmwoods &nbsp;·&nbsp; Current Prices</div></div>
-        <div class="badge">Price List</div>
-      </div>`
+        <div><div class="title">Paynter Bar</div><div class="sub">GemLife Palmwoods &amp;nbsp;&middot;&amp;nbsp; Current Prices &amp;nbsp;&middot;&amp;nbsp; Updated </div></div>
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="text-align:center">
+            <div id="qr-hdr" style="display:inline-block;background:#fff;padding:3px;border-radius:4px"></div>
+            <div style="font-size:8px;color:#bfdbfe;margin-top:2px">Scan for live prices</div>
+          </div>
+          <div class="badge">Price List</div>
+        </div>
+      </div> 
 
     const html = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8">
@@ -700,11 +706,7 @@ export default function Home() {
 
   .page-break { page-break-before: always; }
 
-  .ftr {
-    text-align: center; font-size: 8.5px; color: #94a3b8;
-    margin-top: 8px; padding-top: 4px;
-    border-top: 1px solid #f1f5f9;
-  }
+  
 
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -716,38 +718,20 @@ export default function Home() {
 
   ${hdr}
   <div class="cols">${renderCards(page1cats)}</div>
-  <div class="ftr" style="display:flex;justify-content:space-between;align-items:center">
-    <span>Page 1 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</span>
-    <div style="text-align:center;line-height:1.2">
-      <div id="qr1" style="display:inline-block"></div>
-      <div style="font-size:9px;color:#64748b;margin-top:2px">Scan for live prices</div>
-    </div>
-  </div>
 
   <div class="page-break">
     ${hdr}
     <div class="cols">${renderCards(page2cats)}</div>
-    <div class="ftr" style="display:flex;justify-content:space-between;align-items:center">
-      <span>Page 2 of 2 &nbsp;·&nbsp; Prices current as of ${generated} &nbsp;·&nbsp; Paynter Bar, GemLife Palmwoods</span>
-      <div style="text-align:center;line-height:1.2">
-        <div id="qr2" style="display:inline-block"></div>
-        <div style="font-size:9px;color:#64748b;margin-top:2px">Scan for live prices</div>
-      </div>
-    </div>
   </div>
 
 <script>
   const QR_URL = 'https://paynter-bar-hub.vercel.app/?public=pricelist'
-  const opts = { width: 56, height: 56, colorDark: '#1e3a5f', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }
+  const opts = { width: 52, height: 52, colorDark: '#1e3a5f', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }
   if (typeof QRCode !== 'undefined') {
-    new QRCode(document.getElementById('qr1'), { ...opts, text: QR_URL })
-    new QRCode(document.getElementById('qr2'), { ...opts, text: QR_URL })
+    document.querySelectorAll('#qr-hdr').forEach(el => new QRCode(el, { ...opts, text: QR_URL }))
   }
 </script>
-</body></html>`
-
-
-    // ── PDF / Print ────────────────────────────────────────────────────────
+</body></html> 
     const w = window.open('', '_blank')
     w.document.write(html)
     w.document.close()
