@@ -4144,7 +4144,6 @@ function TrendsView({ data, loading, error }) {
             const bh = Math.round((grandTotals[i] / maxGrand) * 40)
             const x  = 10 + i * 165
             const y  = 50 - bh
-  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '' })
               <g key={i}>
                 <rect x={x} y={y} width={150} height={bh} fill="#0f172a" rx={3} opacity={0.15}/>
                 <rect x={x} y={y} width={150} height={bh} fill="#2563eb" rx={3} opacity={0.6}/>
