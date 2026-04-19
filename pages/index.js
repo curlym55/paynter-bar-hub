@@ -87,6 +87,15 @@ export default function Home() {
       setAuthed(true)
       if (sessionStorage.getItem('bar_readonly') === 'yes') setReadOnly(true)
     }
+    // Pinless public price list link — ?public=pricelist bypasses PIN as read-only
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search)
+      if (params.get('public') === 'pricelist') {
+        setAuthed(true)
+        setReadOnly(true)
+        setMainTab('pricelist')
+      }
+    }
   }, [])
 
   async function checkPin() {
@@ -728,7 +737,7 @@ export default function Home() {
   </div>
 
 <script>
-  const QR_URL = 'https://paynter-bar-hub.vercel.app/?view=pricelist'
+  const QR_URL = 'https://paynter-bar-hub.vercel.app/?public=pricelist'
   const opts = { width: 56, height: 56, colorDark: '#1e3a5f', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M }
   if (typeof QRCode !== 'undefined') {
     new QRCode(document.getElementById('qr1'), { ...opts, text: QR_URL })
@@ -4135,7 +4144,7 @@ function TrendsView({ data, loading, error }) {
             const bh = Math.round((grandTotals[i] / maxGrand) * 40)
             const x  = 10 + i * 165
             const y  = 50 - bh
-            return (
+  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '' })
               <g key={i}>
                 <rect x={x} y={y} width={150} height={bh} fill="#0f172a" rx={3} opacity={0.15}/>
                 <rect x={x} y={y} width={150} height={bh} fill="#2563eb" rx={3} opacity={0.6}/>
@@ -4155,7 +4164,7 @@ function TrendsView({ data, loading, error }) {
 
 // ─── NOTES VIEW ────────────────────────────────────────────────────────────────
 function NotesView({ items, notes, readOnly, onRefresh }) {
-  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '', shiftType: '' })
+  const [form, setForm]         = useState({ noteDate: '', itemName: '', comment: '', author: '' })
   const [saving, setSaving]     = useState(false)
   const [filterFrom, setFilterFrom] = useState('')
   const [filterTo, setFilterTo]     = useState('')
@@ -4221,7 +4230,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
           <th style="width:140px">Item</th>
           <th>Comment</th>
           <th style="width:100px">Author</th>
-        </tr></thead>
+        setForm({ noteDate: '', itemName: '', comment: '', author: '' })
         <tbody>${rows}</tbody>
       </table>
       <div class="footer">Paynter Bar Hub · GemLife Palmwoods</div>
@@ -4242,7 +4251,7 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, noteDate: form.noteDate || todayBrisbane })
       })
-        setForm({ noteDate: '', itemName: '', comment: '', author: '', shiftType: '' })
+        setForm({ noteDate: '', itemName: '', comment: '', author: '' })
       setShowForm(false)
       onRefresh()
     } catch(e) { alert('Save failed') }
@@ -4327,28 +4336,17 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
               style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box', resize: 'vertical', fontFamily: 'inherit' }} />
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'flex-end' }}>
-            <div style={{ display: "flex", gap: 16, alignItems: "flex-end", flexWrap: "wrap" }}>
-              <div style={{ flex: 1, minWidth: 140 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Duty Manager</label>
-                <input type="text" value={form.author} onChange={e => ef("author", e.target.value)} placeholder="Your name"
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, boxSizing: "border-box" }} />
-              </div>
-              <div style={{ flex: 1, minWidth: 130 }}>
-                <label style={{ fontSize: 11, fontWeight: 600, color: "#64748b", display: "block", marginBottom: 4, textTransform: "uppercase", letterSpacing: "0.05em" }}>Shift</label>
-                <select value={form.shiftType} onChange={e => ef("shiftType", e.target.value)}
-                  style={{ width: "100%", padding: "8px 12px", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 14, boxSizing: "border-box", background: "#fff" }}>
-                  <option value="">- General -</option>
-                  <option value="Opening">Opening</option>
-                  <option value="Closing">Closing</option>
-                  <option value="Event">Event</option>
-                  <option value="Handover">Handover</option>
-                </select>
-              </div>
-              <button onClick={saveNote} disabled={saving || !form.comment.trim()}
-                style={{ background: saving || !form.comment.trim() ? "#94a3b8" : "#7c3aed", color: "#fff", border: "none", borderRadius: 8,
-                  padding: "10px 24px", fontSize: 14, fontWeight: 700, cursor: saving || !form.comment.trim() ? "not-allowed" : "pointer", whiteSpace: "nowrap" }}>
-                {saving ? "Saving..." : "Save Note"}
-              </button>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', display: 'block', marginBottom: 4, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Author</label>
+              <input type='text' value={form.author} onChange={e => ef('author', e.target.value)} placeholder='Your name'
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 8, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+            <button onClick={saveNote} disabled={saving || !form.comment.trim()}
+              style={{ background: saving || !form.comment.trim() ? '#94a3b8' : '#7c3aed', color: '#fff', border: 'none', borderRadius: 8,
+                padding: '10px 24px', fontSize: 14, fontWeight: 700, cursor: saving || !form.comment.trim() ? 'not-allowed' : 'pointer', whiteSpace: 'nowrap' }}>
+              {saving ? 'Saving...' : 'Save Note'}
+            </button>
+          </div>
             </div>
           </div>
         </div>
@@ -4428,27 +4426,19 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
                 /* ── Read view ── */
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 12 }}>
                   <div style={{ flex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8, flexWrap: 'wrap' }}>
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 99 }}>
                         {new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
-                      {n.shiftType && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background:
-                          n.shiftType === "Opening" ? "#16a34a" :
-                          n.shiftType === "Closing" ? "#dc2626" :
-                          n.shiftType === "Event"   ? "#d97706" : "#0e7490",
-                          padding: "3px 10px", borderRadius: 99, textTransform: "uppercase", letterSpacing: "0.04em" }}>
-                          {n.shiftType}
-                        </span>
-                      )}
                       {n.itemName && (
-                        <span style={{ fontSize: 12, fontWeight: 600, color: "#0e7490", background: "#ecfeff", padding: "3px 10px", borderRadius: 99 }}>
+                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490', background: '#ecfeff', padding: '3px 10px', borderRadius: 99 }}>
                           {n.itemName}
                         </span>
                       )}
-                      {n.author && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>DM: {n.author}</span>}
+                      {n.author && <span style={{ fontSize: 11, color: '#94a3b8' }}>- {n.author}</span>}
                     </div>
-                    </div>
+                    <div style={{ fontSize: 14, color: '#0f172a', lineHeight: 1.6 }}>{n.comment}</div>
+                  </div>
                   {!readOnly && (
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <button onClick={() => startEdit(n)}
