@@ -649,7 +649,7 @@ export default function Home() {
 
     const hdr = `
       <div class="hdr">
-        <div><div class="title">Paynter Bar</div><div class="sub">GemLife Palmwoods &amp;nbsp;&middot;&amp;nbsp; Current Prices &amp;nbsp;&middot;&amp;nbsp; Updated </div></div>
+        <div><div class="title">Paynter Bar</div><div class="sub">GemLife Palmwoods &nbsp;&middot;&nbsp; Current Prices &nbsp;&middot;&nbsp; Updated ${generated}</div></div>
         <div style="display:flex;align-items:center;gap:12px">
           <div style="text-align:center">
             <div id="qr-hdr" style="display:inline-block;background:#fff;padding:3px;border-radius:4px"></div>
@@ -657,8 +657,7 @@ export default function Home() {
           </div>
           <div class="badge">Price List</div>
         </div>
-      </div> 
-
+      </div>`
     const html = `<!DOCTYPE html><html><head>
 <meta charset="UTF-8">
 <title>Paynter Bar Price List</title>
