@@ -24,7 +24,8 @@ const CATEGORY_ORDER_LIST = [
 export default function Home() {
   const [authed, setAuthed]             = useState(false)
   const [readOnly, setReadOnly]         = useState(false)
-  const [pin, setPin]                   = useState('')
+  const [readOnly, setReadOnly]         = useState(false)
+  const [publicMode, setPublicMode]     = useState(false)
   const [pinError, setPinError]         = useState(false)
   const [items, setItems]               = useState([])
   const [loading, setLoading]           = useState(true)
@@ -94,6 +95,7 @@ export default function Home() {
         setAuthed(true)
         setReadOnly(true)
         setMainTab('pricelist')
+        setPublicMode(true)
       }
     }
   }, [])
@@ -1739,7 +1741,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
 
         {/* Top bar */}
-        <header style={{ background: '#0f172a', color: '#fff', flexShrink: 0 }}>
+        <header style={{ background: '#0f172a', color: '#fff', flexShrink: 0, display: publicMode ? 'none' : undefined }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', gap: 12 }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
               {/* Mobile hamburger */}
@@ -2464,6 +2466,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             saving={plSaving}
             onSave={savePriceListSetting}
             onPrint={generatePriceListPDF}
+            publicMode={publicMode}
           />
         )}
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
@@ -3812,7 +3815,7 @@ function BestSellersView({ items, salesData, loading, error, daysBack = 90 }) {
 
 
 // ─── PRICE LIST VIEW ──────────────────────────────────────────────────────────
-function PriceListView({ items, settings, readOnly, saving, onSave, onPrint }) {
+function PriceListView({ items, settings, readOnly, saving, onSave, onPrint, publicMode = false }) {
   const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
   const [showOutOfStock, setShowOutOfStock] = useState(false)
 
@@ -3866,6 +3869,47 @@ function isHidden(item) {
   }
 
   const visibleCount = items.filter(i => !isHidden(i)).length
+
+  // Public mode - strip everything, show only category price cards
+  if (publicMode) return (
+    <div style={{ padding: '12px 16px', fontFamily: 'Arial, sans-serif', maxWidth: 700, margin: '0 auto' }}>
+      <div style={{ background: '#1e3a5f', color: '#fff', borderRadius: 8, padding: '10px 16px', marginBottom: 14, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div style={{ fontSize: 18, fontWeight: 800 }}>🍺 Paynter Bar</div>
+          <div style={{ fontSize: 11, color: '#bfdbfe', marginTop: 2 }}>GemLife Palmwoods · Current Prices</div>
+        </div>
+        <div style={{ fontSize: 10, color: '#bfdbfe', textAlign: 'right' }}>Prices may vary.<br/>See bar staff for details.</div>
+      </div>
+      {cats.map(cat => (
+        <div key={cat} style={{ marginBottom: 12, border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden' }}>
+          <div style={{ background: '#1e3a5f', color: '#fff', padding: '6px 14px', fontSize: 12, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em' }}>{cat}</div>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <tbody>
+              {grouped[cat].filter(item => !isHidden(item) && (item.onHand || 0) > 0).map((item, idx) => {
+                const price   = getPrice(item)
+                const vars    = getVariations(item)
+                return (
+                  <tr key={item.name} style={{ borderBottom: '1px solid #f1f5f9', background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
+                    <td style={{ padding: '8px 14px', fontSize: 14, color: '#0f172a' }}>{item.name}</td>
+                    <td style={{ padding: '8px 14px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, fontSize: 15, whiteSpace: 'nowrap' }}>
+                      {vars ? (
+                        <div>{vars.map(v => (
+                          <div key={v.name} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontSize: 13 }}>
+                            <span style={{ color: '#64748b', fontFamily: 'Arial', fontWeight: 400 }}>{v.name}</span>
+                            <span>${Number(v.price).toFixed(2)}</span>
+                          </div>
+                        ))}</div>
+                      ) : price != null ? `$${Number(price).toFixed(2)}` : '—'}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ))}
+    </div>
+  )
 
   return (
     <div className="view-wrap" style={{ padding: '24px 32px', maxWidth: 1100, margin: '0 auto' }}>
