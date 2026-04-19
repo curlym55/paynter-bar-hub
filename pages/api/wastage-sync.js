@@ -113,7 +113,7 @@ export default async function handler(req, res) {
         const result = await postSingleWasteAdjustment(token, locationId, {
           variationId: varInfo.varId,
           squareQty:   String(squareQty),
-          occurredAt:  new Date(entry.date).toISOString(),
+          occurredAt:  new Date().toISOString(),  // always use now - Square rejects backdated adjustments >24h
           entryId:     entry.id,
           itemName:    entry.itemName,
         })
