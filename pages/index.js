@@ -4432,24 +4432,23 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
                       <span style={{ fontSize: 12, fontWeight: 700, color: '#7c3aed', background: '#f5f3ff', padding: '3px 10px', borderRadius: 99 }}>
                         {new Date(n.noteDate + 'T12:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </span>
-                      {n.itemName && (
                       {n.shiftType && (
-                        <span style={{ fontSize: 11, fontWeight: 700, color: '#fff', background:
-                          n.shiftType === 'Opening' ? '#16a34a' :
-                          n.shiftType === 'Closing' ? '#dc2626' :
-                          n.shiftType === 'Event'   ? '#d97706' : '#0e7490',
-                          padding: '3px 10px', borderRadius: 99, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: "#fff", background:
+                          n.shiftType === "Opening" ? "#16a34a" :
+                          n.shiftType === "Closing" ? "#dc2626" :
+                          n.shiftType === "Event"   ? "#d97706" : "#0e7490",
+                          padding: "3px 10px", borderRadius: 99, textTransform: "uppercase", letterSpacing: "0.04em" }}>
                           {n.shiftType}
                         </span>
                       )}
-                        <span style={{ fontSize: 12, fontWeight: 600, color: '#0e7490', background: '#ecfeff', padding: '3px 10px', borderRadius: 99 }}>
+                      {n.itemName && (
+                        <span style={{ fontSize: 12, fontWeight: 600, color: "#0e7490", background: "#ecfeff", padding: "3px 10px", borderRadius: 99 }}>
                           {n.itemName}
                         </span>
                       )}
-                      {n.author && <span style={{ fontSize: 11, color: '#94a3b8' }}>— {n.author}</span>}
+                      {n.author && <span style={{ fontSize: 11, color: "#64748b", fontWeight: 600 }}>DM: {n.author}</span>}
                     </div>
-                    <div style={{ fontSize: 14, color: '#0f172a', lineHeight: 1.6 }}>{n.comment}</div>
-                  </div>
+                    </div>
                   {!readOnly && (
                     <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
                       <button onClick={() => startEdit(n)}
