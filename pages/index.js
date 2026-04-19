@@ -730,7 +730,7 @@ export default function Home() {
     document.querySelectorAll('#qr-hdr').forEach(el => new QRCode(el, { ...opts, text: QR_URL }))
   }
 </script>
-</body></html> 
+</body></html>`
     const w = window.open('', '_blank')
     w.document.write(html)
     w.document.close()
