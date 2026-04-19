@@ -34,6 +34,7 @@ export default function Home() {
   const [targetWeeks, setTargetWeeks]   = useState(6)
   const [view, setView]                 = useState('all')
   const [filterOrder, setFilterOrder]   = useState(false)
+  const [hideOnOrder, setHideOnOrder]   = useState(false)
   const [saving, setSaving]             = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
@@ -1583,6 +1584,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)))
+    .filter(item => !hideOnOrder || !orderedItems[item.name])
 
   const onOrderCount = Object.keys(orderedItems).length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).length
@@ -1960,6 +1962,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <label style={styles.filterCheck}>
                   <input type="checkbox" checked={filterOrder} onChange={e => setFilterOrder(e.target.checked)} style={{ marginRight: 6 }} />
                   Order items only
+                </label>
+                <label style={styles.filterCheck}>
+                  <input type="checkbox" checked={hideOnOrder} onChange={e => setHideOnOrder(e.target.checked)} style={{ marginRight: 6 }} />
+                  Hide on order
                 </label>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Sales period:</span>
