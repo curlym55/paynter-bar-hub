@@ -434,6 +434,8 @@ export default function Home() {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }
   }
+  async function saveTargetWeeks(val) {
+    const weeks = Number(val)
     if (!weeks || weeks < 1 || weeks > 26) return
     await fetch('/api/settings', {
       method: 'POST',
