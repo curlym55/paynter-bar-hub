@@ -2311,7 +2311,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               <div style={{ display:'flex', alignItems:'center', gap:3 }}>
                                 {item.targetWeeksOverride != null && (
                                   <button onClick={() => saveSetting(item.name, 'targetWeeksOverride', null)}
-                                    title={Reset to global (wk)}
+                                    title={'Reset to global (' + targetWeeks + 'wk)'}
                                     style={{ fontSize:9, background:'none', border:'none', cursor:'pointer', color:'#f59e0b', padding:0 }}>★</button>
                                 )}
                                 <input type='number' min='1' max='26' step='1'
