@@ -401,7 +401,6 @@ export default function Home() {
         if (item.name !== itemName) return item
         const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
-        // Recalculate targetStock/orderQty when weeklyAvgOverride changes
         if (field === 'weeklyAvgOverride') {
           const avg = (value !== null && value !== '' ? Number(value) : item.squareWeeklyAvg) || 0
           const targetStock = Math.ceil(avg * targetWeeks)
@@ -424,8 +423,8 @@ export default function Home() {
           }
         }
         return updated
-      // Update local audit state
-      const auditKey = `${itemName}__${field}`
+      }))
+      const auditKey = itemName + '__' + field
       if (value === null || value === '' || value === false) {
         setSettingsAudit(prev => { const n = { ...prev }; delete n[auditKey]; return n })
       } else {
@@ -435,9 +434,6 @@ export default function Home() {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }
   }
-
-  async function saveTargetWeeks(val) {
-    const weeks = Number(val)
     if (!weeks || weeks < 1 || weeks > 26) return
     await fetch('/api/settings', {
       method: 'POST',
