@@ -67,6 +67,7 @@ export default async function handler(req, res) {
         bottleOnly:            settings.bottleOnly === true || settings.bottleOnly === 'yes',
         orderQtyOverride:      settings.orderQtyOverride != null ? Number(settings.orderQtyOverride) : null,
         weeklyAvgOverride:     settings.weeklyAvgOverride != null ? Number(settings.weeklyAvgOverride) : null,
+        targetWeeksOverride:   settings.targetWeeksOverride != null ? Number(settings.targetWeeksOverride) : null,
         squareWeeklyAvg:       item.weeklyAvg,
         alcoholPct:            settings.alcoholPct || '',
         containerML:           settings.containerML ? Number(settings.containerML) : null,
