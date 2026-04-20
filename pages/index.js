@@ -399,13 +399,13 @@ export default function Home() {
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
-        const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride','targetWeeksOverride']
+        const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
-
-        // Helper to recalculate stock fields
-        const recalc = (avg, tw) => {
+        // Recalculate targetStock/orderQty when weeklyAvgOverride changes
+        if (field === 'weeklyAvgOverride') {
+          const avg = (value !== null && value !== '' ? Number(value) : item.squareWeeklyAvg) || 0
+          const targetStock = Math.ceil(avg * targetWeeks)
           const onHand = updated.onHand || 0
-          const targetStock = Math.ceil(avg * tw)
           if (updated.isSpirit) {
             const nipsPerBottle = (updated.bottleML || 700) / (updated.nipML || 30)
             const nipsNeeded = Math.max(0, targetStock - onHand)
@@ -423,15 +423,7 @@ export default function Home() {
               priority: orderQty > 0 ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW') : 'OK' }
           }
         }
-
-        // Recalculate when weeklyAvgOverride or targetWeeksOverride changes
-        if (field === 'weeklyAvgOverride' || field === 'targetWeeksOverride') {
-          const avg = (updated.weeklyAvgOverride != null ? updated.weeklyAvgOverride : item.squareWeeklyAvg) || 0
-          const tw  = (updated.targetWeeksOverride != null ? updated.targetWeeksOverride : targetWeeks) || targetWeeks
-          return recalc(avg, tw)
-        }
         return updated
-      }))
       // Update local audit state
       const auditKey = `${itemName}__${field}`
       if (value === null || value === '' || value === false) {
@@ -2304,40 +2296,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               </div>
                           }
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>
-                          <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:2 }}>
-                            <span style={{ fontSize:13, fontWeight:700, color: item.targetWeeksOverride != null ? '#92400e' : 'inherit' }}>{item.targetStock}</span>
-                            {!readOnly && (
-                              <div style={{ display:'flex', alignItems:'center', gap:3 }}>
-                                {item.targetWeeksOverride != null && (
-                                  <button onClick={() => saveSetting(item.name, 'targetWeeksOverride', null)}
-                                    title={'Reset to global (' + targetWeeks + 'wk)'}
-                                    style={{ fontSize:9, background:'none', border:'none', cursor:'pointer', color:'#f59e0b', padding:0 }}>★</button>
-                                )}
-                                <input type='number' min='1' max='26' step='1'
-                                  defaultValue={item.targetWeeksOverride != null ? item.targetWeeksOverride : targetWeeks}
-                                  key={item.name + '_tw_' + item.targetWeeksOverride}
-                                  onBlur={e => {
-                                    const v = parseInt(e.target.value)
-                                    if (isNaN(v) || v < 1) return
-                                    if (v === targetWeeks) saveSetting(item.name, 'targetWeeksOverride', null)
-                                    else saveSetting(item.name, 'targetWeeksOverride', v)
-                                  }}
-                                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-                                  style={{ width:36, textAlign:'right', fontFamily:'IBM Plex Mono, monospace', fontSize:11,
-                                    border: item.targetWeeksOverride != null ? '1px solid #f59e0b' : '1px solid #e2e8f0',
-                                    borderRadius:4, padding:'1px 3px',
-                                    background: item.targetWeeksOverride != null ? '#fffbeb' : '#f8fafc',
-                                    color: item.targetWeeksOverride != null ? '#92400e' : '#64748b' }} />
-                                <span style={{ fontSize:9, color:'#94a3b8' }}>wk</span>
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
-                          <EditNumber value={item.pack} onChange={v => saveSetting(item.name, 'pack', v)}
-                            saving={saving[`${item.name}_pack`]} min={1} readOnly={readOnly} />
-                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           {item.isSpirit ? (
                             <EditSelect value={String(item.bottleML)} options={['700', '750', '1000']}
