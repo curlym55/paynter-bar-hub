@@ -3215,7 +3215,7 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 80, displayValue: false, margin: 4 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3.5, height: 100, displayValue: false, margin: 4 })
         const w = parseInt(svg.getAttribute('width')), h = parseInt(svg.getAttribute('height'))
         const svgData = new XMLSerializer().serializeToString(svg)
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
