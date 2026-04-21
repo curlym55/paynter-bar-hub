@@ -3246,11 +3246,11 @@ function BarcodeSheetView({ items }) {
     return LABEL_OVERRIDES[item.name] || item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
   }
 
-  const spiritsItems   = items.filter(i => i.category === 'Spirits').sort((a,b) => a.name.localeCompare(b.name))
-  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs').sort((a,b) => a.name.localeCompare(b.name))
-  const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
-  const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
-  const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && !/minchinbury|curtis legion/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const spiritsItems   = items.filter(i => i.category === 'Spirits' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
+  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
+  const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && (i.onHand || 0) > 0 && !/minchinbury|curtis legion/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
 
   const col2single = [
     ...whiteItems,
