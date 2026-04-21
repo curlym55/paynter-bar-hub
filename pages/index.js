@@ -654,7 +654,7 @@ export default function Home() {
                     return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
                   }).join('') + '</table>'
                 : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
-              return '<tr><td class="nm">' + label + (alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
+              return '<tr><td class="nm">' + label + (!variations && alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (!variations && stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
             }).join('')}
           </table>
         </div>`).join('')
