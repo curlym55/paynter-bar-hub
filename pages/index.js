@@ -2296,6 +2296,13 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
+                          {!item.isSpirit ? (
+                            <EditSelect value={String(item.pack || '')} options={['6', '18', '24', '30', '48']}
+                              onChange={v => saveSetting(item.name, 'pack', Number(v))}
+                              saving={saving[`${item.name}_pack`]} readOnly={readOnly} />
+                          ) : <span style={{ color: '#e2e8f0' }}>—</span>}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'center' }}>
                           {item.isSpirit ? (
                             <EditSelect value={String(item.bottleML)} options={['700', '750', '1000']}
                               onChange={v => saveSetting(item.name, 'bottleML', Number(v))}
