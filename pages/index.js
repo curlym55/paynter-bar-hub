@@ -2296,13 +2296,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'center' }}>
-                          {!item.isSpirit ? (
-                            <EditSelect value={String(item.pack || '')} options={['6', '18', '24', '30', '48']}
-                              onChange={v => saveSetting(item.name, 'pack', Number(v))}
-                              saving={saving[`${item.name}_pack`]} readOnly={readOnly} />
-                          ) : <span style={{ color: '#e2e8f0' }}>—</span>}
-                        </td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
                           {item.isSpirit ? (
                             <EditSelect value={String(item.bottleML)} options={['700', '750', '1000']}
                               onChange={v => saveSetting(item.name, 'bottleML', Number(v))}
@@ -3222,7 +3215,7 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3.5, height: 100, displayValue: false, margin: 4 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 3, height: 100, displayValue: false, margin: 12 })
         const w = parseInt(svg.getAttribute('width')), h = parseInt(svg.getAttribute('height'))
         const svgData = new XMLSerializer().serializeToString(svg)
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
@@ -3274,7 +3267,7 @@ function BarcodeSheetView({ items }) {
     .bc-col-hdr{flex:0 0 auto;padding:5px 8px;text-align:center;font-weight:900;font-size:17px;letter-spacing:.07em;text-transform:uppercase;color:#fff;}
     .bc-div{flex:0 0 22px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:#fff;border-top:1px solid #888;}
     .bc-row{flex:1;display:flex;border-top:1px solid #ccc;min-height:0;}
-    .bc-label{flex:1;display:flex;align-items:center;padding:0 5px;font-weight:900;font-size:13px;word-break:break-word;border-right:1px solid #ccc;}
+    .bc-label{flex:1;display:flex;align-items:center;padding:0 8px;font-weight:900;font-size:16px;word-break:break-word;border-right:1px solid #ccc;}
     .bc-cell{flex:1;display:flex;align-items:center;overflow:hidden;min-width:0;}
     .bc-cell img{width:100%;height:auto;display:block;}
   `
