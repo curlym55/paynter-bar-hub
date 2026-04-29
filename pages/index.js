@@ -1,5 +1,3 @@
-File: C:\Users\curly\OneDrive\Documents\GitHub\paynter-bar-hub\pages\index.js
-Lines 1-6000 of 6000:
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES } from '../lib/calculations'
