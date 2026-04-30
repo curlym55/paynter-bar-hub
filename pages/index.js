@@ -3607,7 +3607,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
                               return (
                                 <div style={{ marginTop: 8 }}>
                                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 10, marginBottom: 4 }}>
-                                    <span style={{ color, fontWeight: 700 }}>Target: {pct.toFixed(1)}% of {fmt(revenueTarget)}</span>
+                                    <span style={{ color, fontWeight: 700 }}>Target: {pct.toFixed(1)}% of <span onClick={() => { setTargetInput(String(revenueTarget)); setEditingTarget(true) }} style={{ cursor: `pointer`, textDecoration: `underline dotted` }} title="Click to edit">{fmt(revenueTarget)}</span></span>
                                     <span style={{ color: remaining > 0 ? '#64748b' : '#16a34a' }}>{remaining > 0 ? `${fmt(remaining)} to go` : `🎉 Exceeded by ${fmt(-remaining)}`}</span>
                                   </div>
                                   <div style={{ background: '#e2e8f0', borderRadius: 99, height: 8, overflow: 'hidden' }}>
