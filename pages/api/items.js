@@ -5,6 +5,10 @@ import { kvGet, kvSet, kvDelete } from '../../lib/redis'
 const CACHE_KEY = (days) => `itemsCache_${days}`
 
 export default async function handler(req, res) {
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  if (req.method === 'OPTIONS') return res.status(200).end();
+
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
