@@ -6147,17 +6147,8 @@ function SpecialsView({ items }) {
                 style={{ padding: '8px 16px', background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                 {loadingImages ? 'Loading...' : form._imageUrl ? '🔄 Change Image' : '📷 Pick from Square'}
               </button>
-              <button onClick={() => { if (form.name) window.open('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(form.name + ' bottle'), '_blank') }}
-                style={{ padding: '8px 16px', background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>Google Images</button>
               {form._imageUrl && <button onClick={() => setForm(f => ({ ...f, square_image_id: '', _imageUrl: '' }))}
                 style={{ padding: '8px 12px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>✕</button>}
-            </div>
-            <div style={{ marginTop: 8, display: 'flex', gap: 8, alignItems: 'center' }}>
-              <input placeholder="Paste image URL from Google Images..." style={{ flex: 1, padding: '7px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 }}
-                onChange={e => {
-                  const url = e.target.value.trim()
-                  if (url) setForm(f => ({ ...f, square_image_id: '', _imageUrl: url }))
-                }} />
             </div>
 
             {/* Image grid picker */}
