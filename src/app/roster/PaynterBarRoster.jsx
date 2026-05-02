@@ -19,7 +19,7 @@ import {
   updateAnnouncement,
   deleteAnnouncementDB,
   getAllSessions
-} from '../lib/supabase';
+} from '../../lib/supabase';
 
 // FIX: Don't evaluate IS_LIVE at module level for state initialization
 // It causes hydration mismatch (server=false, client=true)

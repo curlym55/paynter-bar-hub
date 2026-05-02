@@ -1,6 +1,6 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
-import { getVolunteers, getSessionsForMonth, getAnnouncements } from '../../lib/supabase';
+import { getVolunteers, getSessionsForMonth, getAnnouncements } from '../../../lib/supabase';
 
 const ROTATE_INTERVAL = 15000;
 const REFRESH_INTERVAL = 120000;
