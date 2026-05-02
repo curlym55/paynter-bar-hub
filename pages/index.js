@@ -1684,7 +1684,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             { label: 'Operations', icon: '🗑️', items: [
               { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
-              { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+              { icon: '⭐', label: 'Specials', tab: 'specials', action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+                 { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
             ]},
@@ -1763,7 +1764,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -1787,7 +1788,8 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { label: '🏆 Best & Worst Sellers',action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
               { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
-              { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
+              { label: '⭐ Specials',              action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
+                { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
               { label: '🖨️ Barcode Sheet',       action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
               { label: '👥 Roster',              action: () => window.open('/roster','_blank'), active: false },
               { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
@@ -2548,6 +2550,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           />
         )}
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
+          {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
         {mainTab === 'help' && <HelpTab />}
 
         <footer style={styles.footer}>
@@ -6000,6 +6003,182 @@ function StocktakeView({ items, readOnly, onExport }) {
               </div>
             )}
           </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
+// === SPECIALS VIEW ============================================================
+function SpecialsView({ items }) {
+  const [specials, setSpecials] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [showAdd, setShowAdd] = useState(false)
+  const [form, setForm] = useState({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', active: true, display_order: 0 })
+  const [itemSearch, setItemSearch] = useState('')
+
+  useEffect(() => { loadSpecials() }, [])
+
+  async function loadSpecials() {
+    setLoading(true)
+    try {
+      const r = await fetch('/api/specials')
+      const d = await r.json()
+      setSpecials(d.specials || [])
+    } finally { setLoading(false) }
+  }
+
+  async function saveSpecial() {
+    setSaving(true)
+    try {
+      await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upsert', special: { ...form, display_order: specials.length } }) })
+      setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', active: true, display_order: 0 })
+      setShowAdd(false)
+      setItemSearch('')
+      await loadSpecials()
+    } finally { setSaving(false) }
+  }
+
+  async function deleteSpecial(id) {
+    if (!confirm('Remove this special?')) return
+    await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', special: { id } }) })
+    await loadSpecials()
+  }
+
+  async function toggleActive(special) {
+    await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'upsert', special: { ...special, active: !special.active } }) })
+    await loadSpecials()
+  }
+
+  const filteredItems = items.filter(i => i.name.toLowerCase().includes(itemSearch.toLowerCase())).slice(0, 8)
+
+  return (
+    <div style={{ padding: '24px 32px', maxWidth: 800, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>⭐ Specials Display</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+            Manage what shows on the bar display at{' '}
+            <a href="/roster/display/specials" target="_blank" style={{ color: '#0e7490' }}>/roster/display/specials</a>
+          </div>
+        </div>
+        <button onClick={() => setShowAdd(s => !s)}
+          style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+          + Add Special
+        </button>
+      </div>
+
+      {/* Add form */}
+      {showAdd && (
+        <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 20, marginBottom: 20 }}>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', marginBottom: 14 }}>New Special</div>
+
+          {/* Item search */}
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Search Square Items</label>
+            <input value={itemSearch} onChange={e => setItemSearch(e.target.value)} placeholder="Type to search..."
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+            {itemSearch && filteredItems.length > 0 && (
+              <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', marginTop: 4 }}>
+                {filteredItems.map(item => (
+                  <div key={item.name} onClick={() => {
+                    setForm(f => ({ ...f, name: item.name, price_override: item.sellPrice ? '$' + item.sellPrice : '', square_item_id: item.sku || '' }))
+                    setItemSearch('')
+                  }} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
+                    <span>{item.name}</span>
+                    <span style={{ color: '#c8a84b', fontWeight: 700 }}>${item.sellPrice}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Display Name</label>
+              <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Bombay Sapphire Gin"
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Price</label>
+              <input value={form.price_override} onChange={e => setForm(f => ({ ...f, price_override: e.target.value }))} placeholder="e.g. $3.00"
+                style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+            </div>
+          </div>
+
+          <div style={{ marginBottom: 12 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Description (optional)</label>
+            <input value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="e.g. 30ml nip with mixer"
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+          </div>
+
+          <div style={{ marginBottom: 16 }}>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Square Image ID (from Square Dashboard)</label>
+            <input value={form.square_image_id} onChange={e => setForm(f => ({ ...f, square_image_id: e.target.value }))} placeholder="e.g. 7FZXXXXXXXXXXXXX"
+              style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
+            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>In Square Dashboard → Items → click item → right-click image → Copy image address to get the image ID</div>
+          </div>
+
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button onClick={() => { setShowAdd(false); setItemSearch('') }}
+              style={{ flex: 1, padding: '9px 0', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
+            <button onClick={saveSpecial} disabled={saving || !form.name}
+              style={{ flex: 2, padding: '9px 0', background: saving || !form.name ? '#94a3b8' : '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              {saving ? 'Saving...' : 'Save Special'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Specials list */}
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>Loading...</div>
+      ) : specials.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: 10 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>⭐</div>
+          <div style={{ fontSize: 15 }}>No specials yet — click Add Special to get started</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {specials.map((s, idx) => (
+            <div key={s.id} style={{ background: s.active ? '#fff' : '#f8fafc', border: `1px solid ${s.active ? '#e2e8f0' : '#f1f5f9'}`, borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
+              {/* Image */}
+              <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', background: '#f1f5f9', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {s.image_url ? <img src={s.image_url} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 24 }}>🍾</span>}
+              </div>
+              {/* Details */}
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 15, fontWeight: 700, color: s.active ? '#0f172a' : '#94a3b8' }}>{s.name}</div>
+                {s.description && <div style={{ fontSize: 12, color: '#64748b' }}>{s.description}</div>}
+              </div>
+              {/* Price */}
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>
+                {s.price_override}
+              </div>
+              {/* Controls */}
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => toggleActive(s)}
+                  style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, background: s.active ? '#f0fdf4' : '#fef9c3', color: s.active ? '#16a34a' : '#92400e', border: `1px solid ${s.active ? '#86efac' : '#fde047'}`, borderRadius: 6, cursor: 'pointer' }}>
+                  {s.active ? 'Live' : 'Off'}
+                </button>
+                <button onClick={() => deleteSpecial(s.id)}
+                  style={{ padding: '4px 10px', fontSize: 11, background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer' }}>
+                  ✕
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {specials.length > 0 && (
+        <div style={{ marginTop: 16, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0369a1' }}>
+          💡 Display rotates every 6 seconds — <a href="/roster/display/specials" target="_blank" style={{ color: '#0369a1', fontWeight: 700 }}>Open display page ↗</a>
         </div>
       )}
     </div>
