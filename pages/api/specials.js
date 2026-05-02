@@ -37,7 +37,13 @@ export default async function handler(req, res) {
   if (req.method === 'POST') {
     const { action, special } = req.body
     if (action === 'upsert') {
-      const { data, error } = await supabase.from('specials').upsert(special).select()
+      const { id, ...fields } = special
+      let data, error
+      if (id) {
+        ({ data, error } = await supabase.from('specials').update(fields).eq('id', id).select())
+      } else {
+        ({ data, error } = await supabase.from('specials').insert(fields).select())
+      }
       if (error) return res.status(500).json({ error: error.message })
       return res.status(200).json({ ok: true, data })
     }
