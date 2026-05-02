@@ -6085,7 +6085,7 @@ function SpecialsView({ items }) {
             <a href="/roster/display/specials" target="_blank" style={{ color: '#0e7490' }}>/roster/display/specials</a>
           </div>
         </div>
-        <button onClick={() => setShowAdd(s => !s)}
+        <button onClick={() => { setShowAdd(s => !s); setImageSearch('') }}
           style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
           + Add Special
         </button>
@@ -6147,6 +6147,8 @@ function SpecialsView({ items }) {
                 style={{ padding: '8px 16px', background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
                 {loadingImages ? 'Loading...' : form._imageUrl ? '🔄 Change Image' : '📷 Pick from Square'}
               </button>
+              <button onClick={() => { if (form.name) window.open('https://www.google.com/search?tbm=isch&q=' + encodeURIComponent(form.name + ' bottle'), '_blank') }}
+                style={{ padding: '8px 16px', background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>Google Images</button>
               {form._imageUrl && <button onClick={() => setForm(f => ({ ...f, square_image_id: '', _imageUrl: '' }))}
                 style={{ padding: '8px 12px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>✕</button>}
             </div>

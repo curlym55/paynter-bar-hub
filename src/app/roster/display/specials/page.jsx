@@ -83,7 +83,7 @@ export default function SpecialsDisplay() {
           )}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
             <div style={{ color: '#c8a84b', fontSize: 72, fontWeight: 900, lineHeight: 1 }}>
-              {s.price_override || (s.price ? `$${s.price}` : '')}
+              {s.price_override ? '$' + parseFloat(s.price_override.replace('$','')).toFixed(2) : s.price ? '$' + parseFloat(s.price).toFixed(2) : ''}
             </div>
           </div>
         </div>
