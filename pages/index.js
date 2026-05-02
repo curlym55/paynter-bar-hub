@@ -1686,7 +1686,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
               { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-              { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank') },
+              { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
             ]},
             { label: 'Reports', icon: '📋', items: [
               { icon: '📋', label: 'SOH Report', tab: 'soh', action: () => setSohModal(true) },
@@ -1789,7 +1789,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
               { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
               { label: '🖨️ Barcode Sheet',       action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
-              { label: '👥 Roster',              action: () => window.open('https://paynter-bar-roster.vercel.app/','_blank'), active: false },
+              { label: '👥 Roster',              action: () => window.open('/roster','_blank'), active: false },
               { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
               { label: '❓ Help & Guide',        action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
             ].map(({ label, action, active }) => (
@@ -3550,7 +3550,7 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
               <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
                 {features.map(f => (
                   <div key={f.tab}
-                    onClick={() => f.external ? window.open('https://paynter-bar-roster.vercel.app/', '_blank') : onNav(f.tab)}
+                    onClick={() => f.external ? window.open('/roster', '_blank') : onNav(f.tab)}
                     style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
                     onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
                     onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
