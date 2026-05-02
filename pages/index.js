@@ -6016,8 +6016,12 @@ function SpecialsView({ items }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [showAdd, setShowAdd] = useState(false)
-  const [form, setForm] = useState({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', active: true, display_order: 0 })
+  const [form, setForm] = useState({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', _imageUrl: '', active: true, display_order: 0 })
   const [itemSearch, setItemSearch] = useState('')
+  const [catalogImages, setCatalogImages] = useState([])
+  const [loadingImages, setLoadingImages] = useState(false)
+  const [showImagePicker, setShowImagePicker] = useState(false)
+  const [imageSearch, setImageSearch] = useState('')
 
   useEffect(() => { loadSpecials() }, [])
 
@@ -6030,14 +6034,27 @@ function SpecialsView({ items }) {
     } finally { setLoading(false) }
   }
 
+  async function loadCatalogImages() {
+    if (catalogImages.length > 0) { setShowImagePicker(true); return }
+    setLoadingImages(true)
+    try {
+      const r = await fetch('/api/catalog-images')
+      const d = await r.json()
+      setCatalogImages(d.items || [])
+      setShowImagePicker(true)
+    } finally { setLoadingImages(false) }
+  }
+
   async function saveSpecial() {
     setSaving(true)
     try {
+      const { _imageUrl, ...toSave } = form
       await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert', special: { ...form, display_order: specials.length } }) })
-      setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', active: true, display_order: 0 })
+        body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: specials.length } }) })
+      setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', _imageUrl: '', active: true, display_order: 0 })
       setShowAdd(false)
       setItemSearch('')
+      setShowImagePicker(false)
       await loadSpecials()
     } finally { setSaving(false) }
   }
@@ -6056,6 +6073,7 @@ function SpecialsView({ items }) {
   }
 
   const filteredItems = items.filter(i => i.name.toLowerCase().includes(itemSearch.toLowerCase())).slice(0, 8)
+  const filteredImages = catalogImages.filter(i => i.name.toLowerCase().includes(imageSearch.toLowerCase()))
 
   return (
     <div style={{ padding: '24px 32px', maxWidth: 800, margin: '0 auto', fontFamily: 'Arial, sans-serif' }}>
@@ -6117,15 +6135,45 @@ function SpecialsView({ items }) {
               style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
           </div>
 
+          {/* Image picker */}
           <div style={{ marginBottom: 16 }}>
-            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Square Image ID (from Square Dashboard)</label>
-            <input value={form.square_image_id} onChange={e => setForm(f => ({ ...f, square_image_id: e.target.value }))} placeholder="e.g. 7FZXXXXXXXXXXXXX"
-              style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
-            <div style={{ fontSize: 11, color: '#94a3b8', marginTop: 4 }}>In Square Dashboard → Items → click item → right-click image → Copy image address to get the image ID</div>
+            <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 6 }}>Product Image</label>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+              {form._imageUrl
+                ? <img src={form._imageUrl} alt="" style={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 8, border: '2px solid #c8a84b' }} />
+                : <div style={{ width: 64, height: 64, borderRadius: 8, background: '#f1f5f9', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🍾</div>
+              }
+              <button onClick={loadCatalogImages} disabled={loadingImages}
+                style={{ padding: '8px 16px', background: '#f1f5f9', color: '#0f172a', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer', fontWeight: 600 }}>
+                {loadingImages ? 'Loading...' : form._imageUrl ? '🔄 Change Image' : '📷 Pick from Square'}
+              </button>
+              {form._imageUrl && <button onClick={() => setForm(f => ({ ...f, square_image_id: '', _imageUrl: '' }))}
+                style={{ padding: '8px 12px', background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>✕</button>}
+            </div>
+
+            {/* Image grid picker */}
+            {showImagePicker && (
+              <div style={{ marginTop: 10, border: '1px solid #e2e8f0', borderRadius: 8, background: '#fff', padding: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                  <input value={imageSearch} onChange={e => setImageSearch(e.target.value)} placeholder="Search images..."
+                    style={{ flex: 1, padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 13, marginRight: 8 }} />
+                  <button onClick={() => setShowImagePicker(false)} style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer', fontSize: 18 }}>✕</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(80px, 1fr))', gap: 8, maxHeight: 300, overflowY: 'auto' }}>
+                  {filteredImages.map(img => (
+                    <div key={img.imageId} onClick={() => { setForm(f => ({ ...f, square_image_id: img.imageId, _imageUrl: img.url })); setShowImagePicker(false) }}
+                      style={{ cursor: 'pointer', borderRadius: 6, overflow: 'hidden', border: form.square_image_id === img.imageId ? '2px solid #c8a84b' : '2px solid transparent' }}>
+                      <img src={img.url} alt={img.name} title={img.name} style={{ width: '100%', height: 72, objectFit: 'cover', display: 'block' }} />
+                      <div style={{ fontSize: 9, color: '#64748b', padding: '2px 3px', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{img.name}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <div style={{ display: 'flex', gap: 8 }}>
-            <button onClick={() => { setShowAdd(false); setItemSearch('') }}
+            <button onClick={() => { setShowAdd(false); setItemSearch(''); setShowImagePicker(false) }}
               style={{ flex: 1, padding: '9px 0', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>Cancel</button>
             <button onClick={saveSpecial} disabled={saving || !form.name}
               style={{ flex: 2, padding: '9px 0', background: saving || !form.name ? '#94a3b8' : '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
@@ -6147,29 +6195,21 @@ function SpecialsView({ items }) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           {specials.map((s, idx) => (
             <div key={s.id} style={{ background: s.active ? '#fff' : '#f8fafc', border: `1px solid ${s.active ? '#e2e8f0' : '#f1f5f9'}`, borderRadius: 10, padding: '14px 16px', display: 'flex', alignItems: 'center', gap: 14 }}>
-              {/* Image */}
               <div style={{ width: 56, height: 56, borderRadius: 8, overflow: 'hidden', background: '#f1f5f9', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 {s.image_url ? <img src={s.image_url} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} /> : <span style={{ fontSize: 24 }}>🍾</span>}
               </div>
-              {/* Details */}
               <div style={{ flex: 1 }}>
                 <div style={{ fontSize: 15, fontWeight: 700, color: s.active ? '#0f172a' : '#94a3b8' }}>{s.name}</div>
                 {s.description && <div style={{ fontSize: 12, color: '#64748b' }}>{s.description}</div>}
               </div>
-              {/* Price */}
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>
-                {s.price_override}
-              </div>
-              {/* Controls */}
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>{s.price_override}</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => toggleActive(s)}
                   style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, background: s.active ? '#f0fdf4' : '#fef9c3', color: s.active ? '#16a34a' : '#92400e', border: `1px solid ${s.active ? '#86efac' : '#fde047'}`, borderRadius: 6, cursor: 'pointer' }}>
                   {s.active ? 'Live' : 'Off'}
                 </button>
                 <button onClick={() => deleteSpecial(s.id)}
-                  style={{ padding: '4px 10px', fontSize: 11, background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer' }}>
-                  ✕
-                </button>
+                  style={{ padding: '4px 10px', fontSize: 11, background: 'none', color: '#94a3b8', border: '1px solid #e2e8f0', borderRadius: 6, cursor: 'pointer' }}>✕</button>
               </div>
             </div>
           ))}
