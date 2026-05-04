@@ -767,6 +767,7 @@ export default function Home() {
     const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
     const sortedCats = [...CATEGORY_ORDER.filter(c => byCategory[c]), ...Object.keys(byCategory).filter(c => !CATEGORY_ORDER.includes(c))]
 
+    const totalValue = items.reduce((sum, i) => sum + (i.buyPrice != null && i.onHand > 0 ? Number(i.buyPrice) * Number(i.onHand) : 0), 0)
     const critItems  = items.filter(i => i.priority === 'CRITICAL')
     const lowItems   = items.filter(i => i.priority === 'LOW')
     const orderItems = items.filter(i => i.orderQty > 0 && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || ''))
@@ -791,9 +792,9 @@ export default function Home() {
         </tr>`
       }).join('')
       categorySections += `
-        <tr class="cat-header"><td colspan="7">${cat} <span style="font-weight:400;font-size:11px">(${catItems.length} items)</span></td></tr>
+        <tr class="cat-header"><td colspan="9">${cat} <span style="font-weight:400;font-size:11px">(${catItems.length} items)</span></td></tr>
         ${rows}
-        <tr class="spacer"><td colspan="7"></td></tr>`
+        <tr class="spacer"><td colspan="9"></td></tr>`
     }
 
     const html = `<!DOCTYPE html><html><head><title>Stock on Hand — ${monthName}</title>
@@ -849,7 +850,7 @@ export default function Home() {
   </div>
   <table>
     <thead><tr>
-      <th>Item</th><th>On Hand</th><th>Wkly Avg</th><th>Target</th><th style="text-align:center">Status</th><th>Order Qty</th><th>Supplier</th>
+      <th>Item</th><th>On Hand</th><th>Wkly Avg</th><th>Target</th><th style="text-align:center">Status</th><th>Order Qty</th><th>Supplier</th><th style="text-align:right">Unit Cost</th><th style="text-align:right">Total Value</th>
     </tr></thead>
     <tbody>${categorySections}</tbody>
   </table>
