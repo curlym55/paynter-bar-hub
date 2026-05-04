@@ -2249,7 +2249,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     return (
                       <tr key={item.name} style={{ background: rowBg }}>
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
-                          {item.name}
+                          {item.name}{item.buyPrice == null && viewMode === 'pricing' && <span title="No cost price set" style={{ marginLeft: 5, color: '#dc2626', fontSize: 9, fontWeight: 700 }}>●</span>}
                         </td>
                         <td style={styles.td}>
                           <EditSelect value={item.category} options={CATEGORIES}
@@ -2439,6 +2439,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
                                 onChange={v => saveSetting(item.name, 'buyPrice', v)}
                                 saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
+                              {buy == null && !readOnly && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 2 }}>No cost price set</div>}
                               {settingsAudit[`${item.name}__buyPrice`] && (
                                 <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>
                                   ↺ {new Date(settingsAudit[`${item.name}__buyPrice`].ts).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}
