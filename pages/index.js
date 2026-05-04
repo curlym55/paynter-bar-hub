@@ -6281,7 +6281,7 @@ function SohHistoryView() {
     const num = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' } }, t: typeof v === 'number' ? 'n' : 's' })
     const cur = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' }, numFmt: '$#,##0.00' }, t: typeof v === 'number' ? 'n' : 's' })
     const txt = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } } } })
-    const sub = v => ({ v, s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } }, alignment: { horizontal: 'right' }, numFmt: '#,##0.00' } })
+    const sub = v => ({ v: v || '', s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } }, alignment: { horizontal: 'right' }, numFmt: '$#,##0.00' }, t: typeof v === 'number' ? 'n' : 's' })
     const empty = bg => ({ v: '', s: { fill: { fgColor: { rgb: bg || WHITE } } } })
 
     const reportDateStr = new Date(report.report_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
