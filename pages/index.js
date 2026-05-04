@@ -789,6 +789,8 @@ export default function Home() {
           <td style="text-align:center;color:${priorityColor};font-weight:700;font-size:11px">${item.priority}</td>
           <td style="text-align:right;font-weight:${item.orderQty > 0 ? '700' : '400'}">${orderQty}</td>
           <td style="color:#64748b;font-size:11px">${item.supplier || ''}</td>
+          <td style="text-align:right;font-family:monospace;color:#64748b">${item.buyPrice != null ? "$" + Number(item.buyPrice).toFixed(2) : "—"}</td>
+          <td style="text-align:right;font-family:monospace;font-weight:600">${item.buyPrice != null && item.onHand > 0 ? "$" + (Number(item.buyPrice) * Number(item.onHand)).toFixed(2) : "—"}</td>
         </tr>`
       }).join('')
       categorySections += `
