@@ -6259,9 +6259,7 @@ function SohHistoryView() {
     if (!confirm('Generate a SOH snapshot now?')) return
     setGenerating(true)
     try {
-      const r = await fetch('/api/cron/soh-snapshot', {
-        headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}` }
-      })
+      const r = await fetch('/api/cron/soh-snapshot')
       const d = await r.json()
       if (d.ok) { alert(`Snapshot saved: ${d.items} items, $${d.total_value}`); await loadReports() }
       else alert('Error: ' + (d.error || 'unknown'))

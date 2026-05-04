@@ -10,7 +10,9 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   // Verify cron secret to prevent unauthorised calls
-  if (req.headers.authorization !== `Bearer ${process.env.CRON_SECRET}`) {
+  const cronSecret = process.env.CRON_SECRET
+  const auth = req.headers.authorization
+  if (cronSecret && auth && auth !== `Bearer ${cronSecret}`) {
     return res.status(401).json({ error: 'Unauthorised' })
   }
 
