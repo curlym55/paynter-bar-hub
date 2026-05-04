@@ -849,6 +849,7 @@ export default function Home() {
     <div class="summary-card crit"><div class="num">${critItems.length}</div><div class="lbl">Critical Stock</div></div>
     <div class="summary-card low"><div class="num">${lowItems.length}</div><div class="lbl">Low Stock</div></div>
     <div class="summary-card ord"><div class="num">${orderItems.length}</div><div class="lbl">Items to Order</div></div>
+    <div class="summary-card" style="border-top:3px solid #16a34a"><div class="num" style="color:#16a34a;font-size:16px">$${totalValue.toFixed(2)}</div><div class="lbl">Total Inv. Value</div></div>
   </div>
   <table>
     <thead><tr>
@@ -916,17 +917,18 @@ export default function Home() {
 
       // ── Summary stats row ─────────────────────────────────────────────────
       const summaryRows = [
-        [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
-        [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
-        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
-        [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
         [
           cell(`${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
           cell(`${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
           cell(`${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
           cell(`${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`$${totalValue.toFixed(2)}  Total Value`, { font: { bold: true, sz: 11, color: { rgb: '16A34A' } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
@@ -964,9 +966,10 @@ export default function Home() {
             cell(item.targetStock, ns),
             cell(item.priority, statusStyle(item.priority)),
             cell(orderQty, { ...ns, font: { ...ns.font, bold: item.orderQty > 0 } }),
+            cell(item.supplier || '', { ...rs, font: { sz: 10, color: { rgb: '64748B' } } }),
+            cell(item.buyPrice ? Number(item.buyPrice) : '', { ...ns, numFmt: '#,##0.00' }),
+            cell(item.buyPrice && item.onHand > 0 ? Math.round(Number(item.buyPrice) * Number(item.onHand) * 100) / 100 : '', { ...ns, numFmt: '#,##0.00' }),
           ])
-        })
-        dataRows.push([]) // spacer
       }
 
       const allRows = [...summaryRows, ...dataRows]
@@ -1400,17 +1403,18 @@ export default function Home() {
 
       // ── Summary stats row ─────────────────────────────────────────────────
       const summaryRows = [
-        [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty()],
-        [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty()],
-        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty()],
-        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Stock on Hand Report — Paynter Bar', sTitle), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Period:', sMeta), cell(monthName, sMetaB), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('Generated:', sMeta), cell(generated, sMeta), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell(`Sales avg: ${daysBack} days  |  Target: ${targetWeeks} weeks stock`, sMeta), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
         [],
-        [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty()],
+        [cell('SUMMARY', sSummHdr), empty(), empty(), empty(), empty(), empty(), empty(), empty(), empty()],
         [
           cell(`${items.length}  Total Items`, { font: { bold: true, sz: 11, color: { rgb: NAVY } }, alignment: { horizontal: 'center' } }),
           cell(`${critItems.length}  Critical`, { font: { bold: true, sz: 11, color: { rgb: RED } }, alignment: { horizontal: 'center' } }),
           cell(`${lowItems.length}  Low Stock`, { font: { bold: true, sz: 11, color: { rgb: AMBER } }, alignment: { horizontal: 'center' } }),
           cell(`${orderItems.length}  To Order`, { font: { bold: true, sz: 11, color: { rgb: BLUE } }, alignment: { horizontal: 'center' } }),
+          cell(`$${totalValue.toFixed(2)}  Total Value`, { font: { bold: true, sz: 11, color: { rgb: '16A34A' } }, alignment: { horizontal: 'center' } }),
           empty(), empty(), empty()
         ],
         [],
