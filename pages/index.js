@@ -970,6 +970,7 @@ export default function Home() {
             cell(item.buyPrice ? Number(item.buyPrice) : '', { ...ns, numFmt: '#,##0.00' }),
             cell(item.buyPrice && item.onHand > 0 ? Math.round(Number(item.buyPrice) * Number(item.onHand) * 100) / 100 : '', { ...ns, numFmt: '#,##0.00' }),
           ])
+        dataRows.push([]) // spacer
       }
 
       const allRows = [...summaryRows, ...dataRows]
