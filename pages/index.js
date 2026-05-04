@@ -6278,7 +6278,8 @@ function SohHistoryView() {
 
     const hdr = (v, right) => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: right ? 'right' : 'left' } } })
     const cat = v => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: DGREY } } } })
-    const num = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' }, numFmt: v ? '#,##0.00' : '' } })
+    const num = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' } }, t: typeof v === 'number' ? 'n' : 's' })
+    const cur = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' }, numFmt: '$#,##0.00' }, t: typeof v === 'number' ? 'n' : 's' })
     const txt = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } } } })
     const sub = v => ({ v, s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } }, alignment: { horizontal: 'right' }, numFmt: '#,##0.00' } })
     const empty = bg => ({ v: '', s: { fill: { fgColor: { rgb: bg || WHITE } } } })
@@ -6306,7 +6307,7 @@ function SohHistoryView() {
       items.forEach((item, i) => {
         const tv = item.buyPrice && item.onHand > 0 ? Math.round(Number(item.buyPrice) * Number(item.onHand) * 100) / 100 : null
         if (tv) catTotal += tv
-        rows.push([txt(item.name, i), txt(item.category, i), txt(item.supplier, i), num(item.onHand, i), num(item.weeklyAvg, i), num(item.buyPrice || null, i), num(tv, i)])
+        rows.push([txt(item.name, i), txt(item.category, i), txt(item.supplier, i), num(item.onHand, i), num(item.weeklyAvg, i), cur(item.buyPrice || null, i), cur(tv, i)])
       })
       rows.push([{ v: `${catName} Subtotal`, s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } } } }, empty(MGREY), empty(MGREY), empty(MGREY), empty(MGREY), empty(MGREY), sub(catTotal || '')])
       rows.push(Array(7).fill(empty()))
