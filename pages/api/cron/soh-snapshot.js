@@ -21,10 +21,8 @@ export default async function handler(req, res) {
     if (!token) return res.status(500).json({ error: 'No Square token' })
 
     // Get all item settings from Redis
-    const settingsRaw = await kvGet('bar:settings')
-    const allSettings = settingsRaw ? JSON.parse(settingsRaw) : {}
-    const globalSettings = allSettings['_global'] || {}
-    const targetWeeks = Number(globalSettings.targetWeeks) || 6
+    const allSettings = (await kvGet('itemSettings')) || {}
+    const targetWeeks = Number(await kvGet('targetWeeks')) || 6
 
     // Fetch fresh Square data
     const squareItems = await fetchSquareData(token, 90)
