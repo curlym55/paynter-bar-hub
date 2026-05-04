@@ -3,8 +3,15 @@
   "buildCommand": "next build",
   "outputDirectory": ".next",
   "functions": {
-    "pages/api/items.js":    { "maxDuration": 60 },
-    "pages/api/fy-chart.js": { "maxDuration": 60 },
-    "pages/api/sales.js":    { "maxDuration": 60 }
-  }
+    "pages/api/items.js":              { "maxDuration": 60 },
+    "pages/api/fy-chart.js":           { "maxDuration": 60 },
+    "pages/api/sales.js":              { "maxDuration": 60 },
+    "pages/api/cron/soh-snapshot.js":  { "maxDuration": 60 }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/soh-snapshot",
+      "schedule": "0 16 28-31 * *"
+    }
+  ]
 }

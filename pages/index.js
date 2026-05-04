@@ -1699,6 +1699,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             ]},
             { label: 'Reports', icon: '📋', items: [
               { icon: '📋', label: 'SOH Report', tab: 'soh', action: () => setSohModal(true) },
+                 { icon: '🗓️', label: 'SOH History', tab: 'sohhistory', action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
             ]},
             { label: 'Help', icon: '❓', items: [
               { icon: '❓', label: 'Help', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
@@ -1801,6 +1802,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { label: '🖨️ Barcode Sheet',       action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
               { label: '👥 Roster',              action: () => window.open('/roster','_blank'), active: false },
               { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
+                { label: '🗓️ SOH History',         action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory'), active: mainTab === 'sohhistory' },
               { label: '❓ Help & Guide',        action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
             ].map(({ label, action, active }) => (
               <button key={label} onClick={() => { action(); setMenuOpen(false) }}
@@ -2559,6 +2561,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           />
         )}
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
+          {mainTab === 'sohhistory' && <SohHistoryView />}
           {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
         {mainTab === 'help' && <HelpTab />}
 
@@ -6228,6 +6231,127 @@ function SpecialsView({ items }) {
       {specials.length > 0 && (
         <div style={{ marginTop: 16, padding: '10px 14px', background: '#f0f9ff', border: '1px solid #bae6fd', borderRadius: 8, fontSize: 12, color: '#0369a1' }}>
           💡 Display rotates every 6 seconds — <a href="/roster/display/specials" target="_blank" style={{ color: '#0369a1', fontWeight: 700 }}>Open display page ↗</a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// === SOH HISTORY VIEW =========================================================
+function SohHistoryView() {
+  const [reports, setReports] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [expanded, setExpanded] = useState(null)
+  const [generating, setGenerating] = useState(false)
+
+  useEffect(() => { loadReports() }, [])
+
+  async function loadReports() {
+    setLoading(true)
+    try {
+      const r = await fetch('/api/soh-history')
+      const d = await r.json()
+      setReports(d.reports || [])
+    } finally { setLoading(false) }
+  }
+
+  async function runNow() {
+    if (!confirm('Generate a SOH snapshot now?')) return
+    setGenerating(true)
+    try {
+      const r = await fetch('/api/cron/soh-snapshot', {
+        headers: { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_CRON_SECRET || ''}` }
+      })
+      const d = await r.json()
+      if (d.ok) { alert(`Snapshot saved: ${d.items} items, $${d.total_value}`); await loadReports() }
+      else alert('Error: ' + (d.error || 'unknown'))
+    } finally { setGenerating(false) }
+  }
+
+  function downloadReport(report) {
+    const rows = [['Item', 'Category', 'Supplier', 'On Hand', 'Wkly Avg', 'Buy Price', 'Total Value']]
+    for (const item of report.data) {
+      rows.push([item.name, item.category, item.supplier, item.onHand, item.weeklyAvg,
+        item.buyPrice || '', item.totalValue || ''])
+    }
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url; a.download = `SOH_${report.report_date}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  return (
+    <div style={{ padding: '24px 32px', maxWidth: 900, margin: '0 auto' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+        <div>
+          <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>🗓️ SOH History</div>
+          <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Monthly stock on hand snapshots — auto-generated 2am AEST on the 1st of each month</div>
+        </div>
+        <button onClick={runNow} disabled={generating}
+          style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          {generating ? 'Generating...' : '📸 Snapshot Now'}
+        </button>
+      </div>
+
+      {loading ? (
+        <div style={{ textAlign: 'center', padding: 48, color: '#64748b' }}>Loading...</div>
+      ) : reports.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: 48, color: '#94a3b8', border: '2px dashed #e2e8f0', borderRadius: 10 }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>🗓️</div>
+          <div style={{ fontSize: 15 }}>No snapshots yet — click Snapshot Now to create the first one</div>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {reports.map(report => (
+            <div key={report.id} style={{ border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+              <div onClick={() => setExpanded(expanded === report.id ? null : report.id)}
+                style={{ display: 'flex', alignItems: 'center', padding: '14px 18px', background: '#f8fafc', cursor: 'pointer', gap: 16 }}>
+                <div style={{ flex: 1 }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>
+                    {new Date(report.report_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })}
+                  </div>
+                  <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>
+                    {report.items_count} items · Generated {new Date(report.generated_at).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })} AEST
+                  </div>
+                </div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#16a34a', fontFamily: 'monospace' }}>
+                  ${Number(report.total_value).toFixed(2)}
+                </div>
+                <button onClick={e => { e.stopPropagation(); downloadReport(report) }}
+                  style={{ padding: '6px 14px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
+                  CSV
+                </button>
+                <span style={{ color: '#94a3b8', fontSize: 14 }}>{expanded === report.id ? '▲' : '▼'}</span>
+              </div>
+              {expanded === report.id && (
+                <div style={{ padding: '0 18px 14px' }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, marginTop: 12 }}>
+                    <thead>
+                      <tr style={{ background: '#0f172a', color: '#fff' }}>
+                        {['Item','Category','On Hand','Wkly Avg','Buy Price','Total Value'].map(h => (
+                          <th key={h} style={{ padding: '6px 10px', textAlign: h === 'Item' || h === 'Category' ? 'left' : 'right', fontWeight: 600 }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {report.data.map((item, i) => (
+                        <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff', borderBottom: '1px solid #f1f5f9' }}>
+                          <td style={{ padding: '5px 10px', fontWeight: 500 }}>{item.name}</td>
+                          <td style={{ padding: '5px 10px', color: '#64748b' }}>{item.category}</td>
+                          <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700 }}>{item.onHand}</td>
+                          <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', color: '#64748b' }}>{item.weeklyAvg}</td>
+                          <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', color: '#64748b' }}>{item.buyPrice ? '$' + Number(item.buyPrice).toFixed(2) : '—'}</td>
+                          <td style={{ padding: '5px 10px', textAlign: 'right', fontFamily: 'monospace', fontWeight: 700, color: item.totalValue ? '#16a34a' : '#94a3b8' }}>{item.totalValue ? '$' + Number(item.totalValue).toFixed(2) : '—'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          ))}
         </div>
       )}
     </div>
