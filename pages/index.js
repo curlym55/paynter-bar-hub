@@ -938,7 +938,7 @@ export default function Home() {
           cell('Target', sColHdr),
           cell('Status', sColHdr),
           cell('Order Qty', sColHdr),
-          cell('Supplier', sColHdrL),
+        cell('Supplier', sColHdr), cell('Unit Cost', { ...sColHdr, alignment: { horizontal: 'right' } }), cell('Total Value', { ...sColHdr, alignment: { horizontal: 'right' } })
         ],
       ]
 
@@ -964,7 +964,6 @@ export default function Home() {
             cell(item.targetStock, ns),
             cell(item.priority, statusStyle(item.priority)),
             cell(orderQty, { ...ns, font: { ...ns.font, bold: item.orderQty > 0 } }),
-            cell(item.supplier || '', { ...rs, font: { sz: 10, color: { rgb: '64748B' } } }),
           ])
         })
         dataRows.push([]) // spacer
@@ -972,7 +971,7 @@ export default function Home() {
 
       const allRows = [...summaryRows, ...dataRows]
       const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }]
+      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 16 }]
       ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 32 } : { hpt: 20 })
       ws['!merges'] = [
         { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
