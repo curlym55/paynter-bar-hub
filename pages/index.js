@@ -6266,18 +6266,70 @@ function SohHistoryView() {
     } finally { setGenerating(false) }
   }
 
-  function downloadReport(report) {
-    const rows = [['Item', 'Category', 'Supplier', 'On Hand', 'Wkly Avg', 'Buy Price', 'Total Value']]
-    for (const item of report.data) {
-      rows.push([item.name, item.category, item.supplier, item.onHand, item.weeklyAvg,
-        item.buyPrice || '', item.totalValue || ''])
+  async function downloadReport(report) {
+    const script = document.createElement('script')
+    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+    document.head.appendChild(script)
+    await new Promise(r => { script.onload = r })
+    const XLSX = window.XLSX
+
+    const NAVY = '1E3A5F'; const WHITE = 'FFFFFF'; const GOLD = 'C8A84B'
+    const LGREY = 'F1F5F9'; const DGREY = '334155'; const MGREY = 'E2E8F0'
+
+    const hdr = (v, right) => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: right ? 'right' : 'left' } } })
+    const cat = v => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: DGREY } } } })
+    const num = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' }, numFmt: v ? '#,##0.00' : '' } })
+    const txt = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } } } })
+    const sub = v => ({ v, s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } }, alignment: { horizontal: 'right' }, numFmt: '#,##0.00' } })
+    const empty = bg => ({ v: '', s: { fill: { fgColor: { rgb: bg || WHITE } } } })
+
+    const reportDateStr = new Date(report.report_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    const rows = []
+
+    // Title
+    rows.push([{ v: `Paynter Bar — Stock on Hand as at ${reportDateStr}`, s: { font: { bold: true, sz: 14, color: { rgb: NAVY } } } }, ...Array(6).fill(empty())])
+    rows.push([{ v: `GemLife Palmwoods  ·  ${report.items_count} items  ·  Total Inventory Value: $${Number(report.total_value).toFixed(2)}`, s: { font: { sz: 10, color: { rgb: '64748B' }, italic: true } } }, ...Array(6).fill(empty())])
+    rows.push([{ v: `Generated: ${new Date(report.generated_at).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} AEST`, s: { font: { sz: 9, color: { rgb: '94A3B8' } } } }, ...Array(6).fill(empty())])
+    rows.push(Array(7).fill(empty()))
+    rows.push([hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('On Hand', true), hdr('Wkly Avg', true), hdr('Buy Price', true), hdr('Total Value', true)])
+
+    // Group by category
+    const cats = {}
+    const CAT_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
+    for (const item of report.data) { const c2 = item.category || 'Other'; if (!cats[c2]) cats[c2] = []; cats[c2].push(item) }
+    const sorted = [...CAT_ORDER.filter(c2 => cats[c2]), ...Object.keys(cats).filter(c2 => !CAT_ORDER.includes(c2))]
+
+    for (const catName of sorted) {
+      const items = cats[catName]
+      rows.push([cat(catName.toUpperCase()), ...Array(6).fill(cat(''))])
+      let catTotal = 0
+      items.forEach((item, i) => {
+        const tv = item.buyPrice && item.onHand > 0 ? Math.round(Number(item.buyPrice) * Number(item.onHand) * 100) / 100 : null
+        if (tv) catTotal += tv
+        rows.push([txt(item.name, i), txt(item.category, i), txt(item.supplier, i), num(item.onHand, i), num(item.weeklyAvg, i), num(item.buyPrice || null, i), num(tv, i)])
+      })
+      rows.push([{ v: `${catName} Subtotal`, s: { font: { bold: true }, fill: { fgColor: { rgb: MGREY } } } }, empty(MGREY), empty(MGREY), empty(MGREY), empty(MGREY), empty(MGREY), sub(catTotal || '')])
+      rows.push(Array(7).fill(empty()))
     }
-    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
-    const blob = new Blob([csv], { type: 'text/csv' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = `SOH_${report.report_date}.csv`; a.click()
-    URL.revokeObjectURL(url)
+
+    // Grand total
+    rows.push([
+      { v: 'GRAND TOTAL', s: { font: { bold: true, sz: 12, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } } } },
+      ...Array(5).fill({ v: '', s: { fill: { fgColor: { rgb: NAVY } } } }),
+      { v: Number(report.total_value), s: { font: { bold: true, sz: 12, color: { rgb: GOLD } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: 'right' }, numFmt: '$#,##0.00' } }
+    ])
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }]
+    ws['!rows'] = [{ hpt: 28 }, { hpt: 16 }, { hpt: 14 }]
+    ws['!merges'] = [
+      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
+      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
+      { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
+    ]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'SOH Report')
+    XLSX.writeFile(wb, `SOH_${report.report_date}.xlsx`)
   }
 
   return (
