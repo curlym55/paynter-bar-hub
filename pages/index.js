@@ -6097,6 +6097,25 @@ function SpecialsView({ items }) {
             <a href="/roster/display/specials" target="_blank" style={{ color: '#0e7490' }}>/roster/display/specials</a>
           </div>
         </div>
+          <button onClick={() => {
+            const active = specials.filter(s => s.active)
+            if (!active.length) { alert('No active specials to print'); return }
+            const cols = active.length === 1 ? '1fr' : active.length <= 2 ? '1fr 1fr' : '1fr 1fr 1fr'
+            const nameSz = active.length <= 2 ? 16 : active.length <= 4 ? 12 : 10
+            const priceSz = active.length <= 2 ? 28 : active.length <= 4 ? 22 : 18
+            const dateStr = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+            const rows = active.map(s => {
+              const img = s.image_url ? '<img src="' + s.image_url + '" style="width:100%;height:100%;object-fit:cover" />' : '<div style="font-size:48pt;text-align:center">🍺</div>'
+              const price = s.price_override ? '\$' + parseFloat(String(s.price_override).replace('\$','')).toFixed(2) : ''
+              const desc = s.description ? '<div style="font-size:9pt;color:#94a3b8;margin-bottom:2mm">' + s.description + '</div>' : ''
+              return '<div style="background:#1e293b;border-radius:4mm;overflow:hidden;border:1px solid #334155;display:flex;flex-direction:column"><div style="width:100%;aspect-ratio:1;overflow:hidden;background:#0f172a;display:flex;align-items:center;justify-content:center">' + img + '</div><div style="padding:5mm;display:flex;flex-direction:column;justify-content:space-between"><div style="font-size:' + nameSz + 'pt;font-weight:800;color:#fff;line-height:1.2;margin-bottom:2mm">' + s.name + '</div>' + desc + '<div style="font-size:' + priceSz + 'pt;font-weight:900;color:#c8a84b">' + price + '</div></div></div>'
+            }).join("")
+            const css = \@page{size:A4 portrait;margin:0}*{box-sizing:border-box;margin:0;padding:0}body{font-family:Arial,sans-serif;width:210mm;height:297mm;overflow:hidden;background:#0f172a}.page{width:210mm;height:297mm;display:flex;flex-direction:column}.hdr{background:#1e3a5f;padding:12mm 14mm 8mm;text-align:center;border-bottom:3px solid #c8a84b}.grid{flex:1;display:grid;grid-template-columns:\;gap:6mm;padding:8mm;align-content:center}.ftr{background:#1e3a5f;padding:5mm 14mm;text-align:center;border-top:2px solid #c8a84b}\n            const body = \<div class="page"><div class="hdr"><div style="font-size:11pt;color:#94a3b8;letter-spacing:.15em;text-transform:uppercase;margin-bottom:3mm">GemLife Palmwoods</div><div style="font-size:28pt;font-weight:900;color:#c8a84b;text-transform:uppercase">Tonight&#39;s Specials</div><div style="font-size:10pt;color:#94a3b8;margin-top:3mm">\</div></div><div class="grid">\</div><div class="ftr"><div style="font-size:11pt;color:#c8a84b;font-weight:700;letter-spacing:.1em">Paynter Bar</div><div style="font-size:9pt;color:#64748b">See bar staff for details</div></div></div>\n            const html = \<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Specials</title><style>\</style></head><body>\<script>window.onload=()=>window.print()<\/script></body></html>\n            const w = window.open('', '_blank')
+            w.document.write(html)
+            w.document.close()
+          }} style={{ background: '#c8a84b', color: '#0f172a', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
+            Print Sheet
+          </button>
         <button onClick={() => { setShowAdd(s => !s); setImageSearch('') }}
           style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 20px', fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
           + Add Special
