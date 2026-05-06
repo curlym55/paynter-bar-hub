@@ -4639,7 +4639,8 @@ function PoFilerView() {
       setResults(r => [...r, result])
       try {
         const ab = await file.arrayBuffer()
-        const text = await extractText(new Uint8Array(ab))
+        const abCopy = ab.slice(0)   // copy before PDF.js consumes original
+        const text = await extractText(new Uint8Array(abCopy))
         const supplier = detectSupplier(text)
         result.supplier = supplier ? supplier.label : 'Unknown'
         if (!supplier) { result.status = 'error'; result.msg = 'Supplier not recognised — move manually'; setResults(r => r.map(x => x.name === file.name ? {...result} : x)); continue }
