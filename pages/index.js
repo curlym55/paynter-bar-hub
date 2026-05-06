@@ -4704,7 +4704,7 @@ function HelpTab() {
         { q: 'Opening', a: 'Click 🏷️ Price List in the top-right header. The editor shows all items grouped by category with their current Square prices.' },
         { q: 'Showing and hiding items', a: 'Click the Shown/Hidden toggle next to any item to include or exclude it from the printed price list. Items with zero stock are hidden by default — use the Hide/Show Out of Stock toggle in the toolbar to reveal them.' },
         { q: 'Prices', a: 'All prices come from Square. To change a price, update it in Square and click Refresh. Wine items with both a Glass and Bottle price show both, with Glass listed first.' },
-        { q: 'Printing', a: 'Click 🖨️ Print Price List to open a two-page A4 portrait document in a two-column card layout. In the print dialog set paper to A4, margins to None and scale to 100%.' },
+        { q: 'Printing', a: 'Click 🖨️ Print Price List to open a two-page A4 portrait document in a two-column card layout. The Paynter Bar platypus logo appears in the navy header. In the print dialog set paper to A4, margins to None and scale to 100%.' },
         { q: 'Edit access', a: 'The Shown/Hidden toggle is only available to committee members. Read-only users can view the price list but cannot make changes.' },
       ]
     },
@@ -4732,8 +4732,10 @@ function HelpTab() {
       icon: '👥',
       title: 'Volunteer Roster',
       items: [
-        { q: 'Opening', a: 'Click 👥 Roster in the top-right header to open the volunteer roster app in a new tab. The roster runs independently at paynter-bar-roster.vercel.app.' },
-        { q: 'How they connect', a: 'The two apps are separate — the roster link is a shortcut for convenience. All roster changes are made within the roster app itself.' },
+        { q: 'Opening', a: 'Click 👥 Roster in the sidebar or top-right header. The roster is built into the Hub and opens at /roster — no separate app or login needed.' },
+        { q: 'Bar display screen', a: 'The tablet display at /roster/display shows the current bar session, who is on duty, and sign-in status — it updates live. The Specials display at /roster/display/specials rotates through tonight\'s specials.' },
+        { q: 'Duty manager', a: 'Duty managers can self-assign to a shift directly from the roster. Volunteers sign in via the bar display screen.' },
+        { q: 'Wix iframe', a: 'The Roster is also embedded in the GemLife Palmwoods Wix community site via an iframe pointing to the Hub URL.' },
       ]
     },
     {
@@ -4748,6 +4750,28 @@ function HelpTab() {
     },
     {
       icon: '👁',
+    {
+      icon: '⭐',
+      title: 'Specials',
+      items: [
+        { q: 'Opening', a: 'Click ⭐ Specials in the sidebar. Manage tonight\'s special offers — add items with a name, price, optional description and a product image from the Square catalogue.' },
+        { q: 'Adding a special', a: 'Click + Add Special, enter the name and price, optionally a description, then pick an image from your Square catalogue. Click Save to publish.' },
+        { q: 'Display screen', a: 'Active specials rotate automatically on the bar tablet at /roster/display/specials — full-screen cards with product image, name and price on a dark background.' },
+        { q: 'Print sheet', a: 'Click 🖨️ Print Sheet to open a formatted A4 printout of active specials — white background with floating product images, navy header and footer with Print and Hide buttons.' },
+        { q: 'Editing & removing', a: 'Use the ✏️ edit button to update a special or ✕ to remove it. Changes appear on the display screen immediately.' },
+      ]
+    },
+    {
+      icon: '🗓️',
+      title: 'SOH History',
+      items: [
+        { q: 'Opening', a: 'Click 🗓️ SOH History in the sidebar. Shows all saved monthly stock-on-hand snapshots with date, item count and total inventory value.' },
+        { q: 'Automatic snapshots', a: 'A snapshot is taken automatically at 2am AEST on the 1st of each month. No manual action required.' },
+        { q: 'Manual snapshot', a: 'Click 📸 Snapshot Now to capture current SOH data immediately — useful before or after a stocktake or to capture a mid-month position.' },
+        { q: 'Excel export', a: 'Click 📊 Excel on any snapshot row to download a formatted spreadsheet of that snapshot with category subtotals and grand total.' },
+        { q: 'Tracking trends', a: 'Each snapshot shows the date, item count and total inventory value. Use these to monitor inventory value trends from month to month.' },
+      ]
+    },
       title: 'Access Levels',
       items: [
         { q: 'Committee PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
