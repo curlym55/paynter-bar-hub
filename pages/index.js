@@ -56,9 +56,7 @@ export default function Home() {
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
   const [receiptData,  setReceiptData]        = useState(null)
-  const [invoiceFile,  setInvoiceFile]        = useState(null)
-  const [sendingEmail, setSendingEmail]       = useState(false)
-  const [emailSent,    setEmailSent]          = useState(false)
+  const [receiptSaved, setReceiptSaved]       = useState(false)
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
@@ -314,8 +312,7 @@ export default function Home() {
         const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
         setReceiveModal(null)
         setReceiptData({ supplier, date: dateStr, items: receivedItems })
-        setInvoiceFile(null)
-        setEmailSent(false)
+        setReceiptSaved(false)
       }
     } finally {
       setPoReceiving(null)
@@ -1924,49 +1921,44 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   </div>
                 ))}
               </div>
-              <div style={{ marginBottom:16 }}>
-                <label style={{ fontSize:13, fontWeight:700, color:'#374151', display:'block', marginBottom:6 }}>Attach Invoice (optional)</label>
-                {invoiceFile
-                  ? <div style={{ display:'flex', alignItems:'center', gap:8, padding:'8px 12px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6 }}>
-                      <span style={{ fontSize:13, flex:1, color:'#16a34a', fontWeight:600 }}>{invoiceFile.filename}</span>
-                      <button onClick={() => setInvoiceFile(null)} style={{ background:'none', border:'none', color:'#94a3b8', cursor:'pointer', fontSize:18 }}>x</button>
-                    </div>
-                  : <label style={{ display:'block', padding:'10px 14px', border:'2px dashed #e2e8f0', borderRadius:6, cursor:'pointer', textAlign:'center', fontSize:13, color:'#64748b', background:'#fafafa' }}>
-                      Click to select invoice from OneDrive
-                      <input type='file' accept='.pdf,.jpg,.jpeg,.png' style={{ display:'none' }}
-                        onChange={e => {
-                          const file = e.target.files?.[0]
-                          if (!file) return
-                          const reader = new FileReader()
-                          reader.onload = ev => {
-                            const base64 = ev.target.result.split(',')[1]
-                            setInvoiceFile({ base64, filename: file.name, mimeType: file.type })
-                          }
-                          reader.readAsDataURL(file)
-                        }} />
-                    </label>
-                }
-                <p style={{ fontSize:11, color:'#94a3b8', margin:'6px 0 0' }}>Browse to OneDrive - gemwoods.com.au - Invoices - {receiptData.supplier}</p>
+              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', marginBottom:16 }}>
+                <div style={{ fontSize:11, fontWeight:700, color:'#1e40af', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Save to OneDrive</div>
+                <div style={{ fontSize:12, color:'#374151', lineHeight:1.6 }}>
+                  Paynter - gemwoods.com.au &nbsp;›&nbsp; Purchase Orders &nbsp;›&nbsp; Orders Received &nbsp;›&nbsp; <strong>{receiptData.supplier}</strong>
+                </div>
               </div>
-              {emailSent && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6, fontSize:13, color:'#16a34a', fontWeight:600, marginBottom:12 }}>Email sent to treasurer@gemwoods.com.au</div>}
+              {receiptSaved && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6, fontSize:13, color:'#16a34a', fontWeight:600, marginBottom:12 }}>✓ Report saved</div>}
               <div style={{ display:'flex', gap:8 }}>
                 <button onClick={() => setReceiptData(null)} style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>Close</button>
-                <button disabled={sendingEmail || emailSent}
+                <button
                   onClick={async () => {
-                    setSendingEmail(true)
-                    try {
-                      const r = await fetch('/api/send-receipt', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ supplier: receiptData.supplier, date: receiptData.date, items: receiptData.items, invoiceBase64: invoiceFile?.base64 || null, invoiceFilename: invoiceFile?.filename || null, invoiceMimeType: invoiceFile?.mimeType || null }) })
-                      const d = await r.json()
-                      if (d.ok) setEmailSent(true)
-                      else alert('Email failed: ' + (d.error || 'unknown error'))
-                    } catch(e) { alert('Email failed: ' + e.message) }
-                    finally { setSendingEmail(false) }
+                    const sup = receiptData.supplier
+                    const d = receiptData.date
+                    const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
+                    const dateslug = d.replace(/\//g,'-')
+                    const fname = 'RECV-' + slug + '-' + dateslug + '.html'
+                    const rows = receiptData.items.map(i => '<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-weight:600">' + i.name + (i.sku ? ' <span style="color:#94a3b8;font-size:11px">SKU: ' + i.sku + '</span>' : '') + '</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace">' + i.qty + '</td></tr>').join('')
+                    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt - ' + sup + ' - ' + d + '</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#1f2937}h2{color:#1e3a5f}table{width:100%;border-collapse:collapse}th{background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left}th:last-child{text-align:right}.footer{margin-top:24px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}</style></head><body><h2>Stock Received &mdash; ' + sup + '</h2><p style="color:#64748b;font-size:13px">' + d + ' &nbsp;&bull;&nbsp; ' + receiptData.items.length + ' item' + (receiptData.items.length !== 1 ? 's' : '') + '</p><table><thead><tr><th>Item</th><th style="text-align:right">Qty Received</th></tr></thead><tbody>' + rows + '</tbody></table><div class="footer">Paynter Bar &mdash; GemLife Palmwoods &nbsp;|&nbsp; Generated from Hub</div></body></html>'
+                    if (window.showSaveFilePicker) {
+                      try {
+                        const fh = await window.showSaveFilePicker({ suggestedName: fname, types:[{ description:'HTML file', accept:{'text/html':['.html']} }] })
+                        const w = await fh.createWritable()
+                        await w.write(html)
+                        await w.close()
+                        setReceiptSaved(true)
+                      } catch(e) { if (e.name !== 'AbortError') alert('Save failed: ' + e.message) }
+                    } else {
+                      const a = document.createElement('a')
+                      a.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
+                      a.download = fname
+                      a.click()
+                      setReceiptSaved(true)
+                    }
                   }}
-                  style={{ flex:2, padding:'9px 0', background: emailSent ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor: emailSent ? 'not-allowed' : 'pointer' }}>
-                  {sendingEmail ? 'Sending...' : emailSent ? 'Sent' : 'Email Receipt to Treasurer'}
+                  style={{ flex:2, padding:'9px 0', background: receiptSaved ? '#16a34a' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  {receiptSaved ? '✓ Saved' : '💾 Save Receipt to OneDrive'}
                 </button>
               </div>
-              <p style={{ fontSize:11, color:'#94a3b8', marginTop:8, textAlign:'center' }}>Sends to treasurer@gemwoods.com.au - CC paynterbar@gemwoods.com.au</p>
             </div>
           </div>
         )}
