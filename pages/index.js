@@ -4741,39 +4741,38 @@ function HelpTab() {
       ]
     },
     {
-      icon: '👁',
-    {
       icon: '⭐',
       title: 'Specials',
       items: [
-        { q: 'Opening', a: 'Click ⭐ Specials in the sidebar. Manage tonight\'s special offers — add items with a name, price, optional description and a product image from the Square catalogue.' },
+        { q: 'Opening', a: 'Click ⭐ Specials in the sidebar. Manage tonight\u2019s special offers \u2014 add items with a name, price, optional description and a product image from the Square catalogue.' },
         { q: 'Adding a special', a: 'Click + Add Special, enter the name and price, optionally a description, then pick an image from your Square catalogue. Click Save to publish.' },
-        { q: 'Display screen', a: 'Active specials rotate automatically on the bar tablet at /roster/display/specials — full-screen cards with product image, name and price on a dark background.' },
-        { q: 'Print sheet', a: 'Click 🖨️ Print Sheet to open a formatted A4 printout of active specials — white background with floating product images, navy header and footer with Print and Hide buttons.' },
+        { q: 'Display screen', a: 'Active specials rotate automatically on the bar tablet at /roster/display/specials \u2014 full-screen cards with product image, name and price on a dark background.' },
+        { q: 'Print sheet', a: 'Click 🖨️ Print Sheet to open a formatted A4 printout of active specials \u2014 white background with floating product images, navy header and footer with Print and Hide buttons.' },
         { q: 'Editing & removing', a: 'Use the ✏️ edit button to update a special or ✕ to remove it. Changes appear on the display screen immediately.' },
       ]
     },
     {
-      icon: '🗓️',
+      icon: '📅',
       title: 'SOH History',
       items: [
-        { q: 'Opening', a: 'Click 🗓️ SOH History in the sidebar. Shows all saved monthly stock-on-hand snapshots with date, item count and total inventory value.' },
+        { q: 'Opening', a: 'Click 📅 SOH History in the sidebar. Shows all saved monthly stock-on-hand snapshots with date, item count and total inventory value.' },
         { q: 'Automatic snapshots', a: 'A snapshot is taken automatically at 2am AEST on the 1st of each month. No manual action required.' },
-        { q: 'Manual snapshot', a: 'Click 📸 Snapshot Now to capture current SOH data immediately — useful before or after a stocktake or to capture a mid-month position.' },
+        { q: 'Manual snapshot', a: 'Click 📸 Snapshot Now to capture current SOH data immediately \u2014 useful before or after a stocktake or to capture a mid-month position.' },
         { q: 'Excel export', a: 'Click 📊 Excel on any snapshot row to download a formatted spreadsheet of that snapshot with category subtotals and grand total.' },
         { q: 'Tracking trends', a: 'Each snapshot shows the date, item count and total inventory value. Use these to monitor inventory value trends from month to month.' },
       ]
     },
+    {
+      icon: '👁',
       title: 'Access Levels',
       items: [
-        { q: 'Committee PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
-        { q: 'Read-only PIN (homeowners)', a: 'View-only access. All data is visible — stock levels, order quantities, sales reports, trends, price list, SOH and sales exports — but nothing can be edited. A READ ONLY badge appears in the header.' },
-        { q: 'Pricing visibility', a: 'Buy prices and the $ Pricing view are only visible to committee members — hidden entirely for read-only users to keep cost prices confidential.' },
+        { q: 'Committee PIN (management)', a: 'Full access to all features \u2014 editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
+        { q: 'Read-only PIN (homeowners)', a: 'View-only access. All data is visible \u2014 stock levels, order quantities, sales reports, trends, price list, SOH and sales exports \u2014 but nothing can be edited. A READ ONLY badge appears in the header.' },
+        { q: 'Pricing visibility', a: 'Buy prices and the $ Pricing view are only visible to committee members \u2014 hidden entirely for read-only users to keep cost prices confidential.' },
         { q: 'Wastage and Notes', a: 'Read-only users can view the Wastage Log and Notes tab but cannot add, edit or delete entries.' },
       ]
     },
   ]
-
   return (
     <div style={{ padding: '32px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '24px 32px', marginBottom: 24 }}>
