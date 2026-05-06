@@ -4576,10 +4576,10 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
 
 // ─── PO FILER VIEW ────────────────────────────────────────────────────────────
 function PoFilerView() {
-  const [dirHandle,  setDirHandle]  = React.useState(null)
-  const [dragging,   setDragging]   = React.useState(false)
-  const [results,    setResults]    = React.useState([])
-  const [processing, setProcessing] = React.useState(false)
+  const [dirHandle,  setDirHandle]  = useState(null)
+  const [dragging,   setDragging]   = useState(false)
+  const [results,    setResults]    = useState([])
+  const [processing, setProcessing] = useState(false)
 
   const SUPPLIERS = [
     { patterns: [/ACW Sunshine/i, /\bACW\b/i],                                 folder: 'ACW',        label: 'ACW' },
