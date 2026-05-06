@@ -1691,6 +1691,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
               { icon: '⭐', label: 'Specials', tab: 'specials', action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+    { icon: '📂', label: 'PO Filer', tab: 'pofiler', action: () => setMainTab(t => t==='pofiler'?'reorder':'pofiler') },
                  { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2556,6 +2557,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
           {mainTab === 'sohhistory' && <SohHistoryView />}
           {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
+        {mainTab === 'pofiler' && !readOnly && <PoFilerView />}
         {mainTab === 'help' && <HelpTab />}
 
         <footer style={styles.footer}>
@@ -4570,6 +4572,171 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
   )
 }
 
+
+
+// ─── PO FILER VIEW ────────────────────────────────────────────────────────────
+function PoFilerView() {
+  const [dirHandle,  setDirHandle]  = React.useState(null)
+  const [dragging,   setDragging]   = React.useState(false)
+  const [results,    setResults]    = React.useState([])
+  const [processing, setProcessing] = React.useState(false)
+
+  const SUPPLIERS = [
+    { patterns: [/ACW Sunshine/i, /\bACW\b/i],                                 folder: 'ACW',        label: 'ACW' },
+    { patterns: [/Dan Murphy/i],                                                  folder: 'Dan Murphy', label: 'Dan Murphy' },
+    { patterns: [/Coles\/Woolworths/i, /\bColes\b/i, /Woolworths/i, /Woolies/i], folder: 'Coles',      label: 'Coles' },
+  ]
+
+  function detectSupplier(text) {
+    for (const s of SUPPLIERS) {
+      if (s.patterns.some(p => p.test(text))) return s
+    }
+    return null
+  }
+
+  async function loadPdfJs() {
+    if (window.pdfjsLib) return
+    await new Promise((res, rej) => {
+      const s = document.createElement('script')
+      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
+      s.onload = () => {
+        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+        res()
+      }
+      s.onerror = rej
+      document.head.appendChild(s)
+    })
+  }
+
+  async function extractText(ab) {
+    await loadPdfJs()
+    const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise
+    let text = ''
+    for (let i = 1; i <= Math.min(pdf.numPages, 2); i++) {
+      const page = await pdf.getPage(i)
+      const ct = await page.getTextContent()
+      text += ct.items.map(it => it.str).join(' ')
+    }
+    return text
+  }
+
+  async function pickFolder() {
+    try {
+      const dh = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' })
+      setDirHandle(dh)
+      setResults([])
+    } catch(e) { if (e.name !== 'AbortError') alert('Could not open folder: ' + e.message) }
+  }
+
+  async function processFiles(fileList) {
+    if (!dirHandle) { alert('Select your Purchase Orders folder first.'); return }
+    setProcessing(true)
+    const newResults = []
+    for (const file of Array.from(fileList)) {
+      if (!file.name.toLowerCase().endsWith('.pdf')) continue
+      const result = { name: file.name, status: 'processing', supplier: null, saved: null }
+      setResults(r => [...r, result])
+      try {
+        const ab = await file.arrayBuffer()
+        const text = await extractText(new Uint8Array(ab))
+        const supplier = detectSupplier(text)
+        result.supplier = supplier ? supplier.label : 'Unknown'
+        if (!supplier) { result.status = 'error'; result.msg = 'Supplier not recognised — move manually'; setResults(r => r.map(x => x.name === file.name ? {...result} : x)); continue }
+
+        // Get or create supplier subfolder
+        const subDir = await dirHandle.getDirectoryHandle(supplier.folder, { create: true })
+
+        // Build filename: keep original or rename to Order-N-Supplier.pdf
+        const numMatch = file.name.match(/Order-(\d+)/i) || text.match(/Order\s*#(\d+)/i)
+        const orderNum = numMatch ? numMatch[1] : null
+        const fname = orderNum ? `Order-${orderNum}-${supplier.label}.pdf` : file.name
+        result.saved = fname
+
+        // Write file
+        const fh = await subDir.getFileHandle(fname, { create: true })
+        const w = await fh.createWritable()
+        await w.write(new Blob([ab], { type: 'application/pdf' }))
+        await w.close()
+        result.status = 'ok'
+      } catch(e) {
+        result.status = 'error'
+        result.msg = e.message
+      }
+      setResults(r => r.map(x => x.name === file.name ? {...result} : x))
+    }
+    setProcessing(false)
+  }
+
+  return (
+    <div style={{ padding: 32, maxWidth: 700, margin: '0 auto' }}>
+      <div style={{ marginBottom: 24 }}>
+        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>📂 PO Filer</h2>
+        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
+          Drop Square Purchase Order PDFs here — they'll be automatically filed into the correct supplier folder in OneDrive.
+        </p>
+      </div>
+
+      {/* Step 1: Select folder */}
+      <div style={{ background: dirHandle ? '#f0fdf4' : '#eff6ff', border: `1px solid ${dirHandle ? '#86efac' : '#bfdbfe'}`, borderRadius: 10, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+        <div>
+          <div style={{ fontSize: 13, fontWeight: 700, color: dirHandle ? '#16a34a' : '#1e40af' }}>
+            {dirHandle ? `✓ Folder selected: ${dirHandle.name}` : 'Step 1 — Select your Purchase Orders folder'}
+          </div>
+          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
+            {dirHandle ? 'PDFs will be saved to ACW, Dan Murphy or Coles subfolders automatically.' : 'Navigate to: OneDrive - gemwoods.com.au → Purchase Orders'}
+          </div>
+        </div>
+        <button onClick={pickFolder}
+          style={{ background: dirHandle ? '#16a34a' : '#1e40af', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+          {dirHandle ? '↺ Change folder' : 'Select folder'}
+        </button>
+      </div>
+
+      {/* Step 2: Drop zone */}
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={e => { e.preventDefault(); setDragging(false); processFiles(e.dataTransfer.files) }}
+        style={{ border: `2px dashed ${dragging ? '#3b82f6' : '#cbd5e1'}`, borderRadius: 10, padding: '36px 20px', textAlign: 'center', background: dragging ? '#eff6ff' : '#f8fafc', cursor: 'pointer', marginBottom: 20, transition: 'all 0.15s' }}>
+        <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
+        <div style={{ fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
+          {processing ? 'Processing…' : 'Drop Square PO PDFs here'}
+        </div>
+        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 14 }}>or click to browse</div>
+        <label style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+          Browse files
+          <input type="file" accept=".pdf" multiple style={{ display: 'none' }}
+            onChange={e => processFiles(e.target.files)} />
+        </label>
+      </div>
+
+      {/* Results */}
+      {results.length > 0 && (
+        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+          <div style={{ padding: '10px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            Results — {results.filter(r => r.status==='ok').length} filed, {results.filter(r=>r.status==='error').length} errors
+          </div>
+          {results.map((r, i) => (
+            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: i < results.length-1 ? '1px solid #f1f5f9' : 'none' }}>
+              <span style={{ fontSize: 16 }}>{r.status==='ok' ? '✅' : r.status==='error' ? '❌' : '⏳'}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
+                <div style={{ fontSize: 11, color: '#64748b' }}>
+                  {r.status==='ok' ? `Saved to ${r.supplier}/${r.saved}` : r.status==='error' ? (r.msg || 'Error') : 'Processing…'}
+                </div>
+              </div>
+              {r.supplier && <span style={{ fontSize: 11, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '2px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.supplier}</span>}
+            </div>
+          ))}
+          <div style={{ padding: '10px 16px', textAlign: 'right' }}>
+            <button onClick={() => setResults([])} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 14px', fontSize: 12, color: '#64748b', cursor: 'pointer' }}>Clear</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
 
 // ─── HELP TAB ─────────────────────────────────────────────────────────────────
 function HelpTab() {
