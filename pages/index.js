@@ -2121,25 +2121,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               )
             })()}
 
-            {/* Place Order buttons — one per supplier with items to order */}
-            {!readOnly && (() => {
-              const suppliersWithOrders = [...new Set(items.filter(i => (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i)).map(i => i.supplier).filter(Boolean))]
-              if (!suppliersWithOrders.length) return null
-              return (
-                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
-                  {suppliersWithOrders.map(supplier => {
-                    const count = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i)).length
-                    return (
-                <button key={supplier} onClick={() => printOrderSheet(supplier)}
-                  style={{ padding: '7px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
-                  🖨️ Print {supplier} Order List ({count} item{count !== 1 ? 's' : ''})
-                      </button>
-                    )
-                  })}
-                </div>
-              )
-            })()}
-
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
