@@ -48,9 +48,7 @@ export default function Home() {
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
   const [sohModal, setSohModal]               = useState(false)
-  const [poModal, setPoModal]                 = useState(false)
-  const [poSupplier, setPoSupplier]           = useState(null)
-  const [poPlacing, setPoPlacing]             = useState(false)
+
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
@@ -249,22 +247,7 @@ export default function Home() {
   }
 
 
-  async function placeOrder(supplier, items) {
-    setPoPlacing(true)
-    try {
-      const r = await fetch('/api/purchase-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'place', supplier, items })
-      })
-      const d = await r.json()
-      if (d.ok) setOrderedItems(d.ordered)
-    } finally {
-      setPoPlacing(false)
-      setPoModal(false)
-      setPoSupplier(null)
-    }
-  }
+
 
   function openReceiveModal(supplier, supplierItems) {
     const checked = {}
@@ -317,31 +300,6 @@ export default function Home() {
     } finally {
       setPoReceiving(null)
     }
-  }
-  function generatePoExcel(supplier, poItems) {
-    const squareName = supplierVendorNames[supplier] || ''
-    const filename = `PO-${supplier.replace(/[^a-zA-Z0-9]/g, '-')}-${new Date(Date.now() + 10*60*60*1000).toISOString().split('T')[0]}.csv`
-    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g, '""')}"` : String(v))
-
-    const rows = [
-      ['Item Name', 'Variation Name', 'SKU', 'GTIN', 'Vendor Code', 'Notes', 'Qty', 'Unit Cost'],
-    ]
-    poItems.forEach((item) => {
-      // Spirits/Fortified: export nips quantity (how Square tracks inventory)
-      // Non-spirits: export units (cases/bottles/cans as ordered)
-      const qty = item.isSpirit ? (item._nips || item.nipsToOrder || 0) : (item._qty || item.orderQty || 0)
-      const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      // For spirits: add a note showing bottles to order from supplier
-      const notes = item.isSpirit ? `ORDER ${item._btl || item.bottlesToOrder || 0} BOTTLE(S) FROM SUPPLIER` : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', squareName, notes, String(qty), unitCost])
-    })
-
-    const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url; a.download = filename; a.click()
-    URL.revokeObjectURL(url)
   }
 
   async function loadNotes() {
@@ -1691,7 +1649,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
               { icon: '⭐', label: 'Specials', tab: 'specials', action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-    { icon: '📂', label: 'PO Filer', tab: 'pofiler', action: () => setMainTab(t => t==='pofiler'?'reorder':'pofiler') },
                  { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2073,11 +2030,11 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 </div>
                 {view !== 'all' && (
                   <button style={{ ...styles.btn, background: '#0f172a', fontSize: 12, padding: '6px 14px' }}
-                    onClick={() => printOrderSheet(view)}>Print {view} Order</button>
+                    onClick={() => printOrderSheet(view)}>🖨️ Print {view} Order List</button>
                 )}
                 <div style={{ position: 'relative' }}>
                   <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
-                    onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>Print Order Sheet</button>
+                    onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>🖨️ Print Order List</button>
                   {printing === 'menu' && (
                     <div style={styles.dropdown}>
                       {suppliers.map(s => (
@@ -2092,70 +2049,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
-
-            {/* PO Modal */}
-            {poModal && poSupplier && (() => {
-              const poItems = items.filter(i => i.supplier === poSupplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i))
-                .map(i => {
-                  const nipOverride = orderQtyOverrides[i.name]
-                  const nips = nipOverride !== undefined ? nipOverride : (i.isSpirit ? i.nipsToOrder : i.orderQty)
-                  const btl  = i.isSpirit ? (nipOverride !== undefined ? Math.ceil(nipOverride / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
-                  return { ...i, _nips: nips, _btl: btl, _qty: i.isSpirit ? nips : nips }
-                })
-              return (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1100, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-                  <div style={{ background: '#fff', borderRadius: 14, padding: 28, width: '100%', maxWidth: 560, boxShadow: '0 24px 64px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>🛒 Purchase Order — {poSupplier}</div>
-                      <button onClick={() => { setPoModal(false); setPoSupplier(null) }} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-                    </div>
-                    <p style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>
-                      Review items below. Confirm to generate the Square import file and mark items as On Order.
-                    </p>
-                    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, marginBottom: 20 }}>
-                      <thead>
-                        <tr style={{ background: '#0f172a' }}>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 11 }}>Item</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>Order Qty</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'center', color: '#fff', fontWeight: 700, fontSize: 11 }}>Bottles</th>
-                          <th style={{ padding: '8px 12px', textAlign: 'left', color: '#fff', fontWeight: 700, fontSize: 11 }}>SKU</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {poItems.map((item, idx) => (
-                          <tr key={item.name} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
-                            <td style={{ padding: '8px 12px', fontWeight: 500 }}>{item.name}</td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
-                              {item.isSpirit ? item._nips : item._qty}
-                              <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
-                            </td>
-                            <td style={{ padding: '8px 12px', textAlign: 'center', fontFamily: 'IBM Plex Mono, monospace', color: '#1d4ed8' }}>
-                              {item.isSpirit ? item._btl : '—'}
-                              {item.isSpirit && <span style={{ fontSize: 10, color: '#94a3b8', marginLeft: 4 }}>btl</span>}
-                            </td>
-                            <td style={{ padding: '8px 12px', fontFamily: 'IBM Plex Mono, monospace', fontSize: 11, color: '#64748b' }}>{item.sku || '—'}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                    <div style={{ background: '#fef9c3', border: '1px solid #fde047', borderRadius: 8, padding: '10px 14px', fontSize: 12, color: '#854d0e', marginBottom: 20 }}>
-                      💡 After confirming: upload the downloaded file to Square Dashboard → Items &amp; Services → Purchase Orders → Import
-                    </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
-                      <button onClick={() => { setPoModal(false); setPoSupplier(null) }}
-                        style={{ flex: 1, padding: '11px 0', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 600, cursor: 'pointer' }}>
-                        Cancel
-                      </button>
-                      <button onClick={() => { generatePoExcel(poSupplier, poItems); placeOrder(poSupplier, poItems.map(i => ({ name: i.name, sku: i.sku, orderQty: i._qty, bottlesToOrder: i._btl, isSpirit: i.isSpirit }))) }}
-                        disabled={poPlacing}
-                        style={{ flex: 2, padding: '11px 0', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                        {poPlacing ? 'Placing…' : `✓ Confirm & Download PO (${poItems.length} items)`}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
 
             {/* On Order banner */}
             {onOrderCount > 0 && (() => {
@@ -2204,7 +2097,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   {suppliersWithOrders.map(supplier => {
                     const count = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i)).length
                     return (
-                      <button key={supplier} onClick={() => { setPoSupplier(supplier); setPoModal(true) }}
+                      <button key={supplier} onClick={() => printOrderSheet(supplier)}
                         style={{ padding: '7px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
                         🛒 Place Order — {supplier} ({count} item{count !== 1 ? 's' : ''})
                       </button>
@@ -2557,7 +2450,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
           {mainTab === 'sohhistory' && <SohHistoryView />}
           {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
-        {mainTab === 'pofiler' && !readOnly && <PoFilerView />}
         {mainTab === 'help' && <HelpTab />}
 
         <footer style={styles.footer}>
@@ -4574,171 +4466,6 @@ function NotesView({ items, notes, readOnly, onRefresh }) {
 
 
 
-// ─── PO FILER VIEW ────────────────────────────────────────────────────────────
-function PoFilerView() {
-  const [dirHandle,  setDirHandle]  = useState(null)
-  const [dragging,   setDragging]   = useState(false)
-  const [results,    setResults]    = useState([])
-  const [processing, setProcessing] = useState(false)
-
-  const SUPPLIERS = [
-    { patterns: [/ACW Sunshine/i, /\bACW\b/i],                                 folder: 'ACW',        label: 'ACW' },
-    { patterns: [/Dan Murphy/i],                                                  folder: 'Dan Murphy', label: 'Dan Murphy' },
-    { patterns: [/Coles\/Woolworths/i, /\bColes\b/i, /Woolworths/i, /Woolies/i], folder: 'Coles',      label: 'Coles' },
-  ]
-
-  function detectSupplier(text) {
-    for (const s of SUPPLIERS) {
-      if (s.patterns.some(p => p.test(text))) return s
-    }
-    return null
-  }
-
-  async function loadPdfJs() {
-    if (window.pdfjsLib) return
-    await new Promise((res, rej) => {
-      const s = document.createElement('script')
-      s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js'
-      s.onload = () => {
-        window.pdfjsLib.GlobalWorkerOptions.workerSrc =
-          'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
-        res()
-      }
-      s.onerror = rej
-      document.head.appendChild(s)
-    })
-  }
-
-  async function extractText(ab) {
-    await loadPdfJs()
-    const pdf = await window.pdfjsLib.getDocument({ data: ab }).promise
-    let text = ''
-    for (let i = 1; i <= Math.min(pdf.numPages, 2); i++) {
-      const page = await pdf.getPage(i)
-      const ct = await page.getTextContent()
-      text += ct.items.map(it => it.str).join(' ')
-    }
-    return text
-  }
-
-  async function pickFolder() {
-    try {
-      const dh = await window.showDirectoryPicker({ mode: 'readwrite', startIn: 'documents' })
-      setDirHandle(dh)
-      setResults([])
-    } catch(e) { if (e.name !== 'AbortError') alert('Could not open folder: ' + e.message) }
-  }
-
-  async function processFiles(fileList) {
-    if (!dirHandle) { alert('Select your Purchase Orders folder first.'); return }
-    setProcessing(true)
-    const newResults = []
-    for (const file of Array.from(fileList)) {
-      if (!file.name.toLowerCase().endsWith('.pdf')) continue
-      const result = { name: file.name, status: 'processing', supplier: null, saved: null }
-      setResults(r => [...r, result])
-      try {
-        const ab = await file.arrayBuffer()
-        const abCopy = ab.slice(0)   // copy before PDF.js consumes original
-        const text = await extractText(new Uint8Array(abCopy))
-        const supplier = detectSupplier(text)
-        result.supplier = supplier ? supplier.label : 'Unknown'
-        if (!supplier) { result.status = 'error'; result.msg = 'Supplier not recognised — move manually'; setResults(r => r.map(x => x.name === file.name ? {...result} : x)); continue }
-
-        // Get or create supplier subfolder
-        const subDir = await dirHandle.getDirectoryHandle(supplier.folder, { create: true })
-
-        // Build filename: keep original or rename to Order-N-Supplier.pdf
-        const numMatch = file.name.match(/Order-(\d+)/i) || text.match(/Order\s*#(\d+)/i)
-        const orderNum = numMatch ? numMatch[1] : null
-        const fname = orderNum ? `Order-${orderNum}-${supplier.label}.pdf` : file.name
-        result.saved = fname
-
-        // Write file
-        const fh = await subDir.getFileHandle(fname, { create: true })
-        const w = await fh.createWritable()
-        await w.write(new Blob([ab], { type: 'application/pdf' }))
-        await w.close()
-        result.status = 'ok'
-      } catch(e) {
-        result.status = 'error'
-        result.msg = e.message
-      }
-      setResults(r => r.map(x => x.name === file.name ? {...result} : x))
-    }
-    setProcessing(false)
-  }
-
-  return (
-    <div style={{ padding: 32, maxWidth: 700, margin: '0 auto' }}>
-      <div style={{ marginBottom: 24 }}>
-        <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: '0 0 6px' }}>📂 PO Filer</h2>
-        <p style={{ fontSize: 13, color: '#64748b', margin: 0 }}>
-          Drop Square Purchase Order PDFs here — they'll be automatically filed into the correct supplier folder in OneDrive.
-        </p>
-      </div>
-
-      {/* Step 1: Select folder */}
-      <div style={{ background: dirHandle ? '#f0fdf4' : '#eff6ff', border: `1px solid ${dirHandle ? '#86efac' : '#bfdbfe'}`, borderRadius: 10, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 700, color: dirHandle ? '#16a34a' : '#1e40af' }}>
-            {dirHandle ? `✓ Folder selected: ${dirHandle.name}` : 'Step 1 — Select your Purchase Orders folder'}
-          </div>
-          <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>
-            {dirHandle ? 'PDFs will be saved to ACW, Dan Murphy or Coles subfolders automatically.' : 'Navigate to: OneDrive - gemwoods.com.au → Purchase Orders'}
-          </div>
-        </div>
-        <button onClick={pickFolder}
-          style={{ background: dirHandle ? '#16a34a' : '#1e40af', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-          {dirHandle ? '↺ Change folder' : 'Select folder'}
-        </button>
-      </div>
-
-      {/* Step 2: Drop zone */}
-      <div
-        onDragOver={e => { e.preventDefault(); setDragging(true) }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={e => { e.preventDefault(); setDragging(false); processFiles(e.dataTransfer.files) }}
-        style={{ border: `2px dashed ${dragging ? '#3b82f6' : '#cbd5e1'}`, borderRadius: 10, padding: '36px 20px', textAlign: 'center', background: dragging ? '#eff6ff' : '#f8fafc', cursor: 'pointer', marginBottom: 20, transition: 'all 0.15s' }}>
-        <div style={{ fontSize: 36, marginBottom: 10 }}>📄</div>
-        <div style={{ fontSize: 15, fontWeight: 700, color: '#374151', marginBottom: 6 }}>
-          {processing ? 'Processing…' : 'Drop Square PO PDFs here'}
-        </div>
-        <div style={{ fontSize: 12, color: '#94a3b8', marginBottom: 14 }}>or click to browse</div>
-        <label style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, padding: '8px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          Browse files
-          <input type="file" accept=".pdf" multiple style={{ display: 'none' }}
-            onChange={e => processFiles(e.target.files)} />
-        </label>
-      </div>
-
-      {/* Results */}
-      {results.length > 0 && (
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
-          <div style={{ padding: '10px 16px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', fontSize: 12, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Results — {results.filter(r => r.status==='ok').length} filed, {results.filter(r=>r.status==='error').length} errors
-          </div>
-          {results.map((r, i) => (
-            <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', borderBottom: i < results.length-1 ? '1px solid #f1f5f9' : 'none' }}>
-              <span style={{ fontSize: 16 }}>{r.status==='ok' ? '✅' : r.status==='error' ? '❌' : '⏳'}</span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{r.name}</div>
-                <div style={{ fontSize: 11, color: '#64748b' }}>
-                  {r.status==='ok' ? `Saved to ${r.supplier}/${r.saved}` : r.status==='error' ? (r.msg || 'Error') : 'Processing…'}
-                </div>
-              </div>
-              {r.supplier && <span style={{ fontSize: 11, background: '#e0f2fe', color: '#0369a1', borderRadius: 4, padding: '2px 8px', fontWeight: 700, whiteSpace: 'nowrap' }}>{r.supplier}</span>}
-            </div>
-          ))}
-          <div style={{ padding: '10px 16px', textAlign: 'right' }}>
-            <button onClick={() => setResults([])} style={{ background: 'none', border: '1px solid #e2e8f0', borderRadius: 6, padding: '6px 14px', fontSize: 12, color: '#64748b', cursor: 'pointer' }}>Clear</button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
 // ─── HELP TAB ─────────────────────────────────────────────────────────────────
 function HelpTab() {
   const sections = [
@@ -4773,7 +4500,7 @@ function HelpTab() {
         { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. Use + Supplier to add a new supplier.' },
         { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all committee members.' },
         { q: 'Adding notes', a: 'Click the Notes column for any item to add a note (e.g. \"Discontinued\", \"Check price\"). Notes are saved and visible to all.' },
-        { q: 'Print Order Sheet', a: 'Click Print Order Sheet then choose a supplier to open a formatted, print-ready order form for that supplier. Use your browser Print dialog or Save as PDF.' },
+        { q: 'Print Order List', a: 'Click 🖨️ Print Order List and choose a supplier to generate a formatted A4 order sheet. Use this list when creating the Purchase Order manually in Square Dashboard.' },
       ]
     },
     {
