@@ -2028,10 +2028,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                       onClick={() => { setDaysBack(d); loadItems(true, d) }}>{d}d</button>
                   ))}
                 </div>
-                {view !== 'all' && (
-                  <button style={{ ...styles.btn, background: '#0f172a', fontSize: 12, padding: '6px 14px' }}
-                    onClick={() => printOrderSheet(view)}>🖨️ Print {view} Order List</button>
-                )}
+
+
+
+
                 <div style={{ position: 'relative' }}>
                   <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
                     onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>🖨️ Print Order List</button>
@@ -2097,9 +2097,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   {suppliersWithOrders.map(supplier => {
                     const count = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i)).length
                     return (
-                      <button key={supplier} onClick={() => printOrderSheet(supplier)}
-                        style={{ padding: '7px 16px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 7, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
-                        🛒 Place Order — {supplier} ({count} item{count !== 1 ? 's' : ''})
+                <button key={supplier} onClick={() => printOrderSheet(supplier)}
+                  style={{ padding: '7px 16px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 7, fontSize: 13, fontWeight: 700, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 6 }}>
+                  🖨️ Print {supplier} Order List ({count} item{count !== 1 ? 's' : ''})
                       </button>
                     )
                   })}
