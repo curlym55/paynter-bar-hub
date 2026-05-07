@@ -302,6 +302,38 @@ export default function Home() {
     }
   }
 
+
+  function generatePoExcel(supplier) {
+    const poItems = items.filter(i =>
+      i.supplier === supplier &&
+      (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
+      !dontOrder(i)
+    ).map(i => {
+      const ov  = orderQtyOverrides[i.name]
+      const qty = i.isSpirit
+        ? (ov !== undefined ? ov : (i.nipsToOrder || 0))
+        : (ov !== undefined ? ov : (i.orderQty   || 0))
+      const btl = i.isSpirit
+        ? (ov !== undefined ? Math.ceil(ov / ((i.bottleML || 700) / (i.nipML || 30))) : (i.bottlesToOrder || 0))
+        : null
+      const notes = i.isSpirit ? `ORDER ${btl} BOTTLE(S) FROM SUPPLIER` : ''
+      return { ...i, _qty: qty, _btl: btl, _notes: notes }
+    })
+    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g,'""')}"` : String(v))
+    const rows = [['Item Name','Variation Name','SKU','GTIN','Vendor Code','Notes','Qty','Unit Cost']]
+    poItems.forEach(item => {
+      const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
+      rows.push([item.name, 'Regular', item.sku || '', '', supplierVendorNames[supplier] || '', item._notes, String(item._qty), unitCost])
+    })
+    const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    const date = new Date(Date.now() + 10*60*60*1000).toISOString().split('T')[0]
+    a.href = url; a.download = `PO-${supplier.replace(/[^a-zA-Z0-9]/g,'-')}-${date}.csv`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function loadNotes() {
     try {
       const r = await fetch('/api/notes')
@@ -2034,10 +2066,15 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   {printing === 'menu' && (
                     <div style={styles.dropdown}>
                       {suppliers.map(s => (
-                        <button key={s} style={styles.dropItem}
-                          onClick={() => { printOrderSheet(s); setPrinting(null) }}>
-                          {s} ({items.filter(i => i.supplier === s && i.orderQty > 0 && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length} items)
-                        </button>
+                        <div key={s} style={{ borderBottom: '1px solid #f1f5f9', padding: '4px 0' }}>
+                          <div style={{ padding: '4px 12px 2px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s}</div>
+                          <button style={styles.dropItem} onClick={() => { printOrderSheet(s); setPrinting(null) }}>
+                            🖨️ Print Order List
+                          </button>
+                          <button style={styles.dropItem} onClick={() => { generatePoExcel(s); setPrinting(null) }}>
+                            📥 Export CSV for Square
+                          </button>
+                        </div>
                       ))}
                     </div>
                   )}
