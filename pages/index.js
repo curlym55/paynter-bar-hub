@@ -1462,8 +1462,8 @@ export default function Home() {
         <td>${item.name}</td>
         <td>${item.category}</td>
         <td style="text-align:right">${item.onHand}</td>
-        <td style="text-align:right;font-weight:700">${item.isSpirit ? (item.nipsToOrder || '-') : (item.orderQty || '-')}</td>
-        <td style="text-align:right">${item.isSpirit && item.bottlesToOrder ? item.bottlesToOrder : '-'}</td>
+        <td style="text-align:right;font-weight:700">${(() => { const ov = orderQtyOverrides[item.name]; return item.isSpirit ? (ov !== undefined ? ov : (item.nipsToOrder || '-')) : (ov !== undefined ? ov : (item.orderQty || '-')) })()}</td>
+        <td style="text-align:right">${item.isSpirit ? (orderQtyOverrides[item.name] !== undefined ? Math.ceil(orderQtyOverrides[item.name] / ((item.bottleML || 700) / (item.nipML || 30))) : (item.bottlesToOrder || '-')) : '-'}</td>
         <td>${item.notes || ''}</td>
       </tr>`).join('')
     const html = `<!DOCTYPE html><html><head><title>Order - ${supplier} - ${date}</title>
