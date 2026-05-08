@@ -316,7 +316,7 @@ export default function Home() {
       const btl = i.isSpirit
         ? (ov !== undefined ? Math.ceil(ov / ((i.bottleML || 700) / (i.nipML || 30))) : (i.bottlesToOrder || 0))
         : null
-      const notes = i.isSpirit ? `ORDER ${btl} BOTTLE(S) FROM SUPPLIER` : ''
+      const notes = i.isSpirit ? `${btl} Bott` : ''
       return { ...i, _qty: qty, _btl: btl, _notes: notes }
     })
     const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g,'""')}"` : String(v))
