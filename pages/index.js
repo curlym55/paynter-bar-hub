@@ -2250,7 +2250,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Place order with supplier online or by phone. Note any changes.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Place order with supplier online. Note any changes to quantities.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
@@ -2262,7 +2262,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Print & File</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print final order list. Create PO in Square from confirmed quantities.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print and/or save final list. Create PO in Square by CSV import or manually from the list.</div>
                 </div>
               </div>
             )}
