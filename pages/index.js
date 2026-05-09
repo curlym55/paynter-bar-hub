@@ -80,6 +80,7 @@ export default function Home() {
   const [sellersLoading, setSellersLoading] = useState(false)
   const [sellersError, setSellersError] = useState(null)
   const [orderedItems, setOrderedItems]   = useState({})
+  const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
   const [settingsAudit, setSettingsAudit] = useState({}) // { "ItemName__field": { ts, who } }
@@ -2118,6 +2119,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <div style={{ position: 'relative' }}>
                   <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
                     onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>🖨️ Print Order List</button>
+                  {printing === 'menu' && (
+                    <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setPrinting(null)} />
+                  )}
                   {printing === 'menu' && (
                     <div style={styles.dropdown}>
                       {suppliers.map(s => (
