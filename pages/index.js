@@ -2122,6 +2122,27 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               )
             })()}
 
+            {viewMode !== 'pricing' && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Review items below and check Order Qty looks right</div>
+                </div>
+                <div style={{ width: 1, background: '#bfdbfe' }} />
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Adjust quantities in the Order Qty column if needed</div>
+                </div>
+                <div style={{ width: 1, background: '#bfdbfe' }} />
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print Order List then create PO in Square Dashboard</div>
+                </div>
+              </div>
+            )}
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
@@ -5696,27 +5717,6 @@ function StocktakeView({ items, readOnly, onExport }) {
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          {mainTab !== 'pricing' && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1</div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Review items below — check Order Qty looks right</div>
-            </div>
-            <div style={{ width: 1, background: '#bfdbfe' }} />
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2</div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Adjust quantities in the Order Qty column if needed</div>
-            </div>
-            <div style={{ width: 1, background: '#bfdbfe' }} />
-            <div style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
-              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3</div>
-              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print Order List → create PO in Square Dashboard</div>
-            </div>
-          </div>
-        )}
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#0f172a', color: '#fff' }}>
