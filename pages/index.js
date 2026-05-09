@@ -2049,6 +2049,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   <input type="checkbox" checked={filterOrder} onChange={e => setFilterOrder(e.target.checked)} style={{ marginRight: 6 }} />
                   Order items only
                 </label>
+                <button onClick={() => setShowDetails(d => !d)}
+                  style={{ background: showDetails ? '#1e3a5f' : '#f1f5f9', color: showDetails ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+                  {showDetails ? '▲ Hide details' : '▼ Show details'}
+                </button>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                   <span style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>Sales period:</span>
                   {[30, 60, 90].map(d => (
