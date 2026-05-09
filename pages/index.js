@@ -2200,7 +2200,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
                           <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
                           <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>
-                            {item.isSpirit ? ${item.orderQty} nips : ${item.orderQty} units}
+                            {item.isSpirit ? item.orderQty + ' nips' : item.orderQty + ' units'}
                           </td>
                         </tr>
                       ))}
