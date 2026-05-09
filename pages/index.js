@@ -2022,7 +2022,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 )}
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
                 {/* Square vendor name mapping — small ✎ per supplier */}
-                {!readOnly && suppliers.map(s => {
+                {showDetails && !readOnly && suppliers.map(s => {
                   const mapped = supplierVendorNames[s]
                   return (
                     <span key={s} title={`Square vendor name for ${s}: ${mapped || 'not set'}`}
