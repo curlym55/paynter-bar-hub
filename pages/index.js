@@ -34,7 +34,8 @@ export default function Home() {
   const [lastUpdated, setLastUpdated]   = useState(null)
   const [targetWeeks, setTargetWeeks]   = useState(6)
   const [view, setView]                 = useState('all')
-  const [filterOrder, setFilterOrder]   = useState(false)
+  const [filterOrder, setFilterOrder]   = useState(true)
+  const [showDetails, setShowDetails]   = useState(false)
 
   const [saving, setSaving]             = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
@@ -2126,16 +2127,16 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <thead>
                   <tr style={styles.thead}>
                     <th style={{ ...styles.th, width: 240 }}>Item</th>
-                    <th style={styles.th}>Category</th>
+                    <th style={{ ...styles.th, display: showDetails ? '' : 'none' }}>Category</th>
                     <th style={styles.th}>Supplier</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>On Hand</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Wkly Avg</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Target</th>
-                    <th style={{ ...styles.th, textAlign: 'center' }}>Pack</th>
-                    <th style={{ ...styles.th, textAlign: 'center' }}>Bottle Size</th>
-                    <th style={{ ...styles.th, textAlign: 'center' }}>Nip Size</th>
+                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Wkly Avg</th>
+                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Target</th>
+                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Pack</th>
+                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Bottle Size</th>
+                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Nip Size</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Order Qty</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Bottles</th>
+                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Bottles</th>
                     <th style={{ ...styles.th, textAlign: 'center' }}>Priority</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
                     {viewMode === 'pricing' && <>
@@ -2162,7 +2163,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
                           {item.name}{item.buyPrice == null && viewMode === 'pricing' && <span title="No cost price set" style={{ marginLeft: 5, color: '#dc2626', fontSize: 9, fontWeight: 700 }}>●</span>}
                         </td>
-                        <td style={styles.td}>
+                        <td style={{ ...styles.td, display: showDetails ? '' : 'none' }}>
                           <EditSelect value={item.category} options={CATEGORIES}
                             onChange={v => saveSetting(item.name, 'category', v)}
                             saving={saving[`${item.name}_category`]} readOnly={readOnly} />
@@ -2173,7 +2174,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                             saving={saving[`${item.name}_supplier`]} colorMap={SUPPLIER_COLORS} readOnly={readOnly} />
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.onHand}</td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>
                           {readOnly
                             ? <span title={item.weeklyAvgOverride != null ? `Square avg: ${Math.round(item.squareWeeklyAvg)}` : ''}>
                                 {Math.round(item.weeklyAvg)}{item.weeklyAvgOverride != null && <span style={{ fontSize: 9, color: '#f59e0b', fontWeight: 700, marginLeft: 2 }}>★</span>}
@@ -2207,22 +2208,22 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               </div>
                           }
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace' }}>{item.targetStock}</td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>{item.targetStock}</td>
+                        <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {!item.isSpirit ? (
                             <EditSelect value={String(item.pack || '')} options={['6', '18', '24', '30', '48']}
                               onChange={v => saveSetting(item.name, 'pack', Number(v))}
                               saving={saving[`${item.name}_pack`]} readOnly={readOnly} />
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (
                             <EditSelect value={String(item.bottleML)} options={['700', '750', '1000']}
                               onChange={v => saveSetting(item.name, 'bottleML', Number(v))}
                               saving={saving[`${item.name}_bottleML`]} readOnly={readOnly} />
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'center' }}>
+                        <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (
                             <EditSelect value={String(item.nipML || 30)} options={['30', '60']}
                               onChange={v => saveSetting(item.name, 'nipML', Number(v))}
@@ -2266,7 +2267,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                               })()
                           }
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79' }}>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (() => {
                             const btl = item.bottlesToOrder || 0
                             return btl > 0 ? btl : '-'
@@ -4903,7 +4904,7 @@ function SalesView({ period, setPeriod, custom, setCustom, report, loading, erro
                   <tr style={styles.thead}>
                     <th style={{ ...styles.th, width: 28, textAlign: 'right' }}>#</th>
                     <th style={styles.th}>Item</th>
-                    <th style={styles.th}>Category</th>
+                    <th style={{ ...styles.th, display: showDetails ? '' : 'none' }}>Category</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Units Sold</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Prior Period</th>
                     <th style={{ ...styles.th, textAlign: 'right' }}>Change</th>
@@ -5695,7 +5696,28 @@ function StocktakeView({ items, readOnly, onExport }) {
       {/* Table */}
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', overflow: 'hidden' }}>
         <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+          {mainTab !== 'pricing' && (
+          <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1</div>
+              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Review items below — check Order Qty looks right</div>
+            </div>
+            <div style={{ width: 1, background: '#bfdbfe' }} />
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2</div>
+              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Adjust quantities in the Order Qty column if needed</div>
+            </div>
+            <div style={{ width: 1, background: '#bfdbfe' }} />
+            <div style={{ flex: 1, textAlign: 'center' }}>
+              <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3</div>
+              <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print Order List → create PO in Square Dashboard</div>
+            </div>
+          </div>
+        )}
+        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
             <thead>
               <tr style={{ background: '#0f172a', color: '#fff' }}>
                 <th style={{ padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', minWidth: 200 }}>Item</th>
