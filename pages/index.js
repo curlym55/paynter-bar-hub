@@ -309,7 +309,8 @@ export default function Home() {
     const poItems = items.filter(i =>
       i.supplier === supplier &&
       (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
-      !dontOrder(i)
+      !dontOrder(i) &&
+      !orderedItems[i.name]
     ).map(i => {
       const ov  = orderQtyOverrides[i.name]
       const qty = i.isSpirit
