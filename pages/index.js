@@ -335,6 +335,56 @@ export default function Home() {
     URL.revokeObjectURL(url)
   }
 
+  function importOrderCsv(file) {
+    const reader = new FileReader()
+    reader.onload = async e => {
+      const text = e.target.result.replace(/^\uFEFF/, '') // strip BOM
+      const lines = text.split('\n').map(l => l.trim()).filter(l => l)
+      const header = lines[0].split(',').map(s => s.trim().replace(/"/g,''))
+      const nameIdx = header.indexOf('Item Name')
+      const qtyIdx  = header.indexOf('Qty')
+      const skuIdx  = header.indexOf('SKU')
+      const vendIdx = header.indexOf('Vendor Code')
+      const notesIdx = header.indexOf('Notes')
+      if (nameIdx < 0 || qtyIdx < 0) { alert('Unrecognised CSV format — needs Item Name and Qty columns'); return }
+      const items = []
+      let supplier = null
+      for (let i = 1; i < lines.length; i++) {
+        // simple CSV split (handles quoted fields)
+        const row = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g)?.map(s => s.replace(/^"|"$/g,'').trim()) || lines[i].split(',').map(s => s.trim())
+        const name = row[nameIdx]
+        if (!name || name === 'Subtotal' || name === 'Total Due' || name === 'Vendor' || !name.match(/[a-zA-Z]/)) continue
+        const qtyRaw = row[qtyIdx] || '0'
+        const qty = parseInt(qtyRaw.replace(/[^0-9]/g,'')) || 0
+        if (qty <= 0) continue
+        const sku = skuIdx >= 0 ? row[skuIdx] || '' : ''
+        const vend = vendIdx >= 0 ? row[vendIdx] || '' : ''
+        const notes = notesIdx >= 0 ? row[notesIdx] || '' : ''
+        const isSpirit = /nip|30ml|60ml/i.test(name)
+        if (!supplier && vend) supplier = vend
+        items.push({ name, orderQty: qty, sku, isSpirit })
+      }
+      if (!items.length) { alert('No items found in CSV'); return }
+      // Match supplier to Hub supplier names
+      const supplierMatch = supplier
+        ? (suppliers.find(s => s.toLowerCase().includes(supplier.toLowerCase()) || supplier.toLowerCase().includes(s.split(' ')[0].toLowerCase())) || supplier)
+        : 'Unknown'
+      const r = await fetch('/api/purchase-order', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'place', supplier: supplierMatch, items })
+      })
+      const d = await r.json()
+      if (d.ok) {
+        setOrderedItems(d.ordered)
+        alert(`Imported ${items.length} items for ${supplierMatch} as ON ORDER`)
+      } else {
+        alert('Import failed')
+      }
+    }
+    reader.readAsText(file)
+  }
+
   async function loadNotes() {
     try {
       const r = await fetch('/api/notes')
@@ -2081,6 +2131,14 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           </button>
                         </div>
                       ))}
+                      <div style={{ borderTop: '2px solid #e2e8f0', marginTop: 4, padding: '6px 0 2px' }}>
+                        <div style={{ padding: '2px 12px 4px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mark as ordered</div>
+                        <label style={{ ...styles.dropItem, display: 'block', cursor: 'pointer' }}>
+                          📂 Import Square PO CSV
+                          <input type="file" accept=".csv" style={{ display: 'none' }}
+                            onChange={e => { const f = e.target.files?.[0]; if (f) { importOrderCsv(f); setPrinting(null) } }} />
+                        </label>
+                      </div>
                     </div>
                   )}
                 </div>
