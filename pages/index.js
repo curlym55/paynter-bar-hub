@@ -2149,7 +2149,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               </div>
             </div>
 
-
             {/* On Order banner */}
             {onOrderCount > 0 && (() => {
               const bySupplier = {}
@@ -2159,38 +2158,65 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 bySupplier[key].push({ name, ...info })
               }
               return (
-                <div style={{ marginBottom: 12 }}>
+                <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
                   {Object.entries(bySupplier).map(([supplier, supplierItems]) => (
-                    <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '10px 16px', marginBottom: 6 }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
-                        <span style={{ fontSize: 12, color: '#64748b' }}>— {supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order since {supplierItems[0]?.date}</span>
-                        {!readOnly && (
-                          <button onClick={() => openReceiveModal(supplier, supplierItems)}
-                            disabled={poReceiving === supplier}
-                            style={{ marginLeft: 'auto', fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '4px 12px', cursor: 'pointer' }}>
-                            {poReceiving === supplier ? '…' : '✓ Receive'}
-                          </button>
-                        )}
-                      </div>
-                      <div style={{ marginTop: 6, fontSize: 11, color: '#64748b' }}>
-                        {supplierItems.map(i => {
-                          const override = orderQtyOverrides[i.name]
-                          const nips = override !== undefined ? override : i.orderQty
-                          const btl = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
-                          const edited = override !== undefined && override !== i.orderQty
-                          return `${i.name} (${i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`})${edited ? ' ✎' : ''}`
-                        }).join(' · ')}
-                      </div>
+                    <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
+                      <span style={{ fontSize: 12, color: '#64748b' }}>{supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
+                      <button onClick={() => setViewOrderModal({ supplier, items: supplierItems })}
+                        style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
+                        View
+                      </button>
+                      {!readOnly && (
+                        <button onClick={() => openReceiveModal(supplier, supplierItems)}
+                          disabled={poReceiving === supplier}
+                          style={{ fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 12px', cursor: 'pointer' }}>
+                          {poReceiving === supplier ? '...' : 'Receive'}
+                        </button>
+                      )}
                     </div>
                   ))}
                 </div>
               )
             })()}
 
-            {viewMode !== 'pricing' && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
-                <div style={{ flex: 1, textAlign: 'center' }}>
+            {/* View Order Modal */}
+            {viewOrderModal && (
+              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+                onClick={() => setViewOrderModal(null)}>
+                <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 540, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
+                  onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+                    <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>🛒 {viewOrderModal.supplier} — Current Order</div>
+                    <button onClick={() => setViewOrderModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>x</button>
+                  </div>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead><tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
+                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qty Ordered</th>
+                    </tr></thead>
+                    <tbody>
+                      {viewOrderModal.items.map((item, i) => (
+                        <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                          <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
+                          <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>
+                            {item.isSpirit ? ${item.orderQty} nips : ${item.orderQty} units}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
+                    <button onClick={() => setViewOrderModal(null)}
+                      style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                    {!readOnly && (
+                      <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
+                        style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
                   <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1 — Review</div>
                   <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Check suggested quantities. Adjust Order Qty if needed.</div>
