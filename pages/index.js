@@ -2130,20 +2130,26 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Review items below and check Order Qty looks right</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1 — Review</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Check suggested quantities. Adjust Order Qty if needed.</div>
+                </div>
+                <div style={{ width: 1, background: '#bfdbfe' }} />
+                <div style={{ flex: 1, textAlign: 'center' }}>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Place order with supplier online or by phone. Note any changes.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Adjust quantities in the Order Qty column if needed</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3 — Update</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Update any quantities the supplier couldn’t fill, then print final list.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print Order List then create PO in Square Dashboard</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Print & File</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print final order list. Create PO in Square from confirmed quantities.</div>
                 </div>
               </div>
             )}
