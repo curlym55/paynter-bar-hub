@@ -1656,7 +1656,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => !filterOrder || item.orderQty > 0) // RUNDOWN items still show with badge
+    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)))
 
 
   const onOrderCount = Object.keys(orderedItems).length
