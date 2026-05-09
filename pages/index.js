@@ -386,6 +386,31 @@ export default function Home() {
     reader.readAsText(file)
   }
 
+  async function markAsOrdered(supplier) {
+    const poItems = items.filter(i =>
+      i.supplier === supplier &&
+      (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
+      !dontOrder(i)
+    ).map(i => ({
+      name: i.name,
+      sku: i.sku || '',
+      orderQty: orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : (i.isSpirit ? i.nipsToOrder : i.orderQty),
+      bottlesToOrder: i.bottlesToOrder || null,
+      isSpirit: i.isSpirit || false,
+    }))
+    if (!poItems.length) { alert('No items to order for ' + supplier); return }
+    const r = await fetch('/api/purchase-order', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'place', supplier, items: poItems })
+    })
+    const d = await r.json()
+    if (d.ok) {
+      setOrderedItems(d.ordered)
+      setPrinting(null)
+    }
+  }
+
   async function loadNotes() {
     try {
       const r = await fetch('/api/notes')
@@ -2133,16 +2158,12 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           <button style={styles.dropItem} onClick={() => { generatePoExcel(s); setPrinting(null) }}>
                             📥 Export CSV for Square
                           </button>
+                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => markAsOrdered(s)}>
+                            ✓ Mark as Ordered
+                          </button>
                         </div>
                       ))}
-                      <div style={{ borderTop: '2px solid #e2e8f0', marginTop: 4, padding: '6px 0 2px' }}>
-                        <div style={{ padding: '2px 12px 4px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Mark as ordered</div>
-                        <label style={{ ...styles.dropItem, display: 'block', cursor: 'pointer' }}>
-                          📂 Import Square PO CSV
-                          <input type="file" accept=".csv" style={{ display: 'none' }}
-                            onChange={e => { const f = e.target.files?.[0]; if (f) { importOrderCsv(f); setPrinting(null) } }} />
-                        </label>
-                      </div>
+
                     </div>
                   )}
                 </div>
