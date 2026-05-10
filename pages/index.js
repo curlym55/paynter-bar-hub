@@ -1716,7 +1716,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     })
 
     const rows = [
-      [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Unit'), hdrR('Buy'), hdrR('Sell'), hdrR('Sell/Bottle'), hdrR('Margin'), hdrR('Btl Margin'), hdrR('On Hand')]
+      [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Unit'), hdrR('Buy'), hdrR('Sell'), hdrR('Sell/Bottle'), hdrR('Margin %'), hdrR('Btl Margin %'), hdrR('On Hand')]
     ]
 
     for (const item of allItems) {
@@ -1765,14 +1765,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         { v: buy ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: buy!=null?'"$"#,##0.00':'@' } },
         { v: sell ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: sell!=null?'"$"#,##0.00':'@' } },
         { v: (isWine && sellBottle!=null) ? sellBottle : '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: mp!=null ? mp/100 : '', t: mp!=null ? 'n' : 's', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0%' } },
-        { v: bp!=null ? bp/100 : '', t: bp!=null ? 'n' : 's', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0%' } },
+        { v: mp!=null ? Math.round(mp*10)/10 : '', t: mp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'} } },
+        { v: bp!=null ? Math.round(bp*10)/10 : '', t: bp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'} } },
         { v: item.onHand ?? 0, s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'} } },
       ])
     }
 
     const ws = XLSX.utils.aoa_to_sheet(rows)
     ws['!cols'] = [{wch:38},{wch:16},{wch:14},{wch:7},{wch:9},{wch:9},{wch:11},{wch:10},{wch:11},{wch:9}]
+    ws['!autofilter'] = { ref: 'A1:J1' }
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pricing Analysis')
     const date = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'}).replace(/\//g,'-')
@@ -5792,7 +5793,6 @@ function StocktakeView({ items, readOnly, onExport }) {
       ws2['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 36 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 8 }]
       ws2['!rows'] = flatRows.map((_, i) => i === 0 ? { hpt: 22 } : { hpt: 18 })
       // AutoFilter on header row covering all columns
-      ws2['!autofilter'] = { ref: `A1:I1` }
 
       const wb = XLSX.utils.book_new()
       XLSX.utils.book_append_sheet(wb, ws,  'Summary')
