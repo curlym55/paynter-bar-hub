@@ -2413,9 +2413,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             mPct = (sell - buy) / sell * 100
                           }
                         }
-                        const bg = mPct == null ? '#fafafa' : mPct < 20 ? '#fee2e2' : mPct < 35 ? '#fef9c3' : '#f0fdf4'
-                        const tc = mPct == null ? '#dc2626' : mPct < 20 ? '#991b1b' : mPct < 35 ? '#92400e' : '#166534'
-                        return (
                           {(() => {
                             // Glass margin (wine by glass or spirit by nip)
                             const glassMgn = isWine && sellUnit === 'glass' && buy != null && sell != null && sell > 0
