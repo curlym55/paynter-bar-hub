@@ -45,6 +45,9 @@ export default async function handler(req, res) {
       getLocationId(token),
     ])
 
+    console.log('[receive-inventory] varMap keys:', Object.keys(varMap).slice(0, 20))
+    console.log('[receive-inventory] requested items:', validItems.map(i => i.name))
+
     const occurredAt     = new Date().toISOString()
     const idempotencyKey = randomUUID()
     const skipped        = []
@@ -53,6 +56,7 @@ export default async function handler(req, res) {
       .map(item => {
         const entry = varMap[item.name]
         if (!entry?.varId) {
+          console.log(`[receive-inventory] no varId for: "${item.name}"`)
           skipped.push(item.name)
           return null
         }
@@ -74,7 +78,7 @@ export default async function handler(req, res) {
       return res.status(200).json({
         success: false,
         skipped,
-        reason: 'No matching Square variation IDs found for supplied item names',
+        reason: `No variation IDs found. Requested: [${validItems.map(i=>i.name).join(', ')}]. Map has ${Object.keys(varMap).length} items.`,
       })
     }
 
