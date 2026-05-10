@@ -1,106 +1,110 @@
 /**
  * POST /api/square/receive-inventory
  *
- * Receives stock into Square Inventory using ADJUSTMENT changes.
- * Supports partial receives — caller sends only items with qty > 0.
+ * Receives stock into Square Inventory using ADJUSTMENT changes (NONE → IN_STOCK).
+ * Resolves variation IDs server-side via getVariationIdMap — same pattern as wastage-sync.
  *
  * Request body:
  * {
- *   locationId: string,
  *   items: [
- *     {
- *       catalogObjectId: string,   // variation ID
- *       quantity: number,          // units received (may be decimal for nips→bottles)
- *       name: string,              // for logging only
- *       unit: string               // 'EACH' | 'nip' | etc.
- *     }
+ *     { name: string, quantity: number, unit: string }
  *   ],
- *   reference: string              // e.g. "Receive 2025-05-10 PO#42"
+ *   reference: string   // e.g. "ACW delivery"
  * }
  *
  * Response:
- * { success: true, changes: [...squareResponseChanges] }
+ * { success: true, changes: number, skipped: string[] }
  */
 
-import { randomUUID } from 'crypto';
-
-const SQUARE_BASE =
-  process.env.SQUARE_ENVIRONMENT === 'production'
-    ? 'https://connect.squareup.com'
-    : 'https://connect.squareupsandbox.com';
-
-async function squarePost(path, body) {
-  const res = await fetch(`${SQUARE_BASE}${path}`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${process.env.SQUARE_ACCESS_TOKEN}`,
-      'Square-Version': '2024-10-17',
-    },
-    body: JSON.stringify(body),
-  });
-
-  const data = await res.json();
-
-  if (!res.ok || data.errors?.length) {
-    const msg = data.errors?.[0]?.detail ?? `Square error ${res.status}`;
-    throw new Error(msg);
-  }
-
-  return data;
-}
+import { randomUUID } from 'crypto'
+import { getVariationIdMap, getLocationId } from '../../lib/square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+    return res.status(405).json({ error: 'Method not allowed' })
   }
 
-  const { locationId, items, reference } = req.body ?? {};
+  const token = process.env.SQUARE_ACCESS_TOKEN
+  if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
-  // ── Validation ──────────────────────────────────────────────────────────────
-  if (!locationId) return res.status(400).json({ error: 'locationId required' });
-  if (!Array.isArray(items) || items.length === 0)
-    return res.status(400).json({ error: 'items array required' });
+  const { items, reference } = req.body ?? {}
 
-  const validItems = items.filter(
-    (it) => it.catalogObjectId && Number(it.quantity) > 0
-  );
+  if (!Array.isArray(items) || items.length === 0) {
+    return res.status(400).json({ error: 'items array required' })
+  }
 
-  if (validItems.length === 0)
-    return res.status(400).json({ error: 'No items with quantity > 0' });
-
-  // ── Build Square inventory changes ──────────────────────────────────────────
-  const occurredAt = new Date().toISOString();
-  const idempotencyKey = randomUUID();
-
-  const changes = validItems.map((item) => ({
-    type: 'ADJUSTMENT',
-    adjustment: {
-      // NONE → IN_STOCK is the standard "receive from supplier" pattern
-      from_state: 'NONE',
-      to_state: 'IN_STOCK',
-      catalog_object_id: item.catalogObjectId,
-      location_id: locationId,
-      // Square quantity must be a string-formatted decimal
-      quantity: String(Number(item.quantity).toFixed(4)),
-      occurred_at: occurredAt,
-      reference_no: reference ?? 'Paynter Bar Hub Receive',
-    },
-  }));
+  const validItems = items.filter(it => it.name && Number(it.quantity) > 0)
+  if (validItems.length === 0) {
+    return res.status(400).json({ error: 'No items with quantity > 0' })
+  }
 
   try {
-    const data = await squarePost('/v2/inventory/changes/batch-create', {
-      idempotency_key: idempotencyKey,
-      changes,
-    });
+    // Resolve variation IDs and location in parallel — same as wastage-sync
+    const [varMap, locationId] = await Promise.all([
+      getVariationIdMap(token),
+      getLocationId(token),
+    ])
+
+    const occurredAt     = new Date().toISOString()
+    const idempotencyKey = randomUUID()
+    const skipped        = []
+
+    const changes = validItems
+      .map(item => {
+        const entry = varMap[item.name]
+        if (!entry?.varId) {
+          skipped.push(item.name)
+          return null
+        }
+        return {
+          type: 'ADJUSTMENT',
+          adjustment: {
+            from_state:        'NONE',
+            to_state:          'IN_STOCK',
+            catalog_object_id: entry.varId,
+            location_id:       locationId,
+            quantity:          String(Number(item.quantity).toFixed(4)),
+            occurred_at:       occurredAt,
+            reference_no:      reference ?? 'Paynter Bar Hub Receive',
+          },
+        }
+      })
+      .filter(Boolean)
+
+    if (changes.length === 0) {
+      return res.status(200).json({
+        success: false,
+        skipped,
+        reason: 'No matching Square variation IDs found for supplied item names',
+      })
+    }
+
+    const BASE_URL = 'https://connect.squareup.com/v2'
+    const sqRes = await fetch(`${BASE_URL}/inventory/changes/batch-create`, {
+      method:  'POST',
+      headers: {
+        'Content-Type':  'application/json',
+        Authorization:   `Bearer ${token}`,
+        'Square-Version': '2024-01-17',
+      },
+      body: JSON.stringify({ idempotency_key: idempotencyKey, changes }),
+    })
+
+    const data = await sqRes.json()
+
+    if (!sqRes.ok || data.errors?.length) {
+      const msg = data.errors?.[0]?.detail ?? `Square error ${sqRes.status}`
+      return res.status(500).json({ error: msg })
+    }
 
     return res.status(200).json({
       success: true,
-      changes: data.changes ?? [],
-      counts: data.counts ?? [],
-    });
+      changes: changes.length,
+      skipped,
+    })
+
   } catch (err) {
-    console.error('[receive-inventory]', err.message);
-    return res.status(500).json({ error: err.message });
+    console.error('[receive-inventory]', err.message)
+    return res.status(500).json({ error: err.message })
   }
 }

@@ -307,28 +307,22 @@ export default function Home() {
           })
 
         // ── 3. Update Square inventory ───────────────────────────────────
-        const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'LNM7JRJ0VKQ7W'
         const squareItems = receiveModal.items
           .filter(i => receiveChecked[i.name])
-          .map(i => {
-            const fullItem = items.find(it => it.name === i.name)
-            const qty = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0)
-            return {
-              catalogObjectId: fullItem?.variationId || fullItem?.catalogObjectId || null,
-              quantity: qty,
-              name: i.name,
-              unit: i.isSpirit ? 'nip' : 'each',
-            }
-          })
-          .filter(it => it.catalogObjectId && it.quantity > 0)
+          .map(i => ({
+            name:     i.name,
+            quantity: receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0),
+            unit:     i.isSpirit ? 'nip' : 'each',
+          }))
+          .filter(it => it.quantity > 0)
 
-        let sqResult = { skipped: true, reason: 'No items with Square variation ID' }
+        let sqResult = { skipped: true, reason: 'No items to receive' }
         if (squareItems.length > 0) {
           try {
             const sqRes = await fetch('/api/square/receive-inventory', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ locationId, items: squareItems, reference: `${supplier} delivery` })
+              body: JSON.stringify({ items: squareItems, reference: `${supplier} delivery` })
             })
             sqResult = await sqRes.json()
           } catch (sqErr) {
