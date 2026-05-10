@@ -1765,8 +1765,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         { v: buy ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: buy!=null?'"$"#,##0.00':'@' } },
         { v: sell ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: sell!=null?'"$"#,##0.00':'@' } },
         { v: (isWine && sellBottle!=null) ? sellBottle : '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: mp!=null ? mp : '', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
-        { v: bp!=null ? bp : '', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
+        { v: mp!=null ? mp/100 : '', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0%' } },
+        { v: bp!=null ? bp/100 : '', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0%' } },
         { v: item.onHand ?? 0, s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'} } },
       ])
     }
