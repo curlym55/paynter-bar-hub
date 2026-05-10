@@ -2395,8 +2395,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </thead>
                     <tbody>
                       {allItems.map((item, i) => {
-                        const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
-                        const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
                         const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
                         const isWine = WINE_C.includes(item.category)
                         const forceBottle = item.category === 'Sparkling' || item.bottleOnly
