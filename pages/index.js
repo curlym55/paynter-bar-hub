@@ -1817,7 +1817,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
   }
 
   function printPricingSheet() {
-  function printPricingSheet() {
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
     const allItems = [...items].sort((a,b) => {
       const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
