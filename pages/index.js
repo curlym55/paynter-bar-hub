@@ -2371,8 +2371,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       {allItems.map((item, i) => {
                         const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
                         const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
-                        const mDol = buy != null && sell != null ? sell - buy : null
-                        const mPct = buy != null && sell != null && sell > 0 ? (sell - buy) / sell * 100 : null
+                        const WINE_C = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+                        const eBuy = buy == null ? null : item.isSpirit ? buy / ((item.bottleML||700)/(item.nipML||30)) : WINE_C.includes(item.category) ? buy / 5 : buy
+                        const mDol = eBuy != null && sell != null ? sell - eBuy : null
+                        const mPct = eBuy != null && sell != null && sell > 0 ? (sell - eBuy) / sell * 100 : null
                         const bg = mPct == null ? '#fafafa' : mPct < 20 ? '#fee2e2' : mPct < 35 ? '#fef9c3' : '#f0fdf4'
                         const tc = mPct == null ? '#dc2626' : mPct < 20 ? '#991b1b' : mPct < 35 ? '#92400e' : '#166534'
                         return (
