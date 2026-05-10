@@ -2414,19 +2414,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           }
                         }
                           return (() => {
-                            // Glass margin (wine by glass or spirit by nip)
-                            const glassMgn = isWine && sellUnit === 'glass' && buy != null && sell != null && sell > 0
-                              ? { pct: (sell*servesPB - buy)/(sell*servesPB)*100, dol: sell - buy/servesPB }
-                              : !isWine && buy != null && sell != null && sell > 0
-                              ? { pct: (sell-buy)/sell*100, dol: sell-buy }
+                            // Match pricing viewMode: for bottle-mode wines use squareSellPrice, not sellPrice
+                            const btlSellRaw = item.sellPriceBottle || item.squareSellPriceBottle || (isWine && sellUnit === 'bottle' ? item.squareSellPrice : null)
+                            const btlPrice = btlSellRaw != null && btlSellRaw !== '' ? Number(btlSellRaw) : null
+                            // Glass sell = sellPrice (per glass for wine, per nip for spirits, per unit for others)
+                            const glassSell = sell
+                            // Glass margin
+                            const glassMgn = isWine && sellUnit === 'glass' && buy != null && glassSell != null && glassSell > 0
+                              ? { pct: (glassSell*servesPB - buy)/(glassSell*servesPB)*100, dol: glassSell - buy/servesPB }
+                              : !isWine && buy != null && glassSell != null && glassSell > 0
+                              ? { pct: (glassSell-buy)/glassSell*100, dol: glassSell-buy }
                               : null
-                            // Bottle margin (wines with a bottle sell price)
-                            const btlSell = item.sellPriceBottle || item.squareSellPriceBottle
-                            const btlPrice = btlSell != null && btlSell !== '' ? Number(btlSell) : null
+                            // Bottle margin — use squareSellPrice for bottle-mode wines (same as pricing viewMode)
                             const bottleMgn = isWine && buy != null && btlPrice != null && btlPrice > 0
                               ? { pct: (btlPrice-buy)/btlPrice*100, dol: btlPrice-buy }
-                              : isWine && sellUnit === 'bottle' && buy != null && sell != null && sell > 0
-                              ? { pct: (sell-buy)/sell*100, dol: sell-buy }
                               : null
                             const gc = (p) => p == null ? '#94a3b8' : p < 20 ? '#991b1b' : p < 35 ? '#92400e' : '#166534'
                             const gbg = (p) => p == null ? '#fafafa' : p < 20 ? '#fee2e2' : p < 35 ? '#fef9c3' : '#f0fdf4'
@@ -2447,11 +2448,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   {buy != null ? '$' + buy.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
-                                  {sell != null ? '$' + sell.toFixed(2) : '—'}
+                                  {isWine && sellUnit==='bottle' ? (btlPrice != null ? '$' + btlPrice.toFixed(2) : '—') : sell != null ? '$' + sell.toFixed(2) : '—'}
                                   {isWine && sellUnit==='glass' && sell != null && <span style={{fontSize:9,color:'#94a3b8',marginLeft:3}}>×{servesPB}</span>}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
-                                  {isWine ? (btlPrice != null ? '$' + btlPrice.toFixed(2) : sellUnit==='bottle' && sell != null ? '$' + sell.toFixed(2) : '—') : ''}
+                                  {isWine ? (btlPrice != null ? '$' + btlPrice.toFixed(2) : '—') : ''}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, borderBottom:'1px solid #f1f5f9', background: gbg(glassMgn?.pct), color: gc(glassMgn?.pct) }}>
                                   {glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : isWine && sellUnit !== 'bottle' ? '—' : glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : !isWine && glassMgn == null ? '—' : '—'}
