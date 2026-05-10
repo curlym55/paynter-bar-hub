@@ -2391,7 +2391,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ flex:1, overflowY:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                     <thead style={{ position:'sticky', top:0 }}>
-                      <tr>{th('Item','category')}{th('Category','category')}{th('Supplier','supplier')}{th('Unit','category')}{th('Buy','margin_desc',true)}{th('Sell/Glass','margin_desc',true)}{th('Sell/Bottle','margin_desc',true)}{th('Glass Margin','margin_desc',true)}{th('Bottle Margin','margin_desc',true)}{th('Stock','category',true)}</tr>
+                      <tr>{th('Item','category')}{th('Category','category')}{th('Supplier','supplier')}{th('Unit','category')}{th('Buy','margin_desc',true)}{th('Sell','margin_desc',true)}{th('Btl Sell','margin_desc',true)}{th('Margin','margin_desc',true)}{th('Btl Margin','margin_desc',true)}{th('Stock','category',true)}</tr>
                     </thead>
                     <tbody>
                       {allItems.map((item, i) => {
@@ -2451,13 +2451,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   {isWine && sellUnit==='glass' && sell != null && <span style={{fontSize:9,color:'#94a3b8',marginLeft:3}}>×{servesPB}</span>}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
-                                  {btlPrice != null ? '$' + btlPrice.toFixed(2) : isWine && sellUnit==='bottle' && sell != null ? '$' + sell.toFixed(2) : isWine ? '—' : ''}
+                                  {isWine ? (btlPrice != null ? '$' + btlPrice.toFixed(2) : sellUnit==='bottle' && sell != null ? '$' + sell.toFixed(2) : '—') : ''}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, borderBottom:'1px solid #f1f5f9', background: gbg(glassMgn?.pct), color: gc(glassMgn?.pct) }}>
-                                  {glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : isWine ? '—' : ''}
+                                  {glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : isWine && sellUnit !== 'bottle' ? '—' : glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : !isWine && glassMgn == null ? '—' : '—'}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, borderBottom:'1px solid #f1f5f9', background: gbg(bottleMgn?.pct), color: gc(bottleMgn?.pct) }}>
-                                  {bottleMgn != null ? bottleMgn.pct.toFixed(1) + '%' : isWine ? '—' : ''}
+                                  {isWine ? (bottleMgn != null ? bottleMgn.pct.toFixed(1) + '%' : '—') : ''}
                                 </td>
                                 <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b', fontSize:12, borderBottom:'1px solid #f1f5f9' }}>{item.onHand ?? 0}</td>
                               </tr>
@@ -2468,7 +2468,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </table>
                 </div>
                 <div style={{ padding:'12px 24px', borderTop:'1px solid #e2e8f0', fontSize:11, color:'#94a3b8', flexShrink:0 }}>
-                  Showing all {allItems.length} items including zero stock · Sell price is per unit/nip as set in Hub settings
+                  Showing all {allItems.length} items including zero stock · Sell = per glass for wine (×5), per nip for spirits, per unit for others · Btl columns show bottle sell/margin for wines
                 </div>
               </div>
             </div>
