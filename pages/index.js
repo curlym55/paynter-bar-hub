@@ -1762,11 +1762,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         cell(item.category, LGREY, '64748B'),
         cell(item.supplier || '', LGREY, '64748B'),
         cell(sellUnit, LGREY, '475569'),
-        { v: buy ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: buy!=null?'"$"#,##0.00':'@' } },
-        { v: sell ?? '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt: sell!=null?'"$"#,##0.00':'@' } },
-        { v: (isWine && sellBottle!=null) ? sellBottle : '', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: mp!=null ? Math.round(mp*10)/10 : '', t: mp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'} } },
-        { v: bp!=null ? Math.round(bp*10)/10 : '', t: bp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'} } },
+        { v: buy ?? '', t: buy!=null?'n':'s', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
+        { v: sell ?? '', t: sell!=null?'n':'s', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
+        { v: (isWine && sellBottle!=null) ? sellBottle : '', t:'n', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
+        { v: mp!=null ? Math.round(mp*10)/10 : '', t: mp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
+        { v: bp!=null ? Math.round(bp*10)/10 : '', t: bp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
         { v: item.onHand ?? 0, s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'} } },
       ])
     }
@@ -1774,7 +1774,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const ws = XLSX.utils.aoa_to_sheet(rows)
     ws['!cols'] = [{wch:40},{wch:16},{wch:14},{wch:10},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16},{wch:11}]
     ws['!autofilter'] = { ref: 'A1:J1' }
-    ws['!sheetViews'] = [{ state: 'frozen', ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft' }]
+    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', state: 'frozen' }
     ws['!rows'] = [{ hpt: 20 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pricing Analysis')
