@@ -54,6 +54,8 @@ export default function Home() {
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
+  const [receiveQtys, setReceiveQtys]         = useState({})   // { itemName: number } actual received qty
+  const [squareReceiveResult, setSquareReceiveResult] = useState(null) // { ok, changes, error }
   const [receiptData,  setReceiptData]        = useState(null)
   const [receiptSaved, setReceiptSaved]       = useState(false)
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
@@ -253,8 +255,15 @@ export default function Home() {
 
   function openReceiveModal(supplier, supplierItems) {
     const checked = {}
-    for (const i of supplierItems) checked[i.name] = true  // all ticked by default
+    const qtys = {}
+    for (const i of supplierItems) {
+      checked[i.name] = true
+      const override = orderQtyOverrides[i.name]
+      qtys[i.name] = override !== undefined ? override : (i.orderQty || 0)
+    }
     setReceiveChecked(checked)
+    setReceiveQtys(qtys)
+    setSquareReceiveResult(null)
     setReceiveModal({ supplier, items: supplierItems })
   }
 
@@ -265,6 +274,7 @@ export default function Home() {
     const allReceived = allItems.every(n => receiveChecked[n])
     setPoReceiving(supplier)
     try {
+      // ── 1. Update Hub / Redis state (existing behaviour) ─────────────────
       const action = allReceived ? 'receive' : 'partialReceive'
       const body = allReceived
         ? { action, supplier }
@@ -285,18 +295,71 @@ export default function Home() {
         for (const name of receivedNames) {
           if (orderQtyOverrides[name] !== undefined) saveSetting(name, 'orderQtyOverride', null)
         }
-        // Build receipt for email modal
+
+        // ── 2. Build receipt rows (for display in receipt modal) ──────────
         const receivedItems = receiveModal.items
           .filter(i => receiveChecked[i.name])
           .map(i => {
             const override = orderQtyOverrides[i.name]
-            const nips = override !== undefined ? override : i.orderQty
-            const btl  = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
+            const nips = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (override !== undefined ? override : i.orderQty)
+            const btl  = i.isSpirit ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
             return { name: i.name, sku: i.sku || '', qty: i.isSpirit ? nips + ' nips (' + btl + ' btl)' : nips + ' units', unitCost: i.buyPrice || '' }
           })
+
+        // ── 3. Update Square inventory ───────────────────────────────────
+        const locationId = process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID || 'LNM7JRJ0VKQ7W'
+        const squareItems = receiveModal.items
+          .filter(i => receiveChecked[i.name])
+          .map(i => {
+            const fullItem = items.find(it => it.name === i.name)
+            const qty = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0)
+            return {
+              catalogObjectId: fullItem?.variationId || fullItem?.catalogObjectId || null,
+              quantity: qty,
+              name: i.name,
+              unit: i.isSpirit ? 'nip' : 'each',
+            }
+          })
+          .filter(it => it.catalogObjectId && it.quantity > 0)
+
+        let sqResult = { skipped: true, reason: 'No items with Square variation ID' }
+        if (squareItems.length > 0) {
+          try {
+            const sqRes = await fetch('/api/square/receive-inventory', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ locationId, items: squareItems, reference: `${supplier} delivery` })
+            })
+            sqResult = await sqRes.json()
+          } catch (sqErr) {
+            sqResult = { error: sqErr.message }
+          }
+        }
+        setSquareReceiveResult(sqResult)
+
+        // ── 4. Auto-save report to OneDrive ──────────────────────────────
+        const odItems = receiveModal.items.map(i => ({
+          name: i.name,
+          orderedQty: i.orderQty || 0,
+          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0)) : 0,
+          unit: i.isSpirit ? 'nip' : 'each',
+          note: receiveChecked[i.name] ? '' : 'Not received this delivery',
+        }))
+        let oneDriveResult = null
+        try {
+          const odRes = await fetch('/api/onedrive/save-report', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ reference: `${supplier} delivery`, receivedBy: '', locationName: 'Paynter Bar', items: odItems })
+          })
+          oneDriveResult = await odRes.json()
+        } catch (odErr) {
+          oneDriveResult = { skipped: true, reason: odErr.message }
+        }
+
         const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
         setReceiveModal(null)
-        setReceiptData({ supplier, date: dateStr, items: receivedItems })
+        setReceiptData({ supplier, date: dateStr, items: receivedItems, sqResult, oneDriveResult })
         setReceiptSaved(false)
       }
     } finally {
@@ -1911,18 +1974,30 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
           </div>
         </header>
 
-        {/* Partial Receive Modal */}
+        {/* Receive Stock Modal — with per-item quantity inputs */}
         {receiveModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-              <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 480, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>✓ Receive from {receiveModal.supplier}</div>
+          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>📦 Receive from {receiveModal.supplier}</div>
                 <button onClick={() => setReceiveModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
               </div>
-              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>Tick the items that arrived. Unticked items stay on order.</p>
-              <div style={{ border: '1px solid #e2e8f0', borderRadius: 8, overflow: 'hidden', marginBottom: 16 }}>
+              <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
+                Enter quantities received. Untick items not in this delivery — they stay on order.
+              </p>
+
+              {/* Column headings */}
+              <div style={{ display: 'grid', gridTemplateColumns: '20px 1fr 90px 90px 72px', gap: '0 10px', padding: '6px 10px', background: '#f1f5f9', borderRadius: '6px 6px 0 0', borderBottom: '1px solid #e2e8f0', fontSize: 10, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                <span/>
+                <span>Item</span>
+                <span style={{ textAlign: 'right' }}>Ordered</span>
+                <span style={{ textAlign: 'right' }}>Received</span>
+                <span style={{ textAlign: 'center' }}>Status</span>
+              </div>
+
+              <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden', marginBottom: 14 }}>
                 {/* Select all row */}
-                <div style={{ padding: '8px 14px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ padding: '8px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
                   <input type="checkbox"
                     checked={receiveModal.items.every(i => receiveChecked[i.name])}
                     onChange={e => {
@@ -1931,57 +2006,89 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                       setReceiveChecked(next)
                     }}
                     style={{ width: 15, height: 15, cursor: 'pointer' }} />
-                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Select All</span>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Select All</span>
+                  <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8' }}>
+                    {Object.values(receiveChecked).filter(Boolean).length} of {receiveModal.items.length} selected
+                  </span>
                 </div>
+
                 {receiveModal.items.map(i => {
                   const override = orderQtyOverrides[i.name]
-                  const nips = override !== undefined ? override : i.orderQty
-                  const btl = i.isSpirit ? (override !== undefined ? Math.ceil(override / ((i.bottleML || 700) / (i.nipML || 30))) : i.bottlesToOrder) : null
-                  const qtyLabel = i.isSpirit ? `${nips} nips / ${btl} btl` : `${nips} units`
+                  const orderedQty = override !== undefined ? override : (i.orderQty || 0)
+                  const receivedQty = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : orderedQty
+                  const isChecked = !!receiveChecked[i.name]
+                  const isPartial = isChecked && receivedQty < orderedQty
+                  const isOver    = isChecked && receivedQty > orderedQty
+                  const statusLabel = !isChecked ? { text: 'Skip', color: '#94a3b8', bg: '#f8fafc' }
+                    : isOver    ? { text: 'Over',    color: '#d97706', bg: '#fffbeb' }
+                    : isPartial ? { text: 'Partial', color: '#ca8a04', bg: '#fffbeb' }
+                    :             { text: 'Full',    color: '#16a34a', bg: '#f0fdf4' }
                   return (
-                    <div key={i.name} onClick={() => setReceiveChecked(prev => ({ ...prev, [i.name]: !prev[i.name] }))}
-                      style={{ padding: '10px 14px', borderBottom: '1px solid #f1f5f9', display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer',
-                        background: receiveChecked[i.name] ? '#f0fdf4' : '#fff' }}>
-                      <input type="checkbox" checked={!!receiveChecked[i.name]} onChange={() => {}}
-                        style={{ width: 15, height: 15, cursor: 'pointer', pointerEvents: 'none' }} />
-                      <div style={{ flex: 1 }}>
-                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a' }}>{i.name}</div>
-                        <div style={{ fontSize: 11, color: '#64748b' }}>{qtyLabel}</div>
+                    <div key={i.name} style={{ display: 'grid', gridTemplateColumns: '20px 1fr 90px 90px 72px', gap: '0 10px', alignItems: 'center', padding: '9px 10px', borderBottom: '1px solid #f1f5f9', background: isChecked ? '#fff' : '#fafafa', opacity: isChecked ? 1 : 0.6 }}>
+                      <input type="checkbox" checked={isChecked}
+                        onChange={() => setReceiveChecked(prev => ({ ...prev, [i.name]: !prev[i.name] }))}
+                        style={{ width: 15, height: 15, cursor: 'pointer' }} />
+                      <div>
+                        <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>{i.name}</div>
+                        {i.isSpirit && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
+                          {Math.ceil(receivedQty / ((i.bottleML || 700) / (i.nipML || 30)))} btl
+                        </div>}
                       </div>
-                      {receiveChecked[i.name]
-                        ? <span style={{ fontSize: 10, color: '#16a34a', fontWeight: 700 }}>✓ Received</span>
-                        : <span style={{ fontSize: 10, color: '#94a3b8' }}>Still on order</span>}
+                      <div style={{ textAlign: 'right', fontSize: 13, fontFamily: 'IBM Plex Mono, monospace', color: '#64748b' }}>
+                        {orderedQty}<span style={{ fontSize: 10, marginLeft: 3 }}>{i.isSpirit ? 'nips' : 'units'}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <input
+                          type="number" min="0" step="1"
+                          value={receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : orderedQty}
+                          disabled={!isChecked}
+                          onChange={e => setReceiveQtys(prev => ({ ...prev, [i.name]: Number(e.target.value) || 0 }))}
+                          style={{ width: '100%', textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 13,
+                            border: isOver ? '1.5px solid #d97706' : isPartial ? '1.5px solid #ca8a04' : '1px solid #e2e8f0',
+                            borderRadius: 5, padding: '3px 6px',
+                            background: !isChecked ? '#f8fafc' : isOver ? '#fffbeb' : isPartial ? '#fffbeb' : '#f0fdf4',
+                            color: !isChecked ? '#94a3b8' : '#0f172a', outline: 'none', boxSizing: 'border-box' }}
+                        />
+                      </div>
+                      <div style={{ textAlign: 'center' }}>
+                        <span style={{ display: 'inline-block', padding: '2px 7px', borderRadius: 4, fontSize: 10, fontWeight: 700, background: statusLabel.bg, color: statusLabel.color }}>
+                          {statusLabel.text}
+                        </span>
+                      </div>
                     </div>
                   )
                 })}
               </div>
-              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+
+              <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
+                <span style={{ fontSize: 11, color: '#94a3b8', flex: 1 }}>Square inventory will update automatically on confirm.</span>
                 <button onClick={() => setReceiveModal(null)}
                   style={{ padding: '8px 18px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 6, fontSize: 13, cursor: 'pointer' }}>
                   Cancel
                 </button>
                 <button onClick={confirmReceive}
                   disabled={!Object.values(receiveChecked).some(v => v) || poReceiving}
-                  style={{ padding: '8px 18px', background: Object.values(receiveChecked).some(v => v) ? '#16a34a' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-                  {poReceiving ? '…' : `✓ Confirm ${Object.values(receiveChecked).filter(v=>v).length} of ${receiveModal.items.length} Received`}
+                  style={{ padding: '8px 20px', background: Object.values(receiveChecked).some(v => v) ? '#16a34a' : '#94a3b8', color: '#fff', border: 'none', borderRadius: 6, fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+                  {poReceiving ? '⏳ Updating…' : `✓ Confirm Receive`}
                 </button>
               </div>
-              <p style={{ fontSize: 10, color: '#94a3b8', marginTop: 10 }}>Remember to also update stock in Square Dashboard for received items.</p>
             </div>
           </div>
         )}
 
 
-        {/* RECEIPT & EMAIL MODAL - shown after confirming stock received */}
+        {/* RECEIPT MODAL — shown after confirming stock received */}
         {receiptData && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
             <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-                <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>Stock Received — {receiptData.supplier}</div>
-                <button onClick={() => setReceiptData(null)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>x</button>
+                <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>✅ Stock Received — {receiptData.supplier}</div>
+                <button onClick={() => setReceiptData(null)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>✕</button>
               </div>
-              <div style={{ background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', padding:'12px 14px', marginBottom:16 }}>
-                <div style={{ fontSize:11, color:'#64748b', marginBottom:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>{receiptData.date} - {receiptData.items.length} item{receiptData.items.length !== 1 ? 's' : ''}</div>
+
+              {/* Items list */}
+              <div style={{ background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0', padding:'12px 14px', marginBottom:14 }}>
+                <div style={{ fontSize:11, color:'#64748b', marginBottom:8, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.05em' }}>{receiptData.date} — {receiptData.items.length} item{receiptData.items.length !== 1 ? 's' : ''}</div>
                 {receiptData.items.map(i => (
                   <div key={i.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
                     <span style={{ fontWeight:600 }}>{i.name}{i.sku ? <span style={{ fontSize:11, color:'#94a3b8', marginLeft:6 }}>SKU: {i.sku}</span> : null}</span>
@@ -1989,17 +2096,53 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   </div>
                 ))}
               </div>
-              <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:'10px 14px', marginBottom:16 }}>
-                <div style={{ fontSize:11, fontWeight:700, color:'#1e40af', marginBottom:4, textTransform:'uppercase', letterSpacing:'0.05em' }}>Save to OneDrive</div>
-                <div style={{ fontSize:12, color:'#374151', lineHeight:1.6 }}>
-                  Paynter - gemwoods.com.au &nbsp;›&nbsp; Purchase Orders &nbsp;›&nbsp; Orders Received &nbsp;›&nbsp; <strong>{receiptData.supplier}</strong>
+
+              {/* Square inventory status */}
+              {receiptData.sqResult && (
+                <div style={{ marginBottom:10, padding:'10px 14px', borderRadius:7,
+                  background: receiptData.sqResult.error ? '#fff5f5' : receiptData.sqResult.skipped ? '#fffbeb' : '#f0fdf4',
+                  border: `1px solid ${receiptData.sqResult.error ? '#fca5a5' : receiptData.sqResult.skipped ? '#fde68a' : '#86efac'}` }}>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom:2, color: receiptData.sqResult.error ? '#dc2626' : receiptData.sqResult.skipped ? '#ca8a04' : '#16a34a', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    {receiptData.sqResult.error ? '⚠ Square Update Failed' : receiptData.sqResult.skipped ? '⚠ Square Not Updated' : '✓ Square Inventory Updated'}
+                  </div>
+                  <div style={{ fontSize:12, color:'#374151' }}>
+                    {receiptData.sqResult.error
+                      ? receiptData.sqResult.error
+                      : receiptData.sqResult.skipped
+                      ? (receiptData.sqResult.reason || 'Variation IDs not found — update manually in Square Dashboard')
+                      : `${receiptData.sqResult.changes?.length ?? 0} stock adjustment${receiptData.sqResult.changes?.length !== 1 ? 's' : ''} applied`}
+                  </div>
                 </div>
-              </div>
-              {receiptSaved && <div style={{ padding:'10px 14px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:6, fontSize:13, color:'#16a34a', fontWeight:600, marginBottom:12 }}>✓ Report saved</div>}
+              )}
+
+              {/* OneDrive auto-save status */}
+              {receiptData.oneDriveResult && (
+                <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:7,
+                  background: receiptData.oneDriveResult.error ? '#fff5f5' : receiptData.oneDriveResult.skipped ? '#eff6ff' : '#f0fdf4',
+                  border: `1px solid ${receiptData.oneDriveResult.error ? '#fca5a5' : receiptData.oneDriveResult.skipped ? '#bfdbfe' : '#86efac'}` }}>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom:2, color: receiptData.oneDriveResult.error ? '#dc2626' : receiptData.oneDriveResult.skipped ? '#1e40af' : '#16a34a', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    {receiptData.oneDriveResult.error ? '⚠ OneDrive Save Failed' : receiptData.oneDriveResult.skipped ? 'ℹ OneDrive Not Configured' : '✓ Report Saved to OneDrive'}
+                  </div>
+                  <div style={{ fontSize:12, color:'#374151' }}>
+                    {receiptData.oneDriveResult.skipped
+                      ? (receiptData.oneDriveResult.reason || 'Set ONEDRIVE env vars to enable auto-save — see RECEIVE_FEATURE_SETUP.md')
+                      : receiptData.oneDriveResult.error
+                      ? receiptData.oneDriveResult.error
+                      : receiptData.oneDriveResult.filename}
+                  </div>
+                  {receiptData.oneDriveResult.webUrl && (
+                    <a href={receiptData.oneDriveResult.webUrl} target="_blank" rel="noreferrer"
+                      style={{ fontSize:11, color:'#16a34a', display:'block', marginTop:4 }}>Open in OneDrive ↗</a>
+                  )}
+                </div>
+              )}
+
               <div style={{ display:'flex', gap:8 }}>
-                <button onClick={() => setReceiptData(null)} style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>Close</button>
-                <button
-                  onClick={async () => {
+                <button onClick={() => setReceiptData(null)}
+                  style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, cursor:'pointer' }}>
+                  Close
+                </button>
+                <button onClick={async () => {
                     const sup = receiptData.supplier
                     const d = receiptData.date
                     const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
@@ -2024,7 +2167,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                     }
                   }}
                   style={{ flex:2, padding:'9px 0', background: receiptSaved ? '#16a34a' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                  {receiptSaved ? '✓ Saved' : '💾 Save Receipt to OneDrive'}
+                  {receiptSaved ? '✓ Downloaded' : '💾 Download HTML Receipt'}
                 </button>
               </div>
             </div>
