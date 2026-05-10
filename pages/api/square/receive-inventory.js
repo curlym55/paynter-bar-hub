@@ -17,7 +17,7 @@
  */
 
 import { randomUUID } from 'crypto'
-import { getVariationIdMap, getLocationId } from '../../lib/square'
+import { getVariationIdMap, getLocationId } from '../../../lib/square'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
