@@ -1709,8 +1709,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const allItems = [...items].sort((a, b) => {
       if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
-        const ma = a.buyPrice && a.sellPrice ? (Number(a.sellPrice) - Number(a.buyPrice)) / Number(a.sellPrice) * 100 : -999
-        const mb = b.buyPrice && b.sellPrice ? (Number(b.sellPrice) - Number(b.buyPrice)) / Number(b.sellPrice) * 100 : -999
+        const WINE_C = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+        const eBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice)/((i.bottleML||700)/(i.nipML||30)) : WINE_C.includes(i.category) ? Number(i.buyPrice)/5 : Number(i.buyPrice)
+        const ma = a.buyPrice && a.sellPrice ? (Number(a.sellPrice)-(eBuy(a)||0))/Number(a.sellPrice)*100 : -999
+        const mb = b.buyPrice && b.sellPrice ? (Number(b.sellPrice)-(eBuy(b)||0))/Number(b.sellPrice)*100 : -999
         return marginSort === 'margin_asc' ? ma - mb : mb - ma
       }
       if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
@@ -1721,18 +1723,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const rows = [
       [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Buy Price', true), hdr('Sell Price', true), hdr('Margin $', true), hdr('Margin %', true), hdr('On Hand', true), hdr('Notes')],
       ...allItems.map((item, i) => {
+        const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+        const GLASSES_PER_BOTTLE = 5
         const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
         const rawSell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
-        // Normalise sell price to per-bottle for accurate margin
-        const sell = buy != null && rawSell != null
-          ? item.isSpirit
-            ? rawSell * ((item.bottleML || 700) / (item.nipML || 30))   // nip → bottle
-            : (item.sellPriceBottle || item.squareSellPriceBottle)       // use bottle price if available
-              ? Number(item.sellPriceBottle || item.squareSellPriceBottle)
-              : rawSell                                                  // fallback: sell as-is
-          : rawSell
-        const marginDol = buy != null && sell != null ? sell - buy : null
-        const marginPct = buy != null && sell != null && sell > 0 ? (sell - buy) / sell * 100 : null
+        // Per-glass margin: normalise buy cost to per sell-unit
+        const effectiveBuy = buy == null ? null
+          : item.isSpirit
+            ? buy / ((item.bottleML || 700) / (item.nipML || 30))  // cost per nip
+            : WINE_CATS.includes(item.category)
+              ? buy / GLASSES_PER_BOTTLE                            // cost per glass
+              : buy                                                  // cost per unit (snacks, soft drinks)
+        const sell = rawSell
+        const marginDol = effectiveBuy != null && sell != null ? sell - effectiveBuy : null
+        const marginPct = effectiveBuy != null && sell != null && sell > 0 ? (sell - effectiveBuy) / sell * 100 : null
         const bg = marginPct == null ? LGREY : marginPct < 20 ? RED : marginPct < 35 ? ORANGE : GREEN
         const tc = marginPct == null ? '0F172A' : marginPct < 20 ? DRED : marginPct < 35 ? DORANGE : DGREEN
         const flags = []
@@ -2301,18 +2305,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {showMargin && (() => {
           const allItems = [...items].sort((a, b) => {
             if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
-              const effSell = (item) => item.isSpirit && item.sellPrice ? Number(item.sellPrice) * ((item.bottleML||700)/(item.nipML||30)) : (item.sellPriceBottle||item.squareSellPriceBottle) ? Number(item.sellPriceBottle||item.squareSellPriceBottle) : Number(item.sellPrice||0)
-              const ma = a.buyPrice && a.sellPrice ? (effSell(a) - Number(a.buyPrice)) / effSell(a) * 100 : -999
-              const mb = b.buyPrice && b.sellPrice ? (effSell(b) - Number(b.buyPrice)) / effSell(b) * 100 : -999
+              const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+              const effBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice) / ((i.bottleML||700)/(i.nipML||30)) : WINE_CATS.includes(i.category) ? Number(i.buyPrice) / 5 : Number(i.buyPrice)
+              const calcMgn = (i) => { const b = effBuy(i); const s = Number(i.sellPrice||0); return b && s ? (s-b)/s*100 : -999 }
+              const ma = calcMgn(a)
+              const mb = calcMgn(b)
               return marginSort === 'margin_asc' ? ma - mb : mb - ma
             }
             if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
             const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
             return catA !== catB ? catA - catB : a.name.localeCompare(b.name)
           })
-          const effSell = (item) => item.isSpirit && item.sellPrice ? Number(item.sellPrice) * ((item.bottleML||700)/(item.nipML||30)) : (item.sellPriceBottle||item.squareSellPriceBottle) ? Number(item.sellPriceBottle||item.squareSellPriceBottle) : Number(item.sellPrice||0)
+          const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
+          const effBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice)/((i.bottleML||700)/(i.nipML||30)) : WINE_CATS.includes(i.category) ? Number(i.buyPrice)/5 : Number(i.buyPrice)
           const withMargin = allItems.filter(i => i.buyPrice && i.sellPrice)
-          const avgMargin = withMargin.length ? withMargin.reduce((s, i) => s + (effSell(i) - Number(i.buyPrice)) / effSell(i) * 100, 0) / withMargin.length : 0
+          const avgMargin = withMargin.length ? withMargin.reduce((s, i) => { const b=effBuy(i); const sl=Number(i.sellPrice); return s + (b&&sl ? (sl-b)/sl*100 : 0) }, 0) / withMargin.length : 0
           const missingPrice = allItems.filter(i => !i.buyPrice || !i.sellPrice).length
           const th = (label, key, right) => (
             <th onClick={() => setMarginSort(s => s === key ? (key.endsWith('_asc') ? key.replace('_asc','_desc') : key.replace('_desc','_asc')) : key)}
