@@ -1650,6 +1650,37 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     setTimeout(() => w.print(), 500)
   }
 
+  function printDeliverySheet(supplier, supplierItems) {
+    const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
+    const rows = supplierItems.map(item => {
+      const override = orderQtyOverrides[item.name]
+      const qty = override !== undefined ? override : (item.orderQty || 0)
+      const qtyLabel = item.isSpirit
+        ? `${qty} nips / ${Math.ceil(qty / ((item.bottleML || 700) / (item.nipML || 30)))} btl`
+        : `${qty} units`
+      return `<tr>
+        <td style="text-align:center"><input type="checkbox" style="width:16px;height:16px"></td>
+        <td>${item.name}</td>
+        <td style="text-align:right;font-weight:700">${qtyLabel}</td>
+        <td style="width:120px">&nbsp;</td>
+      </tr>`
+    }).join('')
+    const html = `<!DOCTYPE html><html><head><title>Delivery Checklist - ${supplier} - ${date}</title>
+<style>body{font-family:Arial,sans-serif;font-size:13px;margin:20px}h1{font-size:18px;margin-bottom:4px}.sub{color:#666;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{background:#1f2937;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}.footer{margin-top:24px;font-size:11px;color:#9ca3af}@media print{body{margin:10px}input[type=checkbox]{-webkit-print-color-adjust:exact}}</style>
+</head><body>
+<h1>Delivery Checklist — ${supplier}</h1>
+<div class="sub">Paynter Bar, GemLife Palmwoods | ${date} | ${supplierItems.length} item(s) on order</div>
+<table><thead><tr><th style="width:36px">✓</th><th>Item</th><th style="text-align:right">Qty Ordered</th><th>Qty Received</th></tr></thead>
+<tbody>${rows}</tbody></table>
+<div class="footer">Generated ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' })} | Paynter Bar Reorder System</div>
+</body></html>`
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    setTimeout(() => w.print(), 500)
+  }
+
   function exportStocktake() {
     const script = document.createElement('script')
     script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
@@ -2344,9 +2375,9 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         View
                       </button>
                       {!readOnly && (
-                        <button onClick={() => { printOrderSheet(supplier); }}
+                        <button onClick={() => printDeliverySheet(supplier, supplierItems)}
                           style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
-                          🖨️ Print
+                          📋 Delivery List
                         </button>
                       )}
                       {!readOnly && (
