@@ -2391,7 +2391,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ flex:1, overflowY:'auto' }}>
                   <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
                     <thead style={{ position:'sticky', top:0 }}>
-                      <tr>{th('Item','category')}{th('Category','category')}{th('Supplier','supplier')}{th('Buy','margin_desc',true)}{th('Sell','margin_desc',true)}{th('Margin $','margin_desc',true)}{th('Margin %','margin_desc',true)}{th('Stock','category',true)}</tr>
+                      <tr>{th('Item','category')}{th('Category','category')}{th('Supplier','supplier')}{th('Unit','category')}{th('Buy','margin_desc',true)}{th('Sell/Glass','margin_desc',true)}{th('Sell/Bottle','margin_desc',true)}{th('Glass Margin','margin_desc',true)}{th('Bottle Margin','margin_desc',true)}{th('Stock','category',true)}</tr>
                     </thead>
                     <tbody>
                       {allItems.map((item, i) => {
@@ -2416,16 +2416,56 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         const bg = mPct == null ? '#fafafa' : mPct < 20 ? '#fee2e2' : mPct < 35 ? '#fef9c3' : '#f0fdf4'
                         const tc = mPct == null ? '#dc2626' : mPct < 20 ? '#991b1b' : mPct < 35 ? '#92400e' : '#166534'
                         return (
-                          <tr key={item.name} style={{ background: i % 2 === 0 ? bg : bg + 'cc' }}>
-                            <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', borderBottom:'1px solid #f1f5f9' }}>{item.name}</td>
-                            <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.category}</td>
-                            <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.supplier || '—'}</td>
-                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>{buy != null ? '$' + buy.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}</td>
-                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>{sell != null ? '$' + sell.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}</td>
-                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:tc, borderBottom:'1px solid #f1f5f9' }}>{mDol != null ? '$' + mDol.toFixed(2) : '—'}</td>
-                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:800, fontSize:14, color:tc, borderBottom:'1px solid #f1f5f9' }}>{mPct != null ? mPct.toFixed(1) + '%' : '—'}</td>
-                            <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b', fontSize:12, borderBottom:'1px solid #f1f5f9' }}>{item.onHand ?? 0}</td>
-                          </tr>
+                          {(() => {
+                            // Glass margin (wine by glass or spirit by nip)
+                            const glassMgn = isWine && sellUnit === 'glass' && buy != null && sell != null && sell > 0
+                              ? { pct: (sell*servesPB - buy)/(sell*servesPB)*100, dol: sell - buy/servesPB }
+                              : !isWine && buy != null && sell != null && sell > 0
+                              ? { pct: (sell-buy)/sell*100, dol: sell-buy }
+                              : null
+                            // Bottle margin (wines with a bottle sell price)
+                            const btlSell = item.sellPriceBottle || item.squareSellPriceBottle
+                            const btlPrice = btlSell != null && btlSell !== '' ? Number(btlSell) : null
+                            const bottleMgn = isWine && buy != null && btlPrice != null && btlPrice > 0
+                              ? { pct: (btlPrice-buy)/btlPrice*100, dol: btlPrice-buy }
+                              : isWine && sellUnit === 'bottle' && buy != null && sell != null && sell > 0
+                              ? { pct: (sell-buy)/sell*100, dol: sell-buy }
+                              : null
+                            const gc = (p) => p == null ? '#94a3b8' : p < 20 ? '#991b1b' : p < 35 ? '#92400e' : '#166534'
+                            const gbg = (p) => p == null ? '#fafafa' : p < 20 ? '#fee2e2' : p < 35 ? '#fef9c3' : '#f0fdf4'
+                            const rowBg = i % 2 === 0 ? '#ffffff' : '#f8fafc'
+                            return (
+                              <tr key={item.name} style={{ background: rowBg }}>
+                                <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', borderBottom:'1px solid #f1f5f9' }}>{item.name}</td>
+                                <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.category}</td>
+                                <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.supplier || '—'}</td>
+                                <td style={{ padding:'7px 10px', borderBottom:'1px solid #f1f5f9' }}>
+                                  <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:3,
+                                    background: sellUnit==='glass'?'#eff6ff':sellUnit==='nip'?'#fef3c7':'#f0fdf4',
+                                    color: sellUnit==='glass'?'#1d4ed8':sellUnit==='nip'?'#92400e':'#166534' }}>
+                                    {sellUnit}
+                                  </span>
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
+                                  {buy != null ? '$' + buy.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
+                                  {sell != null ? '$' + sell.toFixed(2) : '—'}
+                                  {isWine && sellUnit==='glass' && sell != null && <span style={{fontSize:9,color:'#94a3b8',marginLeft:3}}>×{servesPB}</span>}
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>
+                                  {btlPrice != null ? '$' + btlPrice.toFixed(2) : isWine && sellUnit==='bottle' && sell != null ? '$' + sell.toFixed(2) : isWine ? '—' : ''}
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, borderBottom:'1px solid #f1f5f9', background: gbg(glassMgn?.pct), color: gc(glassMgn?.pct) }}>
+                                  {glassMgn != null ? glassMgn.pct.toFixed(1) + '%' : isWine ? '—' : ''}
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, borderBottom:'1px solid #f1f5f9', background: gbg(bottleMgn?.pct), color: gc(bottleMgn?.pct) }}>
+                                  {bottleMgn != null ? bottleMgn.pct.toFixed(1) + '%' : isWine ? '—' : ''}
+                                </td>
+                                <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b', fontSize:12, borderBottom:'1px solid #f1f5f9' }}>{item.onHand ?? 0}</td>
+                              </tr>
+                            )
+                          })()}
                         )
                       })}
                     </tbody>
