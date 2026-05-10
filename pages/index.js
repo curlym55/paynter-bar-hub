@@ -2094,17 +2094,17 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
               {/* Square inventory status */}
               {receiptData.sqResult && (
                 <div style={{ marginBottom:10, padding:'10px 14px', borderRadius:7,
-                  background: receiptData.sqResult.error ? '#fff5f5' : receiptData.sqResult.skipped ? '#fffbeb' : '#f0fdf4',
-                  border: `1px solid ${receiptData.sqResult.error ? '#fca5a5' : receiptData.sqResult.skipped ? '#fde68a' : '#86efac'}` }}>
-                  <div style={{ fontSize:11, fontWeight:700, marginBottom:2, color: receiptData.sqResult.error ? '#dc2626' : receiptData.sqResult.skipped ? '#ca8a04' : '#16a34a', textTransform:'uppercase', letterSpacing:'0.05em' }}>
-                    {receiptData.sqResult.error ? '⚠ Square Update Failed' : receiptData.sqResult.skipped ? '⚠ Square Not Updated' : '✓ Square Inventory Updated'}
+                  background: receiptData.sqResult.error ? '#fff5f5' : !receiptData.sqResult.success ? '#fffbeb' : '#f0fdf4',
+                  border: `1px solid ${receiptData.sqResult.error ? '#fca5a5' : !receiptData.sqResult.success ? '#fde68a' : '#86efac'}` }}>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom:2, color: receiptData.sqResult.error ? '#dc2626' : !receiptData.sqResult.success ? '#ca8a04' : '#16a34a', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    {receiptData.sqResult.error ? '⚠ Square Update Failed' : !receiptData.sqResult.success ? '⚠ Square Not Updated' : '✓ Square Inventory Updated'}
                   </div>
                   <div style={{ fontSize:12, color:'#374151' }}>
                     {receiptData.sqResult.error
                       ? receiptData.sqResult.error
-                      : receiptData.sqResult.skipped
+                      : !receiptData.sqResult.success
                       ? (receiptData.sqResult.reason || 'Variation IDs not found — update manually in Square Dashboard')
-                      : `${receiptData.sqResult.changes?.length ?? 0} stock adjustment${receiptData.sqResult.changes?.length !== 1 ? 's' : ''} applied`}
+                      : `${receiptData.sqResult.changes} stock adjustment${receiptData.sqResult.changes !== 1 ? 's' : ''} applied`}
                   </div>
                 </div>
               )}
