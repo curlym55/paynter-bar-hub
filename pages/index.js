@@ -36,6 +36,8 @@ export default function Home() {
   const [view, setView]                 = useState('all')
   const [filterOrder, setFilterOrder]   = useState(true)
   const [showDetails, setShowDetails]   = useState(false)
+  const [showMargin, setShowMargin]       = useState(false)
+  const [marginSort, setMarginSort]       = useState('category') // 'category' | 'margin_asc' | 'margin_desc' | 'supplier'
 
   const [saving, setSaving]             = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
@@ -1693,6 +1695,63 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     setTimeout(() => w.print(), 500)
   }
 
+  async function generateMarginExcel() {
+    if (!window.XLSX) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+    const XLSX = window.XLSX
+    const NAVY='1E3A5F', WHITE='FFFFFF', LGREY='F8FAFC', RED='FEE2E2', ORANGE='FEF3C7', GREEN='F0FDF4', DRED='991B1B', DORANGE='92400E', DGREEN='166534'
+    const hdr = (v, right) => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: right ? 'right' : 'left' }, border: { bottom: { style: 'thin', color: { rgb: 'E2E8F0' } } } } })
+    const cell = (v, bg, color, right, bold) => ({ v: v ?? '', s: { fill: { fgColor: { rgb: bg || LGREY } }, font: { color: { rgb: color || '0F172A' }, bold: !!bold }, alignment: { horizontal: right ? 'right' : 'left' }, border: { bottom: { style: 'thin', color: { rgb: 'F1F5F9' } } } } })
+
+    const allItems = [...items].sort((a, b) => {
+      if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
+        const ma = a.buyPrice && a.sellPrice ? (Number(a.sellPrice) - Number(a.buyPrice)) / Number(a.sellPrice) * 100 : -999
+        const mb = b.buyPrice && b.sellPrice ? (Number(b.sellPrice) - Number(b.buyPrice)) / Number(b.sellPrice) * 100 : -999
+        return marginSort === 'margin_asc' ? ma - mb : mb - ma
+      }
+      if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
+      const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
+      return catA !== catB ? catA - catB : a.name.localeCompare(b.name)
+    })
+
+    const rows = [
+      [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Buy Price', true), hdr('Sell Price', true), hdr('Margin $', true), hdr('Margin %', true), hdr('On Hand', true), hdr('Notes')],
+      ...allItems.map((item, i) => {
+        const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
+        const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
+        const marginDol = buy != null && sell != null ? sell - buy : null
+        const marginPct = buy != null && sell != null && sell > 0 ? (sell - buy) / sell * 100 : null
+        const bg = marginPct == null ? LGREY : marginPct < 20 ? RED : marginPct < 35 ? ORANGE : GREEN
+        const tc = marginPct == null ? '0F172A' : marginPct < 20 ? DRED : marginPct < 35 ? DORANGE : DGREEN
+        const flags = []
+        if (!buy) flags.push('No buy price')
+        if (!sell) flags.push('No sell price')
+        return [
+          cell(item.name, bg, '0F172A', false, true),
+          cell(item.category, bg, '64748B'),
+          cell(item.supplier || '', bg, '64748B'),
+          { v: buy ?? '', s: { fill: { fgColor: { rgb: bg } }, font: { color: { rgb: tc } }, alignment: { horizontal: 'right' }, numFmt: buy != null ? '"$"#,##0.00' : '@' } },
+          { v: sell ?? '', s: { fill: { fgColor: { rgb: bg } }, font: { color: { rgb: tc } }, alignment: { horizontal: 'right' }, numFmt: sell != null ? '"$"#,##0.00' : '@' } },
+          { v: marginDol ?? '', s: { fill: { fgColor: { rgb: bg } }, font: { color: { rgb: tc }, bold: true }, alignment: { horizontal: 'right' }, numFmt: marginDol != null ? '"$"#,##0.00' : '@' } },
+          { v: marginPct != null ? marginPct / 100 : '', s: { fill: { fgColor: { rgb: bg } }, font: { color: { rgb: tc }, bold: true }, alignment: { horizontal: 'right' }, numFmt: marginPct != null ? '0.0%' : '@' } },
+          cell(item.onHand ?? 0, bg, '64748B', true),
+          cell(flags.join(', '), bg, DRED),
+        ]
+      })
+    ]
+
+    const ws = XLSX.utils.aoa_to_sheet(rows)
+    ws['!cols'] = [{ wch: 38 }, { wch: 18 }, { wch: 14 }, { wch: 11 }, { wch: 11 }, { wch: 11 }, { wch: 10 }, { wch: 9 }, { wch: 22 }]
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, 'Margin Analysis')
+    const date = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }).replace(/\//g, '-')
+    XLSX.writeFile(wb, `PricingAnalysis-${date}.xlsx`)
+  }
+
   function exportStocktake() {
     const script = document.createElement('script')
     script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
@@ -2230,6 +2289,99 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             </div>
           </div>
         )}
+        {/* Margin Analysis Modal */}
+        {showMargin && (() => {
+          const allItems = [...items].sort((a, b) => {
+            if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
+              const ma = a.buyPrice && a.sellPrice ? (Number(a.sellPrice) - Number(a.buyPrice)) / Number(a.sellPrice) * 100 : -999
+              const mb = b.buyPrice && b.sellPrice ? (Number(b.sellPrice) - Number(b.buyPrice)) / Number(b.sellPrice) * 100 : -999
+              return marginSort === 'margin_asc' ? ma - mb : mb - ma
+            }
+            if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
+            const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
+            return catA !== catB ? catA - catB : a.name.localeCompare(b.name)
+          })
+          const withMargin = allItems.filter(i => i.buyPrice && i.sellPrice)
+          const avgMargin = withMargin.length ? withMargin.reduce((s, i) => s + (Number(i.sellPrice) - Number(i.buyPrice)) / Number(i.sellPrice) * 100, 0) / withMargin.length : 0
+          const missingPrice = allItems.filter(i => !i.buyPrice || !i.sellPrice).length
+          const th = (label, key, right) => (
+            <th onClick={() => setMarginSort(s => s === key ? (key.endsWith('_asc') ? key.replace('_asc','_desc') : key.replace('_desc','_asc')) : key)}
+              style={{ padding:'8px 10px', background:'#1e3a5f', color:'#fff', fontSize:11, fontWeight:700, textTransform:'uppercase', letterSpacing:'0.06em', textAlign: right ? 'right' : 'left', cursor:'pointer', whiteSpace:'nowrap', userSelect:'none' }}>
+              {label}{marginSort.startsWith(key.split('_')[0]) ? (marginSort.endsWith('_asc') ? ' ↑' : ' ↓') : ''}
+            </th>
+          )
+          return (
+            <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+              <div style={{ background:'#fff', borderRadius:12, width:'100%', maxWidth:900, maxHeight:'92vh', display:'flex', flexDirection:'column', boxShadow:'0 24px 64px rgba(0,0,0,0.4)' }}>
+                {/* Header */}
+                <div style={{ padding:'18px 24px 14px', borderBottom:'1px solid #e2e8f0', flexShrink:0 }}>
+                  <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <div style={{ fontSize:17, fontWeight:800, color:'#0f172a' }}>📊 Margin Analysis — All Items ({allItems.length})</div>
+                    <button onClick={() => setShowMargin(false)} style={{ background:'none', border:'none', fontSize:22, cursor:'pointer', color:'#94a3b8' }}>✕</button>
+                  </div>
+                  <div style={{ display:'flex', gap:16, marginTop:10, flexWrap:'wrap' }}>
+                    {[['Avg Margin', avgMargin.toFixed(1) + '%', '#16a34a'], ['Missing Prices', missingPrice, '#dc2626'], ['Total Items', allItems.length, '#1e3a5f']].map(([l,v,c]) => (
+                      <div key={l} style={{ padding:'6px 14px', background:'#f8fafc', borderRadius:7, border:'1px solid #e2e8f0' }}>
+                        <div style={{ fontSize:10, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.06em' }}>{l}</div>
+                        <div style={{ fontSize:18, fontWeight:800, color:c }}>{v}</div>
+                      </div>
+                    ))}
+                    <div style={{ marginLeft:'auto', display:'flex', gap:8, alignItems:'center' }}>
+                      <select value={marginSort} onChange={e => setMarginSort(e.target.value)}
+                        style={{ padding:'6px 10px', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, color:'#475569', cursor:'pointer' }}>
+                        <option value='category'>Sort: Category</option>
+                        <option value='supplier'>Sort: Supplier</option>
+                        <option value='margin_desc'>Sort: Margin High→Low</option>
+                        <option value='margin_asc'>Sort: Margin Low→High</option>
+                      </select>
+                      <button onClick={generateMarginExcel}
+                        style={{ padding:'7px 16px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>📥 Excel</button>
+                    </div>
+                  </div>
+                  <div style={{ display:'flex', gap:12, marginTop:10, fontSize:11 }}>
+                    {[['🟢 ≥35% margin', '#dcfce7', '#166534'], ['🟡 20–35%', '#fef9c3', '#92400e'], ['🔴 <20% or missing', '#fee2e2', '#991b1b']].map(([l,bg,c]) => (
+                      <span key={l} style={{ padding:'2px 10px', borderRadius:4, background:bg, color:c, fontWeight:600 }}>{l}</span>
+                    ))}
+                  </div>
+                </div>
+                {/* Table */}
+                <div style={{ flex:1, overflowY:'auto' }}>
+                  <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                    <thead style={{ position:'sticky', top:0 }}>
+                      <tr>{th('Item','category')}{th('Category','category')}{th('Supplier','supplier')}{th('Buy','margin_desc',true)}{th('Sell','margin_desc',true)}{th('Margin $','margin_desc',true)}{th('Margin %','margin_desc',true)}{th('Stock','category',true)}</tr>
+                    </thead>
+                    <tbody>
+                      {allItems.map((item, i) => {
+                        const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
+                        const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
+                        const mDol = buy != null && sell != null ? sell - buy : null
+                        const mPct = buy != null && sell != null && sell > 0 ? (sell - buy) / sell * 100 : null
+                        const bg = mPct == null ? '#fafafa' : mPct < 20 ? '#fee2e2' : mPct < 35 ? '#fef9c3' : '#f0fdf4'
+                        const tc = mPct == null ? '#dc2626' : mPct < 20 ? '#991b1b' : mPct < 35 ? '#92400e' : '#166534'
+                        return (
+                          <tr key={item.name} style={{ background: i % 2 === 0 ? bg : bg + 'cc' }}>
+                            <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', borderBottom:'1px solid #f1f5f9' }}>{item.name}</td>
+                            <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.category}</td>
+                            <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11, borderBottom:'1px solid #f1f5f9' }}>{item.supplier || '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>{buy != null ? '$' + buy.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontSize:12, color:'#475569', borderBottom:'1px solid #f1f5f9' }}>{sell != null ? '$' + sell.toFixed(2) : <span style={{color:'#dc2626',fontSize:10}}>missing</span>}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:700, color:tc, borderBottom:'1px solid #f1f5f9' }}>{mDol != null ? '$' + mDol.toFixed(2) : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', fontWeight:800, fontSize:14, color:tc, borderBottom:'1px solid #f1f5f9' }}>{mPct != null ? mPct.toFixed(1) + '%' : '—'}</td>
+                            <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b', fontSize:12, borderBottom:'1px solid #f1f5f9' }}>{item.onHand ?? 0}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ padding:'12px 24px', borderTop:'1px solid #e2e8f0', fontSize:11, color:'#94a3b8', flexShrink:0 }}>
+                  Showing all {allItems.length} items including zero stock · Sell price is per unit/nip as set in Hub settings
+                </div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Order Ref Prompt Modal */}
         {refModal && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
@@ -2343,6 +2495,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   )
                 })}
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
+                <button onClick={() => setShowMargin(true)}
+                  style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
+                  📊 Margin Analysis
+                </button>
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
               </div>
