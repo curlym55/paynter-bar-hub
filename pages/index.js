@@ -1694,94 +1694,129 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
   }
 
   async function exportPricingExcel() {
-    if (!window.XLSX) {
+    if (!window.ExcelJS) {
       const s = document.createElement('script')
-      s.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
       document.head.appendChild(s)
       await new Promise(r => { s.onload = r })
     }
-    const XLSX = window.XLSX
-    const NAVY='1E3A5F', WHITE='FFFFFF', LGREY='F8FAFC'
-    const RED='FEE2E2', ORANGE='FEF3C7', GREEN='F0FDF4'
-    const DRED='991B1B', DORANGE='92400E', DGREEN='166534'
-    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+    const ExcelJS = window.ExcelJS
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Pricing Analysis')
 
-    const hdr = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'left',vertical:'center'} } })
-    const hdrR = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'left',vertical:'center'} } })
-    const cell = (v, bg, color, right, bold) => ({ v: v ?? '', s: { fill:{fgColor:{rgb:bg||LGREY}}, font:{color:{rgb:color||'0F172A'},bold:!!bold}, alignment:{horizontal:right?'right':'left'} } })
+    // Freeze row 1
+    ws.views = [{ state: 'frozen', ySplit: 1 }]
 
-    const allItems = [...items].sort((a,b) => {
-      const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
-      return catA !== catB ? catA - catB : a.name.localeCompare(b.name)
+    // Columns
+    ws.columns = [
+      { header: 'Item',         key: 'name',      width: 40 },
+      { header: 'Category',     key: 'cat',       width: 16 },
+      { header: 'Supplier',     key: 'sup',       width: 14 },
+      { header: 'Unit',         key: 'unit',      width: 10 },
+      { header: 'Buy',          key: 'buy',       width: 10 },
+      { header: 'Sell',         key: 'sell',      width: 11 },
+      { header: 'Btl Sell',     key: 'btlSell',   width: 11 },
+      { header: 'Margin %',     key: 'margin',    width: 12 },
+      { header: 'Btl Margin %', key: 'btlMargin', width: 14 },
+      { header: 'On Hand',      key: 'onHand',    width: 10 },
+    ]
+
+    // Header styling
+    const hRow = ws.getRow(1)
+    hRow.height = 22
+    hRow.eachCell(cell => {
+      cell.fill   = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
+      cell.font   = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
+      cell.alignment = { horizontal: 'left', vertical: 'middle' }
+      cell.border = { bottom: { style: 'thin', color: { argb: 'FF3B82F6' } } }
     })
 
-    const rows = [
-      [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Unit'), hdrR('Buy'), hdrR('Sell'), hdrR('Sell/Bottle'), hdrR('Margin %'), hdrR('Btl Margin %'), hdrR('On Hand')]
-    ]
+    // AutoFilter
+    ws.autoFilter = { from: 'A1', to: 'J1' }
+
+    // Data
+    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+    const allItems = [...items].sort((a,b) => {
+      const ca = CATEGORY_ORDER_LIST.indexOf(a.category), cb = CATEGORY_ORDER_LIST.indexOf(b.category)
+      return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
+    })
+
+    const mColor = (p) => p==null ? null : p < 20 ? { argb:'FFFEE2E2' } : p < 35 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
+    const mFont  = (p) => p==null ? null : p < 20 ? { argb:'FF991B1B' } : p < 35 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
     for (const item of allItems) {
       const isWine = WINE_C.includes(item.category)
       const forceBottle = item.category === 'Sparkling' || item.bottleOnly
       const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : isWine ? (item.sellUnit || 'glass') : 'each'
       const servesPB = isWine && sellUnit === 'glass' ? 5 : 1
-
-      // Replicate pricing viewMode sell price logic
       const vars = item.variations || []
-      const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
+      const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
       const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-      const nipVar = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+      const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
       const sellGlass = item.isSpirit
         ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
         : glassVar?.price != null ? Number(glassVar.price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
       const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
       const sell = isWine && sellUnit === 'bottle' ? sellBottle : sellGlass
-      const buy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-
-      // Margin calculation matching pricing viewMode
-      let marginPct = null, btlMarginPct = null
+      const buy  = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+      let mp = null, bp = null
       if (buy != null && sell != null && sell > 0) {
-        if (item.isSpirit) {
-          marginPct = (sell - buy) / sell * 100
-        } else if (isWine && sellUnit === 'glass' && servesPB) {
-          const rev = sell * servesPB
-          marginPct = rev > 0 ? (rev - buy) / rev * 100 : null
-        } else {
-          marginPct = (sell - buy) / sell * 100
-        }
+        if (item.isSpirit) mp = (sell-buy)/sell*100
+        else if (isWine && sellUnit==='glass') { const rev=sell*servesPB; mp = rev>0?(rev-buy)/rev*100:null }
+        else mp = (sell-buy)/sell*100
       }
-      if (isWine && sellBottle != null && buy != null && sellBottle > 0) {
-        btlMarginPct = (sellBottle - buy) / sellBottle * 100
+      if (isWine && sellBottle!=null && buy!=null && sellBottle>0) bp = (sellBottle-buy)/sellBottle*100
+
+      const row = ws.addRow({
+        name: item.name,
+        cat:  item.category,
+        sup:  item.supplier || '',
+        unit: sellUnit,
+        buy:  buy ?? '',
+        sell: sell ?? '',
+        btlSell:   isWine && sellBottle ? sellBottle : '',
+        margin:    mp != null ? mp/100 : '',
+        btlMargin: bp != null ? bp/100 : '',
+        onHand:    item.onHand ?? 0,
+      })
+
+      // Number formats
+      if (buy  != null) row.getCell('buy').numFmt    = '"$"#,##0.00'
+      if (sell != null) row.getCell('sell').numFmt   = '"$"#,##0.00'
+      if (isWine && sellBottle) row.getCell('btlSell').numFmt = '"$"#,##0.00'
+      if (mp != null) {
+        const mc = row.getCell('margin')
+        mc.numFmt = '0.0%'
+        mc.fill   = { type: 'pattern', pattern: 'solid', fgColor: mColor(mp) }
+        mc.font   = { bold: true, color: mFont(mp) }
+        mc.alignment = { horizontal: 'right' }
       }
-
-      const mbg = (p) => p == null ? LGREY : p < 20 ? RED : p < 35 ? ORANGE : GREEN
-      const mtc = (p) => p == null ? '475569' : p < 20 ? DRED : p < 35 ? DORANGE : DGREEN
-      const mp = marginPct, bp = btlMarginPct
-
-      rows.push([
-        cell(item.name, LGREY, '0F172A', false, true),
-        cell(item.category, LGREY, '64748B'),
-        cell(item.supplier || '', LGREY, '64748B'),
-        cell(sellUnit, LGREY, '475569'),
-        { v: buy ?? '', t: buy!=null?'n':'s', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: sell ?? '', t: sell!=null?'n':'s', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: (isWine && sellBottle!=null) ? sellBottle : '', t:'n', s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'}, numFmt:'"$"#,##0.00' } },
-        { v: mp!=null ? Math.round(mp*10)/10 : '', t: mp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(mp)}}, font:{color:{rgb:mtc(mp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
-        { v: bp!=null ? Math.round(bp*10)/10 : '', t: bp!=null?'n':'s', s: { fill:{fgColor:{rgb:mbg(bp)}}, font:{color:{rgb:mtc(bp)},bold:true}, alignment:{horizontal:'right'}, numFmt:'0.0"%"' } },
-        { v: item.onHand ?? 0, s: { fill:{fgColor:{rgb:LGREY}}, alignment:{horizontal:'right'} } },
-      ])
+      if (bp != null) {
+        const bc = row.getCell('btlMargin')
+        bc.numFmt = '0.0%'
+        bc.fill   = { type: 'pattern', pattern: 'solid', fgColor: mColor(bp) }
+        bc.font   = { bold: true, color: mFont(bp) }
+        bc.alignment = { horizontal: 'right' }
+      }
+      // Alternate row shading
+      const bg = ws.rowCount % 2 === 0 ? { argb:'FFF8FAFC' } : { argb:'FFFFFFFF' }
+      ;['name','cat','sup','unit','buy','sell','btlSell','onHand'].forEach(k => {
+        const c = row.getCell(k)
+        if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
+      })
     }
 
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [{wch:40},{wch:16},{wch:14},{wch:10},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16},{wch:11}]
-    ws['!autofilter'] = { ref: 'A1:J1' }
-    ws["!freeze"] = { xSplit: 0, ySplit: 1, topLeftCell: "A2", activePane: "bottomLeft", state: "frozen" }
-    ws['!rows'] = [{ hpt: 20 }]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'Pricing Analysis')
+    // Export
     const date = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'}).replace(/\//g,'-')
-    XLSX.writeFile(wb, `PricingAnalysis-${date}.xlsx`)
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    a.href = url; a.download = `PricingAnalysis-${date}.xlsx`; a.click()
+    URL.revokeObjectURL(url)
   }
 
+  function printPricingSheet() {
   function printPricingSheet() {
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
     const allItems = [...items].sort((a,b) => {
