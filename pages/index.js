@@ -2413,7 +2413,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             mPct = (sell - buy) / sell * 100
                           }
                         }
-                          {(() => {
+                          return (() => {
                             // Glass margin (wine by glass or spirit by nip)
                             const glassMgn = isWine && sellUnit === 'glass' && buy != null && sell != null && sell > 0
                               ? { pct: (sell*servesPB - buy)/(sell*servesPB)*100, dol: sell - buy/servesPB }
@@ -2462,7 +2462,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b', fontSize:12, borderBottom:'1px solid #f1f5f9' }}>{item.onHand ?? 0}</td>
                               </tr>
                             )
-                          })()}
+                          })()
                       })}
                     </tbody>
                   </table>
