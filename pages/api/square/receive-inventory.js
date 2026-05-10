@@ -65,7 +65,6 @@ export default async function handler(req, res) {
             location_id:       locationId,
             quantity:          String(Number(item.quantity).toFixed(4)),
             occurred_at:       occurredAt,
-            reference_no:      reference ?? 'Paynter Bar Hub Receive',
           },
         }
       })
