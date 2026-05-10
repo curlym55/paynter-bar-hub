@@ -2387,19 +2387,19 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print list for reference when ordering with supplier online. Note any changes to quantities or items.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print list for reference when ordering with supplier online. Click Mark as Ordered to track it here.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>✏️</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3 — Update</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Update any quantities the supplier couldn’t fill, then print final list.</div>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>📦</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3 — Receive</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>When delivery arrives, click Receive on the order banner. Enter actual quantities received.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>🖨️</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Print & File</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print and/or save final list. Create PO in Square by CSV import or manually from the list.</div>
+                  <div style={{ fontSize: 18, marginBottom: 4 }}>✅</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Done</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Download HTML receipt for your records.</div>
                 </div>
               </div>
             )}
