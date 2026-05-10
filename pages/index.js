@@ -1774,7 +1774,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const ws = XLSX.utils.aoa_to_sheet(rows)
     ws['!cols'] = [{wch:40},{wch:16},{wch:14},{wch:10},{wch:10},{wch:12},{wch:14},{wch:14},{wch:16},{wch:11}]
     ws['!autofilter'] = { ref: 'A1:J1' }
-    ws['!freeze'] = { xSplit: 0, ySplit: 1, topLeftCell: 'A2', state: 'frozen' }
+    ws['!sheetViews'] = [{ pane: { ySplit: 1, topLeftCell: 'A2', activePane: 'bottomLeft', state: 'frozen' }, selection: [{ pane: 'bottomLeft' }] }]
     ws['!rows'] = [{ hpt: 20 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pricing Analysis')
