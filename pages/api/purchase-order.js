@@ -15,14 +15,16 @@ export default async function handler(req, res) {
       // items: [{ name, sku, orderQty, bottlesToOrder, isSpirit, unitCost }]
       const ordered = (await kvGet('orderedItems')) || {}
       const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+      const ref = req.body.ref || ''
       for (const item of items) {
         ordered[item.name] = {
           supplier,
           date,
-          orderQty:      item.orderQty,
+          ref,
+          orderQty:       item.orderQty,
           bottlesToOrder: item.bottlesToOrder || null,
-          isSpirit:      item.isSpirit || false,
-          sku:           item.sku || '',
+          isSpirit:       item.isSpirit || false,
+          sku:            item.sku || '',
         }
       }
       await kvSet('orderedItems', ordered)

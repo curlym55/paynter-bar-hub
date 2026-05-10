@@ -53,6 +53,8 @@ export default function Home() {
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
+  const [refModal, setRefModal]               = useState(null) // { supplier } — order ref prompt
+  const [refInput, setRefInput]               = useState('')
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
   const [receiveQtys, setReceiveQtys]         = useState({})   // { itemName: number } actual received qty
   const [squareReceiveResult, setSquareReceiveResult] = useState(null) // { ok, changes, error }
@@ -444,7 +446,16 @@ export default function Home() {
     reader.readAsText(file)
   }
 
-  async function markAsOrdered(supplier) {
+  function generateOrderRef(supplier) {
+    const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
+    const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
+    const now = new Date()
+    const bne = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: '2-digit', year: '2-digit' }).format(now)
+    const [d, m, y] = bne.split('/')
+    return `${abbr}-${d}${m}${y}`
+  }
+
+  async function markAsOrdered(supplier, ref) {
     const poItems = items.filter(i =>
       i.supplier === supplier &&
       (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
@@ -460,7 +471,7 @@ export default function Home() {
     const r = await fetch('/api/purchase-order', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'place', supplier, items: poItems })
+      body: JSON.stringify({ action: 'place', supplier, ref: ref || '', items: poItems })
     })
     const d = await r.json()
     if (d.ok) {
@@ -1650,7 +1661,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     setTimeout(() => w.print(), 500)
   }
 
-  function printDeliverySheet(supplier, supplierItems) {
+  function printDeliverySheet(supplier, supplierItems, ref) {
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = supplierItems.map(item => {
       const override = orderQtyOverrides[item.name]
@@ -1666,9 +1677,10 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
       </tr>`
     }).join('')
     const html = `<!DOCTYPE html><html><head><title>Delivery Checklist - ${supplier} - ${date}</title>
-<style>body{font-family:Arial,sans-serif;font-size:13px;margin:20px}h1{font-size:18px;margin-bottom:4px}.sub{color:#666;font-size:12px;margin-bottom:16px}table{width:100%;border-collapse:collapse}th{background:#1f2937;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}.footer{margin-top:24px;font-size:11px;color:#9ca3af}@media print{body{margin:10px}input[type=checkbox]{-webkit-print-color-adjust:exact}}</style>
+<style>body{font-family:Arial,sans-serif;font-size:13px;margin:20px}h1{font-size:18px;margin-bottom:4px}.sub{color:#666;font-size:12px;margin-bottom:16px}.ref{display:inline-block;background:#dcfce7;color:#166534;font-weight:700;font-family:monospace;padding:2px 10px;border-radius:4px;font-size:13px;margin-bottom:12px}table{width:100%;border-collapse:collapse}th{background:#1f2937;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}.footer{margin-top:24px;font-size:11px;color:#9ca3af}@media print{body{margin:10px}input[type=checkbox]{-webkit-print-color-adjust:exact}}</style>
 </head><body>
 <h1>Delivery Checklist — ${supplier}</h1>
+${ref ? `<div class="ref">${ref}</div>` : ''}
 <div class="sub">Paynter Bar, GemLife Palmwoods | ${date} | ${supplierItems.length} item(s) on order</div>
 <table><thead><tr><th style="width:36px">✓</th><th>Item</th><th style="text-align:right">Qty Ordered</th><th>Qty Received</th></tr></thead>
 <tbody>${rows}</tbody></table>
@@ -2218,6 +2230,31 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
             </div>
           </div>
         )}
+        {/* Order Ref Prompt Modal */}
+        {refModal && (
+          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+            <div style={{ background:'#fff', borderRadius:10, padding:24, width:'100%', maxWidth:360, boxShadow:'0 16px 48px rgba(0,0,0,0.25)' }}>
+              <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>Order Reference — {refModal.supplier}</div>
+              <p style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Auto-generated from today's date. Edit if you have a supplier order number.</p>
+              <input
+                value={refInput}
+                onChange={e => setRefInput(e.target.value)}
+                style={{ width:'100%', padding:'9px 12px', fontSize:15, fontWeight:700, fontFamily:'monospace', border:'2px solid #86efac', borderRadius:7, outline:'none', boxSizing:'border-box', letterSpacing:'0.05em' }}
+                autoFocus
+                onKeyDown={e => { if (e.key === 'Enter') { markAsOrdered(refModal.supplier, refInput); setRefModal(null) } if (e.key === 'Escape') setRefModal(null) }}
+              />
+              <div style={{ display:'flex', gap:8, marginTop:14 }}>
+                <button onClick={() => setRefModal(null)}
+                  style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, cursor:'pointer' }}>Cancel</button>
+                <button onClick={() => { markAsOrdered(refModal.supplier, refInput); setRefModal(null) }}
+                  style={{ flex:2, padding:'9px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  ✓ Mark as Ordered
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {sohModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
             <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
@@ -2344,7 +2381,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           <button style={styles.dropItem} onClick={() => { printOrderSheet(s); setPrinting(null) }}>
                             🖨️ Print Order List
                           </button>
-                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => markAsOrdered(s)}>
+                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => { setRefInput(generateOrderRef(s)); setRefModal({ supplier: s }); setPrinting(null) }}>
                             ✓ Mark as Ordered
                           </button>
                         </div>
@@ -2369,19 +2406,22 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   {Object.entries(bySupplier).map(([supplier, supplierItems]) => (
                     <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
+                      {supplierItems[0]?.ref && (
+                        <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: 4, fontWeight: 700 }}>{supplierItems[0].ref}</span>
+                      )}
                       <span style={{ fontSize: 12, color: '#64748b' }}>{supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
                       <button onClick={() => setViewOrderModal({ supplier, items: supplierItems })}
                         style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                         View
                       </button>
                       {!readOnly && (
-                        <button onClick={() => printDeliverySheet(supplier, supplierItems)}
+                        <button onClick={() => printDeliverySheet(supplier, supplierItems, supplierItems[0]?.ref)}
                           style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                           📋 Delivery List
                         </button>
                       )}
                       {!readOnly && (
-                        <button onClick={() => markAsOrdered(supplier)}
+                        <button onClick={() => { setRefInput(generateOrderRef(supplier)); setRefModal({ supplier }) }}
                           style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                           ✓ Mark Ordered
                         </button>
