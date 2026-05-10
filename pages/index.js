@@ -2137,31 +2137,51 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                   Close
                 </button>
                 <button onClick={async () => {
-                    const sup = receiptData.supplier
-                    const d = receiptData.date
-                    const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
-                    const dateslug = d.replace(/\//g,'-')
-                    const fname = 'RECV-' + slug + '-' + dateslug + '.html'
-                    const rows = receiptData.items.map(i => '<tr><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;font-weight:600">' + i.name + (i.sku ? ' <span style="color:#94a3b8;font-size:11px">SKU: ' + i.sku + '</span>' : '') + '</td><td style="padding:6px 10px;border-bottom:1px solid #e2e8f0;text-align:right;font-family:monospace">' + i.qty + '</td></tr>').join('')
-                    const html = '<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Receipt - ' + sup + ' - ' + d + '</title><style>body{font-family:Arial,sans-serif;max-width:600px;margin:40px auto;color:#1f2937}h2{color:#1e3a5f}table{width:100%;border-collapse:collapse}th{background:#1e3a5f;color:#fff;padding:8px 10px;text-align:left}th:last-child{text-align:right}.footer{margin-top:24px;font-size:11px;color:#94a3b8;border-top:1px solid #e2e8f0;padding-top:12px}</style></head><body><h2>Stock Received &mdash; ' + sup + '</h2><p style="color:#64748b;font-size:13px">' + d + ' &nbsp;&bull;&nbsp; ' + receiptData.items.length + ' item' + (receiptData.items.length !== 1 ? 's' : '') + '</p><table><thead><tr><th>Item</th><th style="text-align:right">Qty Received</th></tr></thead><tbody>' + rows + '</tbody></table><div class="footer">Paynter Bar &mdash; GemLife Palmwoods &nbsp;|&nbsp; Generated from Hub</div></body></html>'
-                    if (window.showSaveFilePicker) {
-                      try {
-                        const fh = await window.showSaveFilePicker({ suggestedName: fname, types:[{ description:'HTML file', accept:{'text/html':['.html']} }] })
-                        const w = await fh.createWritable()
-                        await w.write(html)
-                        await w.close()
-                        setReceiptSaved(true)
-                      } catch(e) { if (e.name !== 'AbortError') alert('Save failed: ' + e.message) }
-                    } else {
-                      const a = document.createElement('a')
-                      a.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(html)
-                      a.download = fname
-                      a.click()
+                    try {
+                      const sup = receiptData.supplier
+                      const d = receiptData.date
+                      const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
+                      const dateslug = d.replace(/\//g,'-')
+                      const fname = 'RECV-' + slug + '-' + dateslug + '.xlsx'
+
+                      // Load SheetJS with styles (same CDN used by SOH report)
+                      if (!window.XLSX) {
+                        const script = document.createElement('script')
+                        script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
+                        document.head.appendChild(script)
+                        await new Promise(r => { script.onload = r })
+                      }
+                      const XLSX = window.XLSX
+                      const NAVY = '1E3A5F'; const WHITE = 'FFFFFF'; const LGREY = 'F1F5F9'; const GREEN = '16A34A'
+
+                      const hdr  = (v, right) => ({ v, s: { font: { bold: true, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: right ? 'right' : 'left' } } })
+                      const meta = (v) => ({ v, s: { font: { sz: 10, color: { rgb: '64748B' } } } })
+                      const txt  = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } } } })
+                      const qty  = (v, i) => ({ v: v || '', s: { fill: { fgColor: { rgb: i % 2 === 0 ? LGREY : WHITE } }, alignment: { horizontal: 'right' }, font: { bold: true } } })
+                      const foot = (v) => ({ v, s: { font: { sz: 9, italic: true, color: { rgb: '94A3B8' } } } })
+
+                      const rows = [
+                        [{ v: 'Paynter Bar — Goods Received', s: { font: { bold: true, sz: 14, color: { rgb: NAVY } } } }, {v:'',s:{}}, {v:'',s:{}}],
+                        [meta('Supplier'), meta(sup), {v:'',s:{}}],
+                        [meta('Date'), meta(d), {v:'',s:{}}],
+                        [meta('Items received'), meta(String(receiptData.items.length)), {v:'',s:{}}],
+                        [{v:'',s:{}},{v:'',s:{}},{v:'',s:{}}],
+                        [hdr('Item'), hdr('SKU'), hdr('Qty Received', true)],
+                        ...receiptData.items.map((item, i) => [txt(item.name, i), txt(item.sku || '', i), qty(item.qty, i)]),
+                        [{v:'',s:{}},{v:'',s:{}},{v:'',s:{}}],
+                        [foot('Paynter Bar — GemLife Palmwoods'), foot(''), foot('Generated by Paynter Bar Hub')],
+                      ]
+
+                      const ws = XLSX.utils.aoa_to_sheet(rows)
+                      ws['!cols'] = [{ wch: 42 }, { wch: 14 }, { wch: 18 }]
+                      const wb = XLSX.utils.book_new()
+                      XLSX.utils.book_append_sheet(wb, ws, 'Goods Received')
+                      XLSX.writeFile(wb, fname)
                       setReceiptSaved(true)
-                    }
+                    } catch(e) { alert('Download failed: ' + e.message) }
                   }}
                   style={{ flex:2, padding:'9px 0', background: receiptSaved ? '#16a34a' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                  {receiptSaved ? '✓ Downloaded' : '💾 Download HTML Receipt'}
+                  {receiptSaved ? '✓ Downloaded' : '📊 Download Receipt (Excel)'}
                 </button>
               </div>
             </div>
