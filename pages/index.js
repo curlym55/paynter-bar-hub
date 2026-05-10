@@ -2463,7 +2463,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </tr>
                             )
                           })()}
-                        )
                       })}
                     </tbody>
                   </table>
