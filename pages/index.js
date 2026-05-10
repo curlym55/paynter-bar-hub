@@ -1706,8 +1706,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const DRED='991B1B', DORANGE='92400E', DGREEN='166534'
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
 
-    const hdr = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'center'} } })
-    const hdrR = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'right'} } })
+    const hdr = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'center',wrapText:true} } })
+    const hdrR = (v) => ({ v, s: { font:{bold:true,color:{rgb:WHITE}}, fill:{fgColor:{rgb:NAVY}}, alignment:{horizontal:'right',wrapText:true} } })
     const cell = (v, bg, color, right, bold) => ({ v: v ?? '', s: { fill:{fgColor:{rgb:bg||LGREY}}, font:{color:{rgb:color||'0F172A'},bold:!!bold}, alignment:{horizontal:right?'right':'left'} } })
 
     const allItems = [...items].sort((a,b) => {
@@ -1774,6 +1774,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const ws = XLSX.utils.aoa_to_sheet(rows)
     ws['!cols'] = [{wch:38},{wch:16},{wch:14},{wch:7},{wch:9},{wch:9},{wch:11},{wch:10},{wch:11},{wch:9}]
     ws['!autofilter'] = { ref: 'A1:J1' }
+    ws['!rows'] = [{ hpt: 36 }]
     const wb = XLSX.utils.book_new()
     XLSX.utils.book_append_sheet(wb, ws, 'Pricing Analysis')
     const date = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'}).replace(/\//g,'-')
