@@ -2313,9 +2313,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                           <button style={styles.dropItem} onClick={() => { printOrderSheet(s); setPrinting(null) }}>
                             🖨️ Print Order List
                           </button>
-                          <button style={styles.dropItem} onClick={() => { generatePoExcel(s); setPrinting(null) }}>
-                            📥 Export CSV for Square
-                          </button>
                           <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => markAsOrdered(s)}>
                             ✓ Mark as Ordered
                           </button>
@@ -2346,6 +2343,18 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
                         style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                         View
                       </button>
+                      {!readOnly && (
+                        <button onClick={() => { printOrderSheet(supplier); }}
+                          style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
+                          🖨️ Print
+                        </button>
+                      )}
+                      {!readOnly && (
+                        <button onClick={() => markAsOrdered(supplier)}
+                          style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
+                          ✓ Mark Ordered
+                        </button>
+                      )}
                       {!readOnly && (
                         <button onClick={() => openReceiveModal(supplier, supplierItems)}
                           disabled={poReceiving === supplier}
