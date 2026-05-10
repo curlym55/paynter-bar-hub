@@ -1709,10 +1709,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const allItems = [...items].sort((a, b) => {
       if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
-        const WINE_C = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
-        const eBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice)/((i.bottleML||700)/(i.nipML||30)) : WINE_C.includes(i.category) ? Number(i.buyPrice)/5 : Number(i.buyPrice)
-        const ma = a.buyPrice && a.sellPrice ? (Number(a.sellPrice)-(eBuy(a)||0))/Number(a.sellPrice)*100 : -999
-        const mb = b.buyPrice && b.sellPrice ? (Number(b.sellPrice)-(eBuy(b)||0))/Number(b.sellPrice)*100 : -999
+        const WINE_C2 = ['White Wine','Red Wine','Rose','Sparkling']
+        const mgnPct = (i) => {
+          const b = i.buyPrice != null && i.buyPrice !== '' ? Number(i.buyPrice) : null
+          const s = i.sellPrice != null && i.sellPrice !== '' ? Number(i.sellPrice) : null
+          if (!b || !s || s <= 0) return -999
+          const fw = i.category === 'Sparkling' || i.bottleOnly
+          const su = i.isSpirit ? 'nip' : fw ? 'bottle' : WINE_C2.includes(i.category) ? (i.sellUnit||'glass') : 'each'
+          if (WINE_C2.includes(i.category) && su === 'glass') { const rev=s*5; return rev>0?(rev-b)/rev*100:-999 }
+          return (s-b)/s*100
+        }
+        const ma = mgnPct(a)
+        const mb = mgnPct(b)
         return marginSort === 'margin_asc' ? ma - mb : mb - ma
       }
       if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
@@ -1723,20 +1731,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const rows = [
       [hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('Buy Price', true), hdr('Sell Price', true), hdr('Margin $', true), hdr('Margin %', true), hdr('On Hand', true), hdr('Notes')],
       ...allItems.map((item, i) => {
-        const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
-        const GLASSES_PER_BOTTLE = 5
-        const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
-        const rawSell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
-        // Per-glass margin: normalise buy cost to per sell-unit
-        const effectiveBuy = buy == null ? null
-          : item.isSpirit
-            ? buy / ((item.bottleML || 700) / (item.nipML || 30))  // cost per nip
-            : WINE_CATS.includes(item.category)
-              ? buy / GLASSES_PER_BOTTLE                            // cost per glass
-              : buy                                                  // cost per unit (snacks, soft drinks)
-        const sell = rawSell
-        const marginDol = effectiveBuy != null && sell != null ? sell - effectiveBuy : null
-        const marginPct = effectiveBuy != null && sell != null && sell > 0 ? (sell - effectiveBuy) / sell * 100 : null
+        const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling']
+        const isWineE = WINE_CATS.includes(item.category)
+        const forceBottleE = item.category === 'Sparkling' || item.bottleOnly
+        const sellUnitE = item.isSpirit ? 'nip' : forceBottleE ? 'bottle' : isWineE ? (item.sellUnit || 'glass') : 'each'
+        const buy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+        const sell = item.sellPrice != null && item.sellPrice !== '' ? Number(item.sellPrice) : null
+        let marginDol = null, marginPct = null
+        if (buy != null && sell != null && sell > 0) {
+          if (isWineE && sellUnitE === 'glass') {
+            const rev = sell * 5
+            marginPct = rev > 0 ? (rev - buy) / rev * 100 : null
+            marginDol = marginPct != null ? sell - buy / 5 : null
+          } else {
+            marginDol = sell - buy
+            marginPct = (sell - buy) / sell * 100
+          }
+        }
         const bg = marginPct == null ? LGREY : marginPct < 20 ? RED : marginPct < 35 ? ORANGE : GREEN
         const tc = marginPct == null ? '0F172A' : marginPct < 20 ? DRED : marginPct < 35 ? DORANGE : DGREEN
         const flags = []
@@ -2305,21 +2316,36 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {showMargin && (() => {
           const allItems = [...items].sort((a, b) => {
             if (marginSort === 'margin_asc' || marginSort === 'margin_desc') {
-              const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
-              const effBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice) / ((i.bottleML||700)/(i.nipML||30)) : WINE_CATS.includes(i.category) ? Number(i.buyPrice) / 5 : Number(i.buyPrice)
-              const calcMgn = (i) => { const b = effBuy(i); const s = Number(i.sellPrice||0); return b && s ? (s-b)/s*100 : -999 }
-              const ma = calcMgn(a)
-              const mb = calcMgn(b)
+              const WC = ['White Wine','Red Wine','Rose','Sparkling']
+              const getMgn = (i) => {
+                const b = i.buyPrice != null && i.buyPrice !== '' ? Number(i.buyPrice) : null
+                const s = i.sellPrice != null && i.sellPrice !== '' ? Number(i.sellPrice) : null
+                if (!b || !s || s <= 0) return -999
+                const fb = i.category === 'Sparkling' || i.bottleOnly
+                const su = i.isSpirit ? 'nip' : fb ? 'bottle' : WC.includes(i.category) ? (i.sellUnit||'glass') : 'each'
+                if (WC.includes(i.category) && su === 'glass') { const rev=s*5; return rev>0?(rev-b)/rev*100:-999 }
+                return (s-b)/s*100
+              }
+              const ma = getMgn(a)
+              const mb = getMgn(b)
               return marginSort === 'margin_asc' ? ma - mb : mb - ma
             }
             if (marginSort === 'supplier') return (a.supplier || '').localeCompare(b.supplier || '')
             const catA = CATEGORY_ORDER_LIST.indexOf(a.category), catB = CATEGORY_ORDER_LIST.indexOf(b.category)
             return catA !== catB ? catA - catB : a.name.localeCompare(b.name)
           })
-          const WINE_CATS = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
-          const effBuy = (i) => !i.buyPrice ? null : i.isSpirit ? Number(i.buyPrice)/((i.bottleML||700)/(i.nipML||30)) : WINE_CATS.includes(i.category) ? Number(i.buyPrice)/5 : Number(i.buyPrice)
+          const WCA = ['White Wine','Red Wine','Rose','Sparkling']
+          const getMgnA = (i) => {
+            const b = i.buyPrice != null && i.buyPrice !== '' ? Number(i.buyPrice) : null
+            const s = i.sellPrice != null && i.sellPrice !== '' ? Number(i.sellPrice) : null
+            if (!b || !s || s <= 0) return null
+            const fb = i.category === 'Sparkling' || i.bottleOnly
+            const su = i.isSpirit ? 'nip' : fb ? 'bottle' : WCA.includes(i.category) ? (i.sellUnit||'glass') : 'each'
+            if (WCA.includes(i.category) && su === 'glass') { const rev=s*5; return rev>0?(rev-b)/rev*100:null }
+            return (s-b)/s*100
+          }
           const withMargin = allItems.filter(i => i.buyPrice && i.sellPrice)
-          const avgMargin = withMargin.length ? withMargin.reduce((s, i) => { const b=effBuy(i); const sl=Number(i.sellPrice); return s + (b&&sl ? (sl-b)/sl*100 : 0) }, 0) / withMargin.length : 0
+          const avgMargin = withMargin.length ? withMargin.reduce((sum, i) => { const m=getMgnA(i); return sum+(m??0) }, 0) / withMargin.length : 0
           const missingPrice = allItems.filter(i => !i.buyPrice || !i.sellPrice).length
           const th = (label, key, right) => (
             <th onClick={() => setMarginSort(s => s === key ? (key.endsWith('_asc') ? key.replace('_asc','_desc') : key.replace('_desc','_asc')) : key)}
@@ -2371,10 +2397,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       {allItems.map((item, i) => {
                         const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
                         const sell = item.sellPrice !== '' && item.sellPrice != null ? Number(item.sellPrice) : null
-                        const WINE_C = ['White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs']
-                        const eBuy = buy == null ? null : item.isSpirit ? buy / ((item.bottleML||700)/(item.nipML||30)) : WINE_C.includes(item.category) ? buy / 5 : buy
-                        const mDol = eBuy != null && sell != null ? sell - eBuy : null
-                        const mPct = eBuy != null && sell != null && sell > 0 ? (sell - eBuy) / sell * 100 : null
+                        const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+                        const isWine = WINE_C.includes(item.category)
+                        const forceBottle = item.category === 'Sparkling' || item.bottleOnly
+                        const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : isWine ? (item.sellUnit || 'glass') : 'each'
+                        const servesPB = isWine && sellUnit === 'glass' ? 5 : 1
+                        const buy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+                        const sell = item.sellPrice != null && item.sellPrice !== '' ? Number(item.sellPrice) : null
+                        let mDol = null, mPct = null
+                        if (buy != null && sell != null && sell > 0) {
+                          if (isWine && sellUnit === 'glass') {
+                            const rev = sell * servesPB
+                            mPct = rev > 0 ? (rev - buy) / rev * 100 : null
+                            mDol = mPct != null ? sell - buy / servesPB : null  // margin per glass
+                          } else {
+                            mDol = sell - buy
+                            mPct = (sell - buy) / sell * 100
+                          }
+                        }
                         const bg = mPct == null ? '#fafafa' : mPct < 20 ? '#fee2e2' : mPct < 35 ? '#fef9c3' : '#f0fdf4'
                         const tc = mPct == null ? '#dc2626' : mPct < 20 ? '#991b1b' : mPct < 35 ? '#92400e' : '#166534'
                         return (
