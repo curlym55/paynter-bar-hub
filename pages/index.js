@@ -38,6 +38,7 @@ export default function Home() {
   const [showDetails, setShowDetails]   = useState(false)
 
   const [saving, setSaving]             = useState({})
+  const [rundownItems, setRundownItems]   = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -143,10 +144,13 @@ export default function Home() {
     try {
       const effectiveDays = days || daysBack
       const refreshParam = showRefresh ? '&refresh=true' : ''
-      const [r, ro] = await Promise.all([
+      const [r, ro, rundownRes] = await Promise.all([
         fetch(`/api/items?days=${effectiveDays}${refreshParam}`),
-        fetch('/api/purchase-order')
+        fetch('/api/purchase-order'),
+        fetch('/api/rundown'),
       ])
+      const rundownData = await rundownRes.json().catch(() => ({}))
+      if (rundownData.rundown) setRundownItems(rundownData.rundown)
       if (!r.ok) {
         let msg = 'Failed to load from Square'
         try { const e = await r.json(); msg = e.error || msg } catch {}
@@ -1985,7 +1989,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     document.head.appendChild(script)
   }
 
-  const dontOrder = item => /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i.test(item.notes || '')
+  const dontOrder = item => !!rundownItems[item.name]
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
@@ -2884,14 +2888,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 title="Rundown — exclude from orders">
                                 <input type="checkbox"
                                   checked={!!dontOrder(item)}
-                                  onChange={() => {
-                                    if (dontOrder(item)) {
-                                      const cleaned = (item.notes || '').replace(/don'?t\s+order|do\s+not\s+order|don'?t\s+restock|do\s+not\s+restock/gi, '').trim()
-                                      saveSetting(item.name, 'notes', cleaned)
-                                    } else {
-                                      const note = (item.notes || '').trim()
-                                      saveSetting(item.name, 'notes', note ? note + ' — Don\'t Order' : "Don't Order")
-                                    }
+                                  onChange={async () => {
+                                    const newVal = !rundownItems[item.name]
+                                    setRundownItems(prev => { const n = {...prev}; if (newVal) n[item.name]=true; else delete n[item.name]; return n })
+                                    await fetch('/api/rundown', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ name: item.name, value: newVal }) })
                                   }}
                                   style={{ width: 13, height: 13, cursor: 'pointer', accentColor: '#94a3b8' }}
                                 />
