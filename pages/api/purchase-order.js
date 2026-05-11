@@ -1,9 +1,34 @@
 import { kvGet, kvSet } from '../../lib/redis'
 
+const SUPPLIER_ABBR = {
+  'dan murphy':   'DAN',
+  'coles woolies': 'COLE',
+  'coles/woolies': 'COLE',
+  'acw':           'ACW',
+}
+
+function supplierAbbr(supplier) {
+  const key = (supplier || '').toLowerCase().trim()
+  return SUPPLIER_ABBR[key] || (supplier || 'GEN').replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
+}
+
+async function getNextPoNumber(peek = false) {
+  const current = (await kvGet('poNextNumber').catch(() => null)) || 99
+  const next = current + 1
+  if (!peek) await kvSet('poNextNumber', next)
+  return next
+}
+
 // GET  — return current on-order state
 // POST — place order (flag items) or clear supplier (received)
 export default async function handler(req, res) {
   if (req.method === 'GET') {
+    const { action } = req.query
+    // Preview next PO number without incrementing
+    if (action === 'previewNumber') {
+      const num = await getNextPoNumber(true)
+      return res.json({ num })
+    }
     const ordered = (await kvGet('orderedItems')) || {}
     return res.json({ ordered })
   }
@@ -15,12 +40,19 @@ export default async function handler(req, res) {
       // items: [{ name, sku, orderQty, bottlesToOrder, isSpirit, unitCost }]
       const ordered = (await kvGet('orderedItems')) || {}
       const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-      const ref = req.body.ref || ''
+      const abbr = supplierAbbr(supplier)
+      const poNum = await getNextPoNumber()
+      const brisDate = new Intl.DateTimeFormat('en-AU', {
+        timeZone: 'Australia/Brisbane', day: '2-digit', month: '2-digit', year: 'numeric'
+      }).format(new Date()).replace(/\//g, ' ')
+      const autoRef = `${abbr}-PO-${poNum}-${brisDate}`
+      const ref = req.body.ref || autoRef
       for (const item of items) {
         ordered[item.name] = {
           supplier,
           date,
           ref,
+          poNumber: poNum,
           orderQty:       item.orderQty,
           bottlesToOrder: item.bottlesToOrder || null,
           isSpirit:       item.isSpirit || false,
@@ -28,7 +60,7 @@ export default async function handler(req, res) {
         }
       }
       await kvSet('orderedItems', ordered)
-      return res.json({ ok: true, ordered })
+      return res.json({ ok: true, ordered, ref, poNumber: poNum })
     }
 
     if (action === 'receive') {

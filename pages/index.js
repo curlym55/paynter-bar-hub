@@ -446,14 +446,22 @@ export default function Home() {
     reader.readAsText(file)
   }
 
-  function generateOrderRef(supplier) {
-    const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
-    const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
-    const now = new Date()
-    const bne = new Intl.DateTimeFormat('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: '2-digit', year: '2-digit' }).format(now)
-    const [d, m, y] = bne.split('/')
-    return `${abbr}-${d}${m}${y}`
+  async function openRefModalWithNumber(supplier) {
+    try {
+      const r = await fetch('/api/purchase-order?action=previewNumber')
+      const d = await r.json()
+      const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
+      const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g,'').slice(0,4).toUpperCase()
+      const brisDate = new Intl.DateTimeFormat('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date()).replace(/\//g,' ')
+      setRefInput(`${abbr}-PO-${d.num}-${brisDate}`)
+    } catch(e) {
+      const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
+      const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g,'').slice(0,4).toUpperCase()
+      setRefInput(`${abbr}-PO-???`)
+    }
+    setRefModal({ supplier })
   }
+
 
   async function markAsOrdered(supplier, ref) {
     const poItems = items.filter(i =>
@@ -2574,7 +2582,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <button style={styles.dropItem} onClick={() => { printOrderSheet(s); setPrinting(null) }}>
                             🖨️ Print Order List
                           </button>
-                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => { setRefInput(generateOrderRef(s)); setRefModal({ supplier: s }); setPrinting(null) }}>
+                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => { openRefModalWithNumber(s); setPrinting(null) }}>
                             ✓ Mark as Ordered
                           </button>
                         </div>
@@ -2614,7 +2622,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </button>
                       )}
                       {!readOnly && (
-                        <button onClick={() => { setRefInput(generateOrderRef(supplier)); setRefModal({ supplier }) }}
+                        <button onClick={() => openRefModalWithNumber(supplier)}
                           style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                           ✓ Mark Ordered
                         </button>
