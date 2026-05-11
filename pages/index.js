@@ -6689,11 +6689,7 @@ function SpecialsView({ items }) {
               <input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. Bombay Sapphire Gin"
                 style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
             </div>
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 600, color: '#64748b', textTransform: 'uppercase', display: 'block', marginBottom: 4 }}>Price</label>
-              <input value={form.price_override} onChange={e => setForm(f => ({ ...f, price_override: e.target.value }))} placeholder="e.g. $3.00"
-                style={{ width: '100%', padding: '8px 12px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 14, boxSizing: 'border-box' }} />
-            </div>
+
           </div>
 
           <div style={{ marginBottom: 12 }}>
