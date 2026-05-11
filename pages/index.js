@@ -6668,12 +6668,23 @@ function SpecialsView({ items }) {
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', marginTop: 4 }}>
                 {filteredItems.map(item => (
                   <div key={item.name} onClick={() => {
-                    const sqPrice = item.squareSellPrice || item.sellPrice
-                    setForm(f => ({ ...f, name: item.name, price_override: sqPrice ? '$' + Number(sqPrice).toFixed(2) : '', square_item_id: item.sku || '' }))
+                    const vars = item.variations || []
+                    const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
+                    const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+                    const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+                    const forceBottle = item.category === 'Sparkling' || item.bottleOnly
+                    const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : (item.sellUnit || 'glass')
+                    const sqPrice = item.isSpirit
+                      ? (nipVar || bottleVar || glassVar)?.price ?? item.squareSellPrice
+                      : sellUnit === 'bottle'
+                      ? (bottleVar?.price ?? item.squareSellPriceBottle ?? item.squareSellPrice)
+                      : (glassVar?.price ?? item.squareSellPrice)
+                    const priceStr = sqPrice != null ? '$' + Number(sqPrice).toFixed(2) : ''
+                    setForm(f => ({ ...f, name: item.name, price_override: priceStr, square_item_id: item.sku || '' }))
                     setItemSearch('')
                   }} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
                     <span>{item.name}</span>
-                    <span style={{ color: '#c8a84b', fontWeight: 700 }}>{item.squareSellPrice ? '$' + Number(item.squareSellPrice).toFixed(2) : item.sellPrice ? '$' + item.sellPrice : '—'}</span>
+                    <span style={{ color: '#c8a84b', fontWeight: 700 }}>{item.sellPrice ? '$' + Number(item.sellPrice).toFixed(2) : '—'}</span>
                   </div>
                 ))}
               </div>
