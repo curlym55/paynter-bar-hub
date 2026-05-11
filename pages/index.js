@@ -6668,11 +6668,12 @@ function SpecialsView({ items }) {
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', marginTop: 4 }}>
                 {filteredItems.map(item => (
                   <div key={item.name} onClick={() => {
-                    setForm(f => ({ ...f, name: item.name, price_override: item.sellPrice ? '$' + item.sellPrice : '', square_item_id: item.sku || '' }))
+                    const sqPrice = item.squareSellPrice || item.sellPrice
+                    setForm(f => ({ ...f, name: item.name, price_override: sqPrice ? '$' + Number(sqPrice).toFixed(2) : '', square_item_id: item.sku || '' }))
                     setItemSearch('')
                   }} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
                     <span>{item.name}</span>
-                    <span style={{ color: '#c8a84b', fontWeight: 700 }}>${item.sellPrice}</span>
+                    <span style={{ color: '#c8a84b', fontWeight: 700 }}>{item.squareSellPrice ? '$' + Number(item.squareSellPrice).toFixed(2) : item.sellPrice ? '$' + item.sellPrice : '—'}</span>
                   </div>
                 ))}
               </div>
