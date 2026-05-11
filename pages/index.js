@@ -6562,6 +6562,7 @@ function SpecialsView({ items }) {
   const [loadingImages, setLoadingImages] = useState(false)
   const [showImagePicker, setShowImagePicker] = useState(false)
   const [imageSearch, setImageSearch] = useState('')
+  const [editingId, setEditingId] = useState(null)
 
   useEffect(() => { loadSpecials() }, [])
 
@@ -6590,9 +6591,10 @@ function SpecialsView({ items }) {
     try {
       const { _imageUrl, ...toSave } = form
       await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: specials.length } }) })
+        body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: toSave.display_order ?? specials.length } }) })
       setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', _imageUrl: '', active: true, display_order: 0 })
       setShowAdd(false)
+      setEditingId(null)
       setItemSearch('')
       setShowImagePicker(false)
       await loadSpecials()
@@ -6668,18 +6670,8 @@ function SpecialsView({ items }) {
               <div style={{ border: '1px solid #e2e8f0', borderRadius: 6, background: '#fff', marginTop: 4 }}>
                 {filteredItems.map(item => (
                   <div key={item.name} onClick={() => {
-                    const vars = item.variations || []
-                    const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
-                    const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-                    const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
-                    const forceBottle = item.category === 'Sparkling' || item.bottleOnly
-                    const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : (item.sellUnit || 'glass')
-                    const sqPrice = item.isSpirit
-                      ? (nipVar || bottleVar || glassVar)?.price ?? item.squareSellPrice
-                      : sellUnit === 'bottle'
-                      ? (bottleVar?.price ?? item.squareSellPriceBottle ?? item.squareSellPrice)
-                      : (glassVar?.price ?? item.squareSellPrice)
-                    const priceStr = sqPrice != null ? '$' + Number(sqPrice).toFixed(2) : ''
+                    const price = item.squareSellPrice != null ? Number(item.squareSellPrice) : null
+                    const priceStr = price != null ? '$' + price.toFixed(2) : ''
                     setForm(f => ({ ...f, name: item.name, price_override: priceStr, square_item_id: item.sku || '' }))
                     setItemSearch('')
                   }} style={{ padding: '8px 12px', cursor: 'pointer', borderBottom: '1px solid #f1f5f9', fontSize: 13, display: 'flex', justifyContent: 'space-between' }}>
@@ -6779,6 +6771,13 @@ function SpecialsView({ items }) {
               </div>
               <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>{s.price_override}</div>
               <div style={{ display: 'flex', gap: 6 }}>
+                <button onClick={() => {
+                    setForm({ ...s, _imageUrl: s.image_url || '' })
+                    setEditingId(s.id)
+                    setShowAdd(true)
+                    setItemSearch('')
+                  }}
+                  style={{ padding: '4px 10px', fontSize: 11, background: 'none', color: '#1e3a5f', border: '1px solid #bfdbfe', borderRadius: 6, cursor: 'pointer', fontWeight: 600 }}>Edit</button>
                 <button onClick={() => toggleActive(s)}
                   style={{ padding: '4px 10px', fontSize: 11, fontWeight: 700, background: s.active ? '#f0fdf4' : '#fef9c3', color: s.active ? '#16a34a' : '#92400e', border: `1px solid ${s.active ? '#86efac' : '#fde047'}`, borderRadius: 6, cursor: 'pointer' }}>
                   {s.active ? 'Live' : 'Off'}
