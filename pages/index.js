@@ -2476,6 +2476,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onExportPdf={() => generateSalesReport(false)}
             onExportXlsx={() => generateSalesReport(true)}
             exportLoading={salesPdfLoading}
+            showDetails={showDetails}
           />
         )}
 
@@ -5342,7 +5343,7 @@ function HelpTab() {
 
 
 // ─── SALES REPORT VIEW ────────────────────────────────────────────────────────
-function SalesView({ period, setPeriod, custom, setCustom, report, loading, error, category, setCategory, sort, setSort, onLoad, onExportPdf, onExportXlsx, exportLoading }) {
+function SalesView({ period, setPeriod, custom, setCustom, report, loading, error, category, setCategory, sort, setSort, onLoad, onExportPdf, onExportXlsx, exportLoading, showDetails }) {
   const fmt = n => n == null ? '-' : `$${Number(n).toFixed(2)}`
 
   const fmtChange = n => {
