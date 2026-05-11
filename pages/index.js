@@ -1652,7 +1652,14 @@ export default function Home() {
   }
 
   function printOrderSheet(supplier) {
-    const orderItems = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !dontOrder(i))
+    const orderItems = items.filter(i => {
+      if (i.supplier !== supplier || dontOrder(i)) return false
+      const hasOverride = orderQtyOverrides[i.name] !== undefined && orderQtyOverrides[i.name] > 0
+      const autoQty = i.orderQty > 0
+      const alreadyOnOrder = !!orderedItems[i.name]
+      // Always show manually overridden items; auto-calculated only if not already on another order
+      return hasOverride || (autoQty && !alreadyOnOrder)
+    })
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = orderItems.map(item => `
       <tr>

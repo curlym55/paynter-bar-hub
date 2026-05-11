@@ -48,10 +48,6 @@ export default async function handler(req, res) {
       const autoRef = `${abbr}-PO-${poNum}-${brisDate}`
       const ref = req.body.ref || autoRef
       for (const item of items) {
-        // Don't overwrite items already assigned to a different PO ref
-        if (ordered[item.name] && ordered[item.name].ref && ordered[item.name].ref !== ref) {
-          continue
-        }
         ordered[item.name] = {
           supplier,
           date,
