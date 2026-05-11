@@ -353,7 +353,7 @@ export default function Home() {
           oneDriveResult = { skipped: true, reason: odErr.message }
         }
 
-        const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
+        const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
         setReceiveModal(null)
         setReceiptData({ supplier, date: dateStr, items: receivedItems, sqResult, oneDriveResult })
         setReceiptSaved(false)
@@ -391,7 +391,7 @@ export default function Home() {
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
-    const date = new Date(Date.now() + 10*60*60*1000).toISOString().split('T')[0]
+    const date = new Date().toLocaleDateString('en-CA', { timeZone:'Australia/Brisbane' })
     a.href = url; a.download = `PO-${supplier.replace(/[^a-zA-Z0-9]/g,'-')}-${date}.csv`; a.click()
     URL.revokeObjectURL(url)
   }
@@ -3844,7 +3844,7 @@ function BarcodeSheetView({ items }) {
 
   function printWindow(pages, leftMargin = '14mm', largeTitles = false) {
     const w = window.open('', '_blank')
-    const dateStr = new Date(Date.now() + 10*60*60*1000).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
+    const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     const pageBlocks = pages.map((p, idx) => `
       <div class="bc-page" style="${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
         <div class="bc-hdr"><span>🍺 Paynter Bar — ${p.subtitle}</span><span class="bc-hdr-date">${dateStr}</span></div>
