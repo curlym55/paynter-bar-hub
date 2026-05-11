@@ -2879,7 +2879,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               ? <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: '#0e7490', color: '#fff' }}>ON ORDER</span>
                               : <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{dontOrder(item) ? 'RUNDOWN' : item.priority}</span>
                             }
-                            {!readOnly && !orderedItems[item.name] && (
+                            {!readOnly && (
                               <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, color: dontOrder(item) ? '#64748b' : '#94a3b8', userSelect: 'none' }}
                                 title="Rundown — exclude from orders">
                                 <input type="checkbox"
