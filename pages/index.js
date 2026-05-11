@@ -255,7 +255,7 @@ export default function Home() {
 
 
 
-  function openReceiveModal(supplier, supplierItems) {
+  function openReceiveModal(supplier, supplierItems, ref) {
     const checked = {}
     const qtys = {}
     for (const i of supplierItems) {
@@ -266,7 +266,7 @@ export default function Home() {
     setReceiveChecked(checked)
     setReceiveQtys(qtys)
     setSquareReceiveResult(null)
-    setReceiveModal({ supplier, items: supplierItems })
+    setReceiveModal({ supplier, ref: ref || '', items: supplierItems })
   }
 
   async function confirmReceive() {
@@ -274,11 +274,14 @@ export default function Home() {
     const receivedNames = Object.entries(receiveChecked).filter(([, v]) => v).map(([k]) => k)
     const allItems = receiveModal.items.map(i => i.name)
     const allReceived = allItems.every(n => receiveChecked[n])
-    setPoReceiving(supplier)
+    setPoReceiving(receiveModal.ref || supplier)
     try {
       // ── 1. Update Hub / Redis state (existing behaviour) ─────────────────
-      const action = allReceived ? 'receive' : 'partialReceive'
-      const body = allReceived
+      const ref = receiveModal.ref
+      const action = ref ? 'receiveByRef' : allReceived ? 'receive' : 'partialReceive'
+      const body = ref
+        ? { action: 'receiveByRef', ref, receivedItems: allReceived ? null : receivedNames }
+        : allReceived
         ? { action, supplier }
         : { action: 'partialReceive', supplier, receivedItems: receivedNames }
       const r = await fetch('/api/purchase-order', {
@@ -447,6 +450,14 @@ export default function Home() {
   }
 
   async function openRefModalWithNumber(supplier) {
+    // Warn if supplier already has items on order
+    const existingCount = Object.values(orderedItems).filter(i => i.supplier === supplier).length
+    if (existingCount > 0) {
+      const ok = window.confirm(
+        `${supplier} already has ${existingCount} item${existingCount !== 1 ? 's' : ''} on order awaiting receipt.\n\nCreating a new order will add to the existing order. Continue?`
+      )
+      if (!ok) return
+    }
     try {
       const r = await fetch('/api/purchase-order?action=previewNumber')
       const d = await r.json()
@@ -1641,7 +1652,7 @@ export default function Home() {
   }
 
   function printOrderSheet(supplier) {
-    const orderItems = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !orderedItems[i.name] && !dontOrder(i))
+    const orderItems = items.filter(i => i.supplier === supplier && (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) && !dontOrder(i))
     const date = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' })
     const rows = orderItems.map(item => `
       <tr>
@@ -2596,19 +2607,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* On Order banner */}
             {onOrderCount > 0 && (() => {
-              const bySupplier = {}
+              const byRef = {}
               for (const [name, info] of Object.entries(orderedItems)) {
-                const key = info.supplier || 'Unknown'
-                if (!bySupplier[key]) bySupplier[key] = []
-                bySupplier[key].push({ name, ...info })
+                const key = info.ref || info.supplier || 'Unknown'
+                if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
+                byRef[key].items.push({ name, ...info })
               }
               return (
                 <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {Object.entries(bySupplier).map(([supplier, supplierItems]) => (
-                    <div key={supplier} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
+                  {Object.entries(byRef).map(([refKey, { supplier, ref, items: supplierItems }]) => (
+                    <div key={refKey} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
                       <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
-                      {supplierItems[0]?.ref && (
-                        <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: 4, fontWeight: 700 }}>{supplierItems[0].ref}</span>
+                      {ref && (
+                        <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: 4, fontWeight: 700 }}>{ref}</span>
                       )}
                       <span style={{ fontSize: 12, color: '#64748b' }}>{supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
                       <button onClick={() => setViewOrderModal({ supplier, items: supplierItems })}
@@ -2616,7 +2627,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         View
                       </button>
                       {!readOnly && (
-                        <button onClick={() => printDeliverySheet(supplier, supplierItems, supplierItems[0]?.ref)}
+                        <button onClick={() => printDeliverySheet(supplier, supplierItems, ref)}
                           style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                           📋 Delivery List
                         </button>
@@ -2628,10 +2639,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </button>
                       )}
                       {!readOnly && (
-                        <button onClick={() => openReceiveModal(supplier, supplierItems)}
-                          disabled={poReceiving === supplier}
+                        <button onClick={() => openReceiveModal(supplier, supplierItems, ref)}
+                          disabled={poReceiving === refKey}
                           style={{ fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 12px', cursor: 'pointer' }}>
-                          {poReceiving === supplier ? '...' : 'Receive'}
+                          {poReceiving === refKey ? '...' : 'Receive'}
                         </button>
                       )}
                     </div>

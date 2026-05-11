@@ -48,6 +48,10 @@ export default async function handler(req, res) {
       const autoRef = `${abbr}-PO-${poNum}-${brisDate}`
       const ref = req.body.ref || autoRef
       for (const item of items) {
+        // Don't overwrite items already assigned to a different PO ref
+        if (ordered[item.name] && ordered[item.name].ref && ordered[item.name].ref !== ref) {
+          continue
+        }
         ordered[item.name] = {
           supplier,
           date,
@@ -61,6 +65,21 @@ export default async function handler(req, res) {
       }
       await kvSet('orderedItems', ordered)
       return res.json({ ok: true, ordered, ref, poNumber: poNum })
+    }
+
+    if (action === 'receiveByRef') {
+      // Clear items belonging to a specific PO ref
+      const { ref, receivedItems } = req.body
+      const ordered = (await kvGet('orderedItems')) || {}
+      for (const [name, info] of Object.entries(ordered)) {
+        if (info.ref === ref) {
+          if (!receivedItems || receivedItems.includes(name)) {
+            delete ordered[name]
+          }
+        }
+      }
+      await kvSet('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
     }
 
     if (action === 'receive') {
