@@ -6589,7 +6589,7 @@ function SpecialsView({ items }) {
   async function saveSpecial() {
     setSaving(true)
     try {
-      const { _imageUrl, ...toSave } = form
+      const { _imageUrl, image_url, ...toSave } = form
       await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: toSave.display_order ?? specials.length } }) })
       setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', _imageUrl: '', active: true, display_order: 0 })
