@@ -6551,6 +6551,12 @@ function StocktakeView({ items, readOnly, onExport }) {
 
 
 // === SPECIALS VIEW ============================================================
+function getSpecialPrice(s, items) {
+  const item = items?.find(i => i.name?.toLowerCase() === s.name?.toLowerCase())
+  if (item?.squareSellPrice != null) return '$' + Number(item.squareSellPrice).toFixed(2)
+  return s.price_override || ''
+}
+
 function SpecialsView({ items }) {
   const [specials, setSpecials] = useState([])
   const [loading, setLoading] = useState(true)
@@ -6636,7 +6642,7 @@ function SpecialsView({ items }) {
             const dateStr = new Date().toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
             const rows = active.map(s => {
               const img = s.image_url ? '<img src="' + s.image_url + '" style="width:100%;height:100%;object-fit:contain;padding:4mm;background:#fff" />' : '<div style="font-size:48pt;text-align:center">🍺</div>'
-              const price = s.price_override ? '\$' + parseFloat(String(s.price_override).replace('\$','')).toFixed(2) : ''
+              const sqPrice = getSpecialPrice(s, items); const price = sqPrice || ''
               const desc = s.description ? '<div style="font-size:9pt;color:#94a3b8;margin-bottom:2mm">' + s.description + '</div>' : ''
               return '<div style="background:#fff;border-radius:4mm;overflow:hidden;border:1px solid #e2e8f0;display:flex;flex-direction:column"><div style="width:100%;aspect-ratio:1;overflow:hidden;background:#fff;display:flex;align-items:center;justify-content:center">' + img + '</div><div style="padding:4mm;display:flex;flex-direction:column"><div style="font-size:' + nameSz + 'pt;font-weight:800;color:#1e3a5f;line-height:1.2;margin-bottom:2mm;min-height:' + (nameSz * 2.8).toFixed(0) + 'pt">' + s.name + '</div>' + desc + '<div style="font-size:' + priceSz + 'pt;font-weight:900;color:#c8a84b">' + price + '</div></div></div>'
             }).join("")
@@ -6765,7 +6771,7 @@ function SpecialsView({ items }) {
                 <div style={{ fontSize: 15, fontWeight: 700, color: s.active ? '#0f172a' : '#94a3b8' }}>{s.name}</div>
                 {s.description && <div style={{ fontSize: 12, color: '#64748b' }}>{s.description}</div>}
               </div>
-              <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>{s.price_override}</div>
+              <div style={{ fontSize: 20, fontWeight: 800, color: '#c8a84b', minWidth: 60, textAlign: 'right' }}>{getSpecialPrice(s, items)}</div>
               <div style={{ display: 'flex', gap: 6 }}>
                 <button onClick={() => {
                     setForm({ ...s, _imageUrl: s.image_url || '' })
