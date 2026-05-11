@@ -1,29 +1,23 @@
 'use client'
 import { useEffect, useState } from 'react'
 
-function getSquarePrice(item) {
+// Same price resolution as PriceListView's getPrice()
+function getPrice(item) {
   if (!item) return null
-  const vars = item.variations || []
-  const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
-  const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-  const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
-  const forceBottle = item.category === 'Sparkling' || item.bottleOnly
-  const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : (item.sellUnit || 'glass')
-
-  let price = null
-  if (item.isSpirit) {
-    price = (nipVar || bottleVar || glassVar)?.price ?? item.squareSellPrice
-  } else if (sellUnit === 'bottle') {
-    price = bottleVar?.price ?? item.squareSellPriceBottle ?? item.squareSellPrice
-  } else {
-    price = glassVar?.price ?? item.squareSellPrice
+  const isBottleOnly = item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
+  if (isBottleOnly) {
+    return item.sellPriceBottle || item.squareSellPriceBottle
+      || (item.variations || []).find(v => /bottle|regular/i.test(v.name) && !/glass/i.test(v.name))?.price
+      || null
   }
-  return price != null ? Number(price) : null
+  if (item.sellPrice != null && item.sellPrice !== '') return Number(item.sellPrice)
+  if (item.squareSellPrice != null) return Number(item.squareSellPrice)
+  return null
 }
 
 export default function SpecialsDisplay() {
   const [specials, setSpecials] = useState([])
-  const [itemMap, setItemMap] = useState({})   // name → item
+  const [itemMap, setItemMap] = useState({})
   const [current, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -36,10 +30,7 @@ export default function SpecialsDisplay() {
         ])
         const specData  = await specRes.json()
         const itemsData = await itemsRes.json()
-
         setSpecials(specData.specials || [])
-
-        // Build name → item lookup for quick price resolution
         const map = {}
         for (const item of (itemsData.items || [])) {
           map[item.name.toLowerCase()] = item
@@ -75,12 +66,10 @@ export default function SpecialsDisplay() {
   )
 
   const s = specials[current]
-
-  // Resolve price: Square live price → stored price_override → stored price
   const matchedItem = itemMap[s.name?.toLowerCase()]
-  const squarePrice = getSquarePrice(matchedItem)
-  const displayPrice = squarePrice != null
-    ? '$' + squarePrice.toFixed(2)
+  const resolvedPrice = getPrice(matchedItem)
+  const displayPrice = resolvedPrice != null
+    ? '$' + Number(resolvedPrice).toFixed(2)
     : s.price_override
     ? '$' + parseFloat(String(s.price_override).replace('$', '')).toFixed(2)
     : s.price
@@ -89,7 +78,6 @@ export default function SpecialsDisplay() {
 
   return (
     <div style={{ background: '#0f172a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
-      {/* Header */}
       <div style={{ background: '#1e3a5f', padding: '16px 32px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexShrink: 0 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
           <span style={{ fontSize: 28 }}>🍺</span>
@@ -102,38 +90,23 @@ export default function SpecialsDisplay() {
         <div style={{ color: '#475569', fontSize: 13 }}>{current + 1} of {specials.length}</div>
       </div>
 
-      {/* Main special display */}
       <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px', gap: '60px' }}>
-        {/* Product image */}
         <div style={{ flexShrink: 0, width: 340, height: 340, borderRadius: 20, overflow: 'hidden', background: '#1e293b', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 20px 60px rgba(0,0,0,0.4)' }}>
           {s.image_url
             ? <img src={s.image_url} alt={s.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
             : <span style={{ fontSize: 80 }}>🍾</span>
           }
         </div>
-
-        {/* Product details */}
         <div style={{ maxWidth: 480 }}>
-          <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 12 }}>
-            Special Tonight
-          </div>
-          <div style={{ color: '#fff', fontSize: 52, fontWeight: 900, lineHeight: 1.1, marginBottom: 16 }}>
-            {s.name}
-          </div>
+          <div style={{ color: '#94a3b8', fontSize: 14, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.15em', marginBottom: 12 }}>Special Tonight</div>
+          <div style={{ color: '#fff', fontSize: 52, fontWeight: 900, lineHeight: 1.1, marginBottom: 16 }}>{s.name}</div>
           {s.description && (
-            <div style={{ color: '#94a3b8', fontSize: 20, marginBottom: 24, lineHeight: 1.5 }}>
-              {s.description}
-            </div>
+            <div style={{ color: '#94a3b8', fontSize: 20, marginBottom: 24, lineHeight: 1.5 }}>{s.description}</div>
           )}
-          <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
-            <div style={{ color: '#c8a84b', fontSize: 72, fontWeight: 900, lineHeight: 1 }}>
-              {displayPrice}
-            </div>
-          </div>
+          <div style={{ color: '#c8a84b', fontSize: 72, fontWeight: 900, lineHeight: 1 }}>{displayPrice}</div>
         </div>
       </div>
 
-      {/* Progress dots */}
       <div style={{ display: 'flex', justifyContent: 'center', gap: 8, padding: '16px', flexShrink: 0 }}>
         {specials.map((_, i) => (
           <div key={i} onClick={() => setCurrent(i)} style={{
