@@ -2880,23 +2880,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               : <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{dontOrder(item) ? 'RUNDOWN' : item.priority}</span>
                             }
                             {!readOnly && !orderedItems[item.name] && (
-                              dontOrder(item)
-                                ? <button onClick={() => {
-                                    const cleaned = (item.notes || '').replace(/don'?t\s+order|do\s+not\s+order|don'?t\s+restock|do\s+not\s+restock/gi, '').trim()
-                                    saveSetting(item.name, 'notes', cleaned)
+                              <label style={{ display: 'flex', alignItems: 'center', gap: 4, cursor: 'pointer', fontSize: 11, color: dontOrder(item) ? '#64748b' : '#94a3b8', userSelect: 'none' }}
+                                title="Rundown — exclude from orders">
+                                <input type="checkbox"
+                                  checked={!!dontOrder(item)}
+                                  onChange={() => {
+                                    if (dontOrder(item)) {
+                                      const cleaned = (item.notes || '').replace(/don'?t\s+order|do\s+not\s+order|don'?t\s+restock|do\s+not\s+restock/gi, '').trim()
+                                      saveSetting(item.name, 'notes', cleaned)
+                                    } else {
+                                      const note = (item.notes || '').trim()
+                                      saveSetting(item.name, 'notes', note ? note + ' — Don\'t Order' : "Don't Order")
+                                    }
                                   }}
-                                  title="Remove Rundown flag"
-                                  style={{ fontSize: 10, background: 'none', border: '1px solid #94a3b8', borderRadius: 4, padding: '1px 6px', color: '#64748b', cursor: 'pointer' }}>
-                                  ↩ Undo
-                                </button>
-                                : <button onClick={() => {
-                                    const note = (item.notes || '').trim()
-                                    saveSetting(item.name, 'notes', note ? note + ' — Don\'t Order' : "Don't Order")
-                                  }}
-                                  title="Mark as Rundown — exclude from orders"
-                                  style={{ fontSize: 10, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '1px 6px', color: '#94a3b8', cursor: 'pointer' }}>
-                                  🚫 Rundown
-                                </button>
+                                  style={{ width: 13, height: 13, cursor: 'pointer', accentColor: '#94a3b8' }}
+                                />
+                                Rundown
+                              </label>
                             )}
                           </div>
                         </td>
