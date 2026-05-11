@@ -1,22 +1,55 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+function getSquarePrice(item) {
+  if (!item) return null
+  const vars = item.variations || []
+  const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
+  const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+  const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+  const forceBottle = item.category === 'Sparkling' || item.bottleOnly
+  const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : (item.sellUnit || 'glass')
+
+  let price = null
+  if (item.isSpirit) {
+    price = (nipVar || bottleVar || glassVar)?.price ?? item.squareSellPrice
+  } else if (sellUnit === 'bottle') {
+    price = bottleVar?.price ?? item.squareSellPriceBottle ?? item.squareSellPrice
+  } else {
+    price = glassVar?.price ?? item.squareSellPrice
+  }
+  return price != null ? Number(price) : null
+}
+
 export default function SpecialsDisplay() {
   const [specials, setSpecials] = useState([])
+  const [itemMap, setItemMap] = useState({})   // name → item
   const [current, setCurrent] = useState(0)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function load() {
       try {
-        const res = await fetch('/api/specials')
-        const data = await res.json()
-        setSpecials(data.specials || [])
+        const [specRes, itemsRes] = await Promise.all([
+          fetch('/api/specials'),
+          fetch('/api/items'),
+        ])
+        const specData  = await specRes.json()
+        const itemsData = await itemsRes.json()
+
+        setSpecials(specData.specials || [])
+
+        // Build name → item lookup for quick price resolution
+        const map = {}
+        for (const item of (itemsData.items || [])) {
+          map[item.name.toLowerCase()] = item
+        }
+        setItemMap(map)
       } catch {}
       setLoading(false)
     }
     load()
-    const refresh = setInterval(load, 5 * 60 * 1000) // refresh every 5 mins
+    const refresh = setInterval(load, 5 * 60 * 1000)
     return () => clearInterval(refresh)
   }, [])
 
@@ -42,6 +75,17 @@ export default function SpecialsDisplay() {
   )
 
   const s = specials[current]
+
+  // Resolve price: Square live price → stored price_override → stored price
+  const matchedItem = itemMap[s.name?.toLowerCase()]
+  const squarePrice = getSquarePrice(matchedItem)
+  const displayPrice = squarePrice != null
+    ? '$' + squarePrice.toFixed(2)
+    : s.price_override
+    ? '$' + parseFloat(String(s.price_override).replace('$', '')).toFixed(2)
+    : s.price
+    ? '$' + parseFloat(s.price).toFixed(2)
+    : ''
 
   return (
     <div style={{ background: '#0f172a', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden', fontFamily: 'Arial, sans-serif' }}>
@@ -83,7 +127,7 @@ export default function SpecialsDisplay() {
           )}
           <div style={{ display: 'flex', alignItems: 'baseline', gap: 12 }}>
             <div style={{ color: '#c8a84b', fontSize: 72, fontWeight: 900, lineHeight: 1 }}>
-              {s.price_override ? '$' + parseFloat(s.price_override.replace('$','')).toFixed(2) : s.price ? '$' + parseFloat(s.price).toFixed(2) : ''}
+              {displayPrice}
             </div>
           </div>
         </div>
