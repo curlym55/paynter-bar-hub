@@ -785,6 +785,22 @@ export default function Home() {
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
 
+    // Split into 4 balanced columns (2 per page)
+    const itemCount = cat => grouped[cat].reduce((s, i) => s + (i.variations ? i.variations.length : 1), 0)
+    const totalRows = cats.reduce((s, c) => s + itemCount(c), 0)
+    const target = totalRows / 4
+    let running = 0
+    const splits = []
+    for (let i = 0; i < cats.length; i++) {
+      running += itemCount(cats[i])
+      if (splits.length < 3 && running >= target * (splits.length + 1)) splits.push(i + 1)
+    }
+    while (splits.length < 3) splits.push(cats.length)
+    const col1p1 = cats.slice(0, splits[0])
+    const col2p1 = cats.slice(splits[0], splits[1])
+    const col1p2 = cats.slice(splits[1], splits[2])
+    const col2p2 = cats.slice(splits[2])
+
     function renderCards(pageCats) {
       return pageCats.map(cat => `
         <div class="card">
@@ -835,27 +851,28 @@ export default function Home() {
   .sub   { font-size: 9px; color: #bfdbfe; margin-top: 1px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
-  .cols { columns: 2; column-gap: 8px; }
+  .col-wrap { display:flex; gap:10px; }
+  .col { flex:1; min-width:0; }
 
   .card {
     break-inside: avoid;
     border: 1px solid #e2e8f0; border-radius: 4px;
-    overflow: hidden; margin-bottom: 4px;
+    overflow: hidden; margin-bottom: 5px;
     display: inline-block; width: 100%;
   }
   .cat-hdr {
     background: #1e3a5f; color: #fff;
-    font-size: 10px; font-weight: 700;
+    font-size: 11px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 4px 10px;
+    padding: 5px 11px;
   }
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
-  .nm { padding: 3px 10px; font-size: 12px; }
+  .nm { padding: 4px 11px; font-size: 13px; }
   .alc { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
   .sd  { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
   .pr {
-    padding: 3px 10px; text-align: right;
+    padding: 4px 11px; text-align: right;
     font-size: 13px; font-weight: 700;
     font-family: 'Courier New', monospace;
     white-space: nowrap; width: 82px; vertical-align: top;
@@ -872,7 +889,15 @@ export default function Home() {
 </head><body>
 
   ${hdr}
-  <div class="cols">${renderCards(cats)}</div>
+  <div class="col-wrap">
+    <div class="col">${renderCards(col1p1)}</div>
+    <div class="col">${renderCards(col2p1)}</div>
+  </div>
+  <div style="page-break-before:always">${hdr}
+  <div class="col-wrap">
+    <div class="col">${renderCards(col1p2)}</div>
+    <div class="col">${renderCards(col2p2)}</div>
+  </div></div>
 
 <script>
   const QR_URL = 'https://paynter-bar-hub.vercel.app/?public=pricelist'
