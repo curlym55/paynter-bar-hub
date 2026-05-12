@@ -489,6 +489,7 @@ export default function Home() {
       orderQty: orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : (i.isSpirit ? i.nipsToOrder : i.orderQty),
       bottlesToOrder: i.bottlesToOrder || null,
       isSpirit: i.isSpirit || false,
+      hasOverride: orderQtyOverrides[i.name] !== undefined,  // explicitly re-ordered
     }))
     if (!poItems.length) { alert('No items to order for ' + supplier); return }
     const r = await fetch('/api/purchase-order', {
@@ -2359,6 +2360,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       ? (receiptData.sqResult.reason || 'Variation IDs not found — update manually in Square Dashboard')
                       : `${receiptData.sqResult.changes} stock adjustment${receiptData.sqResult.changes !== 1 ? 's' : ''} applied`}
                   </div>
+                  {receiptData.sqResult.success && receiptData.sqResult.skipped?.length > 0 && (
+                    <div style={{ marginTop: 6, fontSize: 11, color: '#d97706' }}>
+                      ⚠ {receiptData.sqResult.skipped.length} item{receiptData.sqResult.skipped.length !== 1 ? 's' : ''} not found in Square — update manually: {receiptData.sqResult.skipped.join(', ')}
+                    </div>
+                  )}
                 </div>
               )}
 
