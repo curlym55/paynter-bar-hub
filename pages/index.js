@@ -3994,6 +3994,27 @@ function BarcodeSheetView({ items }) {
     ], '14mm', true)
   }
 
+  // Normalise Square variation names for display and sort Glass before Bottle
+  function doPrint2PageLaminate() {
+    const p1 = p1Ref.current?.innerHTML || ''
+    const p2 = p2NoHdrRef.current?.innerHTML || ''
+    const w = window.open('', '_blank')
+    const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
+    w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet — Laminate</title>
+<style>${PAGE_CSS('14mm', true)}</style></head><body>
+  <div class="bc-page" style="page-break-after:always;">
+    <div class="bc-hdr"><span>🍺 Paynter Bar — Spirits &amp; Fortified</span><span class="bc-hdr-date">${dateStr}</span></div>
+    <div class="bc-cols">${p1}</div>
+  </div>
+  <div class="bc-page">
+    <div class="bc-cols">${p2}</div>
+  </div>
+</body></html>`)
+    w.document.close()
+    setTimeout(() => { w.focus(); w.print() }, 900)
+  }
+
+
   const btnStyle = (active) => ({
     background: active ? '#1A2F45' : '#94a3b8', color:'#fff', border:'none',
     borderRadius:6, padding:'7px 16px', fontSize:13, fontWeight:700,
@@ -4560,29 +4581,6 @@ function PriceListView({ items, settings, readOnly, saving, onSave, onPrint, pub
   }
   const cats = CATEGORY_ORDER.filter(c => grouped[c])
 
-
-  // Normalise Square variation names for display and sort Glass before Bottle
-  function doPrint2PageLaminate() {
-    const p1 = p1Ref.current?.innerHTML || ''
-    const p2 = p2NoHdrRef.current?.innerHTML || ''
-    const leftMargin = '14mm'
-    const html = `<!DOCTYPE html><html><head><style>
-      @page{size:A4 landscape;margin:5mm 6mm 5mm ${leftMargin};}
-      body{margin:0;font-family:Arial,sans-serif;}
-      .pg{display:flex;gap:4px;height:calc(100vh - 10mm);}
-      .pb{page-break-after:always;}
-      ${largeTitles}
-      ${COL_CSS}
-    </style></head><body>
-    <div class='pg pb'>${p1}</div>
-    <div class='pg'>${p2}</div>
-    <script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>
-    <script>window.onload=()=>{document.querySelectorAll('svg[data-sku]').forEach(s=>{try{JsBarcode(s,s.dataset.sku,{format:'CODE128',width:2,height:60,displayValue:false,margin:14})}catch(e){}});setTimeout(()=>window.print(),600)}</script>
-    </body></html>`
-    const w = window.open('', '_blank')
-    w.document.write(html)
-    w.document.close()
-  }
 
   function normaliseVariations(vars) {
     return vars
