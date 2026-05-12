@@ -3939,18 +3939,11 @@ function BarcodeSheetView({ items }) {
            + `</div>`
     }
 
-    // Build page data
-    const RIGHT_MATCH = ['canadian club','glenlivet','jack daniel','jameson']
-    const spL = items.filter(i => i.category==='Spirits' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name)).filter(i=>!RIGHT_MATCH.some(n=>i.name.toLowerCase().includes(n)))
-    const spR = items.filter(i => i.category==='Spirits' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name)).filter(i=> RIGHT_MATCH.some(n=>i.name.toLowerCase().includes(n)))
-    const fort= items.filter(i => i.category==='Fortified & Liqueurs' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
-    const wht = items.filter(i => ['White Wine','Rose'].includes(i.category) && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
-    const red = items.filter(i => ['Red Wine','Sparkling'].includes(i.category) && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
-
-    const spRFort = [
-      ...spR,
-      ...(fort.length ? [{ _spacer:true, _h:24 },{ _div:true, name:'FORTIFIED & LIQUEURS', _hdr:C_FORT.hdr }, ...fort] : []),
-    ]
+    // Use same pre-computed arrays as the 2-page sheet
+    const spL     = spiritsLeft
+    const spRFort = col2p1
+    const wht     = [...whiteItems, ...(roseItems.length ? [{ _div:true, name:'ROSÉ', _hdr:C_ROSE.hdr }, ...roseItems] : [])]
+    const red     = redItems
 
     const page = (cols, pg) =>
       `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:7mm 8mm 7mm 12mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
