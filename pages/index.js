@@ -785,22 +785,6 @@ export default function Home() {
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
 
-    // Split into 4 balanced columns (2 per page)
-    const itemCount = cat => grouped[cat].reduce((s, i) => s + (i.variations ? i.variations.length : 1), 0)
-    const totalRows = cats.reduce((s, c) => s + itemCount(c), 0)
-    const target = totalRows / 4
-    let running = 0
-    const splits = []
-    for (let i = 0; i < cats.length; i++) {
-      running += itemCount(cats[i])
-      if (splits.length < 3 && running >= target * (splits.length + 1)) splits.push(i + 1)
-    }
-    while (splits.length < 3) splits.push(cats.length)
-    const col1p1 = cats.slice(0, splits[0])
-    const col2p1 = cats.slice(splits[0], splits[1])
-    const col1p2 = cats.slice(splits[1], splits[2])
-    const col2p2 = cats.slice(splits[2])
-
     function renderCards(pageCats) {
       return pageCats.map(cat => `
         <div class="card">
@@ -813,7 +797,7 @@ export default function Home() {
                 ? '<table style="border-collapse:collapse;width:100%;line-height:1.3">' + variations.map(v => {
                     const vML = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : serveML
                     const vSd = abv && vML ? (Math.ceil(abv / 100 * vML * 0.789 / 10 * 10) / 10).toFixed(1) : ''
-                    return '<tr><td style="font-size:10px;color:#64748b;padding:2px 6px 2px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:12px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:2px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
+                    return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:13px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
                   }).join('') + '</table>'
                 : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
               return '<tr><td class="nm">' + label + (!variations && alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (!variations && stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
@@ -838,42 +822,41 @@ export default function Home() {
 <meta charset="UTF-8">
 <title>Paynter Bar Price List</title>
 <style>
-  @page { size: A4 portrait; margin: 8mm; }
+  @page { size: A4 portrait; margin: 9mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; background: #fff; }
 
   .hdr {
     display: flex; justify-content: space-between; align-items: center;
     background: #1e40af; color: #fff;
-    padding: 6px 12px; border-radius: 4px; margin-bottom: 6px;
+    padding: 6px 12px; border-radius: 4px; margin-bottom: 7px;
   }
   .title { font-size: 16px; font-weight: 800; }
   .sub   { font-size: 9px; color: #bfdbfe; margin-top: 1px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
-  .col-wrap { display:flex; gap:10px; }
-  .col { flex:1; min-width:0; }
+  .cols { columns: 2; column-gap: 8px; }
 
   .card {
-    break-inside: avoid;
     border: 1px solid #e2e8f0; border-radius: 4px;
-    overflow: hidden; margin-bottom: 5px;
+    overflow: hidden; margin-bottom: 6px;
     display: inline-block; width: 100%;
   }
   .cat-hdr {
     background: #1e3a5f; color: #fff;
-    font-size: 11px; font-weight: 700;
+    font-size: 13px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.05em;
-    padding: 5px 11px;
+    padding: 7px 12px;
+    break-after: avoid; column-break-after: avoid;
   }
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
-  .nm { padding: 4px 11px; font-size: 13px; }
+  .nm { padding: 7px 13px; font-size: 15px; }
   .alc { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
   .sd  { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
   .pr {
-    padding: 4px 11px; text-align: right;
-    font-size: 13px; font-weight: 700;
+    padding: 7px 13px; text-align: right;
+    font-size: 15px; font-weight: 700;
     font-family: 'Courier New', monospace;
     white-space: nowrap; width: 82px; vertical-align: top;
   }
@@ -889,15 +872,7 @@ export default function Home() {
 </head><body>
 
   ${hdr}
-  <div class="col-wrap">
-    <div class="col">${renderCards(col1p1)}</div>
-    <div class="col">${renderCards(col2p1)}</div>
-  </div>
-  <div style="page-break-before:always">${hdr}
-  <div class="col-wrap">
-    <div class="col">${renderCards(col1p2)}</div>
-    <div class="col">${renderCards(col2p2)}</div>
-  </div></div>
+  <div class="cols">${renderCards(cats)}</div>
 
 <script>
   const QR_URL = 'https://paynter-bar-hub.vercel.app/?public=pricelist'
