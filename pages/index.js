@@ -797,7 +797,7 @@ export default function Home() {
                 ? '<table style="border-collapse:collapse;width:100%;line-height:1.3">' + variations.map(v => {
                     const vML = v.name === 'Glass' ? 150 : v.name === 'Bottle' ? 750 : serveML
                     const vSd = abv && vML ? (Math.ceil(abv / 100 * vML * 0.789 / 10 * 10) / 10).toFixed(1) : ''
-                    return '<tr><td style="font-size:12px;color:#64748b;padding:3px 8px 3px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:14px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:3px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
+                    return '<tr><td style="font-size:10px;color:#64748b;padding:2px 6px 2px 0;white-space:nowrap">' + v.name + (vSd ? ' <span style="color:#374151">(' + vSd + ' std)</span>' : '') + '</td><td style="font-size:12px;font-weight:700;font-family:Courier New,monospace;text-align:right;padding:2px 0;white-space:nowrap">$' + Number(v.price).toFixed(2) + '</td></tr>'
                   }).join('') + '</table>'
                 : (price != null ? '$' + Number(price).toFixed(2) : '&mdash;')
               return '<tr><td class="nm">' + label + (!variations && alcoholPct ? '<span class="alc">' + alcoholPct + '%</span>' : '') + (!variations && stdDrinksStr ? '<span class="sd">' + stdDrinksStr + ' std</span>' : '') + '</td><td class="pr">' + priceCell + '</td></tr>'
@@ -822,41 +822,41 @@ export default function Home() {
 <meta charset="UTF-8">
 <title>Paynter Bar Price List</title>
 <style>
-  @page { size: A4 portrait; margin: 9mm; }
+  @page { size: A4 portrait; margin: 8mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; background: #fff; }
 
   .hdr {
     display: flex; justify-content: space-between; align-items: center;
     background: #1e40af; color: #fff;
-    padding: 8px 14px; border-radius: 5px; margin-bottom: 8px;
+    padding: 6px 12px; border-radius: 4px; margin-bottom: 6px;
   }
-  .title { font-size: 19px; font-weight: 800; }
-  .sub   { font-size: 10px; color: #bfdbfe; margin-top: 2px; }
+  .title { font-size: 16px; font-weight: 800; }
+  .sub   { font-size: 9px; color: #bfdbfe; margin-top: 1px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
-  .cols { columns: 2; column-gap: 10px; column-fill: auto; height: 256mm; overflow: hidden; }
+  .cols { columns: 2; column-gap: 8px; }
 
   .card {
     break-inside: avoid;
-    border: 1px solid #e2e8f0; border-radius: 5px;
-    overflow: hidden; margin-bottom: 6px;
+    border: 1px solid #e2e8f0; border-radius: 4px;
+    overflow: hidden; margin-bottom: 4px;
     display: inline-block; width: 100%;
   }
   .cat-hdr {
     background: #1e3a5f; color: #fff;
-    font-size: 12px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.07em;
-    padding: 6px 12px;
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: 0.05em;
+    padding: 4px 10px;
   }
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
-  .nm { padding: 5px 12px; font-size: 14px; }
-  .alc { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
-  .sd  { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
+  .nm { padding: 3px 10px; font-size: 12px; }
+  .alc { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
+  .sd  { font-size: 9px; color: #374151; font-weight: 500; margin-left: 4px; font-family: Arial; }
   .pr {
-    padding: 5px 12px; text-align: right;
-    font-size: 14px; font-weight: 700;
+    padding: 3px 10px; text-align: right;
+    font-size: 13px; font-weight: 700;
     font-family: 'Courier New', monospace;
     white-space: nowrap; width: 82px; vertical-align: top;
   }
