@@ -3799,6 +3799,18 @@ function BarcodeSheetView({ items }) {
 
   const spiritsItems   = items.filter(i => i.category === 'Spirits' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
   const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
+  const RIGHT_SPIRITS  = ['canadian club','glenlivet','jack daniel','jameson']
+  const spiritsLeft    = spiritsItems.filter(i => !RIGHT_SPIRITS.some(n => i.name.toLowerCase().includes(n)))
+  const spiritsRight   = spiritsItems.filter(i =>  RIGHT_SPIRITS.some(n => i.name.toLowerCase().includes(n)))
+  const col1p1         = spiritsLeft
+  const col2p1         = [
+    ...spiritsRight,
+    ...(fortifiedItems.length ? [
+      { _spacer: true, _h: 24 },
+      { _div: true, name: 'FORTIFIED & LIQUEURS', _hdr: C.fortified.hdr },
+      ...fortifiedItems,
+    ] : []),
+  ]
   const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
   const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
   const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && (i.onHand || 0) > 0 && !/minchinbury|curtis legion/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
@@ -3826,6 +3838,9 @@ function BarcodeSheetView({ items }) {
   function renderCol(colItems, colours, isWine) {
     let idx = 0
     return colItems.map((item, i) => {
+      if (item._spacer) return (
+        <div key={`sp${i}`} style={{ flex: `0 0 ${item._h || 30}px`, background: '#fff', borderTop: '1px solid #e2e8f0' }} />
+      )
       if (item._div) return (
         <div key={`d${i}`} className="bc-div" style={{ background: item._hdr }}>{item.name}</div>
       )
@@ -3921,8 +3936,8 @@ function BarcodeSheetView({ items }) {
         {/* 2-page preview */}
         <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>2-page layout — page 1: Spirits & Fortified</div>
         <div ref={p1Ref} style={{ display:'flex', gap:8, height:580, minHeight:0, marginBottom:12 }}>
-          <ColDiv title="Spirits"              colItems={spiritsItems}   colours={C.spirits}   isWine={false} />
-          <ColDiv title="Fortified & Liqueurs" colItems={fortifiedItems} colours={C.fortified} isWine={false} />
+          <ColDiv title="Spirits"              colItems={col1p1}  colours={C.spirits}   isWine={false} />
+          <ColDiv title="Spirits (cont.)"      colItems={col2p1}  colours={C.spirits}   isWine={false} />
         </div>
 
         <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>2-page layout — page 2: Wines</div>
