@@ -3830,7 +3830,7 @@ function BarcodeSheetView({ items }) {
     .bc-col-hdr{flex:0 0 auto;padding:4px 6px;text-align:center;font-weight:900;font-size:15px;letter-spacing:.07em;text-transform:uppercase;color:#fff;}
     .bc-div{flex:0 0 18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:#fff;border-top:1px solid #888;}
     .bc-row{flex:1;display:flex;border-top:1px solid #ccc;min-height:44px;}
-    .bc-label{flex:1;display:flex;align-items:center;padding:0 6px;font-weight:900;font-size:14px;word-break:break-word;border-right:1px solid #ccc;}
+    .bc-label{flex:1;display:flex;align-items:center;padding:0 6px;font-weight:900;font-size:18px;word-break:break-word;border-right:1px solid #ccc;}
     .bc-cell{flex:1;display:flex;align-items:center;overflow:hidden;min-width:0;}
     .bc-cell img{width:100%;height:auto;display:block;}
   `
