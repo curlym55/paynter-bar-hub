@@ -1974,7 +1974,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)) || !!orderedItems[item.name])
+    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)) || !!orderedItems[item.name] || (orderQtyOverrides[item.name] > 0))
 
 
   const onOrderCount = Object.keys(orderedItems).length
