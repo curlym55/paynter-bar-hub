@@ -785,16 +785,21 @@ export default function Home() {
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
 
-    // Split categories into two balanced halves by item row count
+    // Split categories into 4 balanced columns (2 per page) by item row count
     const itemCount = cat => grouped[cat].reduce((s, i) => s + (i.variations ? i.variations.length : 1), 0)
     const totalRows = cats.reduce((s, c) => s + itemCount(c), 0)
-    let running = 0, splitAt = Math.ceil(cats.length / 2)
+    const target = totalRows / 4
+    const splits = []
+    let running = 0
     for (let i = 0; i < cats.length; i++) {
       running += itemCount(cats[i])
-      if (running >= totalRows / 2) { splitAt = i + 1; break }
+      if (splits.length < 3 && running >= target * (splits.length + 1)) splits.push(i + 1)
     }
-    const page1cats = cats.slice(0, splitAt)
-    const page2cats = cats.slice(splitAt)
+    while (splits.length < 3) splits.push(cats.length)
+    const col1p1 = cats.slice(0, splits[0])
+    const col2p1 = cats.slice(splits[0], splits[1])
+    const col1p2 = cats.slice(splits[1], splits[2])
+    const col2p2 = cats.slice(splits[2])
 
     function renderCards(pageCats) {
       return pageCats.map(cat => `
@@ -846,7 +851,8 @@ export default function Home() {
   .sub   { font-size: 10px; color: #bfdbfe; margin-top: 2px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
-  .cols { columns: 2; column-gap: 10px; }
+  .cols { display: flex; gap: 10px; align-items: flex-start; }
+  .col  { flex: 1; min-width: 0; }
 
   .card {
     break-inside: avoid;
@@ -887,11 +893,17 @@ export default function Home() {
 </head><body>
 
   ${hdr}
-  <div class="cols">${renderCards(page1cats)}</div>
+  <div class="cols">
+    <div class="col">${renderCards(col1p1)}</div>
+    <div class="col">${renderCards(col2p1)}</div>
+  </div>
 
   <div class="page-break">
     ${hdr}
-    <div class="cols">${renderCards(page2cats)}</div>
+    <div class="cols">
+      <div class="col">${renderCards(col1p2)}</div>
+      <div class="col">${renderCards(col2p2)}</div>
+    </div>
   </div>
 
 <script>
