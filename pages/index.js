@@ -3997,7 +3997,7 @@ function BarcodeSheetView({ items }) {
   // Normalise Square variation names for display and sort Glass before Bottle
   function doPrint2PageLaminate() {
     const p1 = p1Ref.current?.innerHTML || ''
-    const p2 = p2NoHdrRef.current?.innerHTML || ''
+    const p2 = p2Ref.current?.innerHTML || ''
     const w = window.open('', '_blank')
     const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet — Laminate</title>
