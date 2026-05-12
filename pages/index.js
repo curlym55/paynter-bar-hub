@@ -785,22 +785,6 @@ export default function Home() {
 
     const cats = CATEGORY_ORDER.filter(c => grouped[c])
 
-    // Split categories into 4 balanced columns (2 per page) by item row count
-    const itemCount = cat => grouped[cat].reduce((s, i) => s + (i.variations ? i.variations.length : 1), 0)
-    const totalRows = cats.reduce((s, c) => s + itemCount(c), 0)
-    const target = totalRows / 4
-    const splits = []
-    let running = 0
-    for (let i = 0; i < cats.length; i++) {
-      running += itemCount(cats[i])
-      if (splits.length < 3 && running >= target * (splits.length + 1)) splits.push(i + 1)
-    }
-    while (splits.length < 3) splits.push(cats.length)
-    const col1p1 = cats.slice(0, splits[0])
-    const col2p1 = cats.slice(splits[0], splits[1])
-    const col1p2 = cats.slice(splits[1], splits[2])
-    const col2p2 = cats.slice(splits[2])
-
     function renderCards(pageCats) {
       return pageCats.map(cat => `
         <div class="card">
@@ -851,8 +835,7 @@ export default function Home() {
   .sub   { font-size: 10px; color: #bfdbfe; margin-top: 2px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
-  .cols { display: flex; gap: 10px; align-items: flex-start; }
-  .col  { flex: 1; min-width: 0; }
+  .cols { columns: 2; column-gap: 10px; column-fill: auto; height: 256mm; overflow: hidden; }
 
   .card {
     break-inside: avoid;
@@ -880,10 +863,6 @@ export default function Home() {
   .vr { display: flex; justify-content: space-between; gap: 4px; line-height: 1.6; }
   .vn { font-size: 12px; color: #64748b; font-weight: 400; font-family: Arial; }
 
-  .page-break { page-break-before: always; }
-
-  
-
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .hdr, .cat-hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -893,18 +872,7 @@ export default function Home() {
 </head><body>
 
   ${hdr}
-  <div class="cols">
-    <div class="col">${renderCards(col1p1)}</div>
-    <div class="col">${renderCards(col2p1)}</div>
-  </div>
-
-  <div class="page-break">
-    ${hdr}
-    <div class="cols">
-      <div class="col">${renderCards(col1p2)}</div>
-      <div class="col">${renderCards(col2p2)}</div>
-    </div>
-  </div>
+  <div class="cols">${renderCards(cats)}</div>
 
 <script>
   const QR_URL = 'https://paynter-bar-hub.vercel.app/?public=pricelist'
