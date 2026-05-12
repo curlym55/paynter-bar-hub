@@ -833,16 +833,16 @@ export default function Home() {
 <meta charset="UTF-8">
 <title>Paynter Bar Price List</title>
 <style>
-  @page { size: A4 portrait; margin: 7mm; }
+  @page { size: A4 portrait; margin: 9mm; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { font-family: Arial, sans-serif; font-size: 12px; color: #1f2937; background: #fff; }
 
   .hdr {
     display: flex; justify-content: space-between; align-items: center;
     background: #1e40af; color: #fff;
-    padding: 7px 12px; border-radius: 5px; margin-bottom: 7px;
+    padding: 8px 14px; border-radius: 5px; margin-bottom: 8px;
   }
-  .title { font-size: 17px; font-weight: 800; }
+  .title { font-size: 19px; font-weight: 800; }
   .sub   { font-size: 10px; color: #bfdbfe; margin-top: 2px; }
   .badge { background: #f59e0b; color: #0f172a; font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 99px; }
 
@@ -850,24 +850,24 @@ export default function Home() {
 
   .card {
     break-inside: avoid;
-    border: 1px solid #e2e8f0; border-radius: 4px;
-    overflow: hidden; margin-bottom: 5px;
+    border: 1px solid #e2e8f0; border-radius: 5px;
+    overflow: hidden; margin-bottom: 6px;
     display: inline-block; width: 100%;
   }
   .cat-hdr {
     background: #1e3a5f; color: #fff;
-    font-size: 11px; font-weight: 700;
+    font-size: 12px; font-weight: 700;
     text-transform: uppercase; letter-spacing: 0.07em;
-    padding: 5px 10px;
+    padding: 6px 12px;
   }
   table { width: 100%; border-collapse: collapse; }
   tr:nth-child(even) td { background: #f8fafc; }
-  .nm { padding: 4px 10px; font-size: 13px; }
+  .nm { padding: 5px 12px; font-size: 14px; }
   .alc { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
   .sd  { font-size: 10px; color: #374151; font-weight: 500; margin-left: 6px; font-family: Arial; }
   .pr {
-    padding: 4px 10px; text-align: right;
-    font-size: 13px; font-weight: 700;
+    padding: 5px 12px; text-align: right;
+    font-size: 14px; font-weight: 700;
     font-family: 'Courier New', monospace;
     white-space: nowrap; width: 82px; vertical-align: top;
   }
