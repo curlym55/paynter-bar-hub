@@ -3766,7 +3766,7 @@ function BarcodeSheetView({ items }) {
       while (svg.firstChild) svg.removeChild(svg.firstChild)
       svg.removeAttribute('style')
       try {
-        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2, height: 70, displayValue: false, margin: 10 })
+        window.JsBarcode(svg, sku, { format: 'CODE128', width: 2, height: 60, displayValue: false, margin: 14 })
         const w = parseInt(svg.getAttribute('width')), h = parseInt(svg.getAttribute('height'))
         const svgData = new XMLSerializer().serializeToString(svg)
         const blob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' })
@@ -3829,9 +3829,9 @@ function BarcodeSheetView({ items }) {
     .bc-col{flex:1;display:flex;flex-direction:column;border:2px solid #888;overflow:hidden;}
     .bc-col-hdr{flex:0 0 auto;padding:4px 6px;text-align:center;font-weight:900;font-size:15px;letter-spacing:.07em;text-transform:uppercase;color:#fff;}
     .bc-div{flex:0 0 18px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:12px;letter-spacing:.07em;text-transform:uppercase;color:#fff;border-top:1px solid #888;}
-    .bc-row{flex:1;display:flex;border-top:1px solid #ccc;min-height:44px;}
+    .bc-row{flex:1;display:flex;border-top:1px solid #ccc;min-height:52px;}
     .bc-label{flex:1;display:flex;align-items:center;padding:0 6px;font-weight:900;font-size:18px;word-break:break-word;border-right:1px solid #ccc;}
-    .bc-cell{flex:1;display:flex;align-items:center;overflow:hidden;min-width:0;}
+    .bc-cell{flex:1;display:flex;align-items:center;overflow:hidden;min-width:0;padding:7px 4px;}
     .bc-cell img{width:100%;height:auto;display:block;}
   `
 
