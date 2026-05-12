@@ -3740,7 +3740,8 @@ function BarcodeSheetView({ items }) {
   const allRef   = useRef(null)  // wrapper for all previews - used for SVG rasterisation
   const sheetRef = useRef(null)  // single-page 3-col
   const p1Ref    = useRef(null)  // 2-page: page 1 (Spirits + Fortified)
-  const p2Ref    = useRef(null)  // 2-page: page 2 (White + Red/Rose)
+  const p2Ref      = useRef(null)  // 2-page: page 2 (White + Red/Rose)
+  const p2NoHdrRef = useRef(null)  // 2-page: page 2 without column headers (for laminate)
 
   const C = {
     spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF' },
@@ -3860,10 +3861,10 @@ function BarcodeSheetView({ items }) {
     })
   }
 
-  function ColDiv({ title, colItems, colours, isWine }) {
+  function ColDiv({ title, colItems, colours, isWine, showHeader = true }) {
     return (
       <div className="bc-col">
-        <div className="bc-col-hdr" style={{ background: colours.hdr }}>{title}</div>
+        {showHeader && <div className="bc-col-hdr" style={{ background: colours.hdr }}>{title}</div>}
         {renderCol(colItems, colours, isWine)}
       </div>
     )
@@ -4008,6 +4009,7 @@ function BarcodeSheetView({ items }) {
           {!loaded && <span style={{ fontSize:12, color:'#94a3b8' }}>Loading…</span>}
           <button onClick={doPrint1Page} disabled={!loaded} style={btnStyle(loaded)}>🖨️ Print (1 page)</button>
           <button onClick={doPrint2Page} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#7c3aed' : '#94a3b8'}}>🖨️ Print (2 pages)</button>
+          <button onClick={doPrint2PageLaminate} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#0f766e' : '#94a3b8', color:'#fff'}}>🖨️ Print (laminate A3)</button>
           <button onClick={printA3PDF} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#b45309' : '#94a3b8', color:'#fff'}}>📄 A3 Full Colour PDF</button>
         </div>
       </div>
@@ -4032,6 +4034,11 @@ function BarcodeSheetView({ items }) {
         <div ref={p2Ref} style={{ display:'flex', gap:8, height:580, minHeight:0, marginBottom:12 }}>
           <ColDiv title="White Wine" colItems={whiteItems} colours={C.white} isWine={true} />
           <ColDiv title="Red Wine"   colItems={col2wines}  colours={C.red}   isWine={true} />
+        </div>
+        {/* Hidden no-header page 2 for laminate printing */}
+        <div ref={p2NoHdrRef} style={{ display:'flex', gap:8, height:580, minHeight:0, position:'absolute', left:'-9999px', top:0 }}>
+          <ColDiv title="White Wine" colItems={whiteItems} colours={C.white} isWine={true} showHeader={false} />
+          <ColDiv title="Red Wine"   colItems={col2wines}  colours={C.red}   isWine={true} showHeader={false} />
         </div>
       </div>
     </div>
@@ -4555,6 +4562,28 @@ function PriceListView({ items, settings, readOnly, saving, onSave, onPrint, pub
 
 
   // Normalise Square variation names for display and sort Glass before Bottle
+  function doPrint2PageLaminate() {
+    const p1 = p1Ref.current?.innerHTML || ''
+    const p2 = p2NoHdrRef.current?.innerHTML || ''
+    const leftMargin = '14mm'
+    const html = `<!DOCTYPE html><html><head><style>
+      @page{size:A4 landscape;margin:5mm 6mm 5mm ${leftMargin};}
+      body{margin:0;font-family:Arial,sans-serif;}
+      .pg{display:flex;gap:4px;height:calc(100vh - 10mm);}
+      .pb{page-break-after:always;}
+      ${largeTitles}
+      ${COL_CSS}
+    </style></head><body>
+    <div class='pg pb'>${p1}</div>
+    <div class='pg'>${p2}</div>
+    <script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>
+    <script>window.onload=()=>{document.querySelectorAll('svg[data-sku]').forEach(s=>{try{JsBarcode(s,s.dataset.sku,{format:'CODE128',width:2,height:60,displayValue:false,margin:14})}catch(e){}});setTimeout(()=>window.print(),600)}</script>
+    </body></html>`
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+  }
+
   function normaliseVariations(vars) {
     return vars
       .map(v => {
