@@ -3895,6 +3895,91 @@ function BarcodeSheetView({ items }) {
     setTimeout(() => { w.focus(); w.print() }, 900)
   }
 
+  async function printA3PDF() {
+    // Ensure JsBarcode is loaded
+    if (!window.JsBarcode) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+
+    const ROYAL   = '#1E3A5F', WHITE = '#fff', CREAM = '#fafaf7'
+    const C_SP    = { hdr: '#2d4a70', alt: '#f0f4f8' }
+    const C_FORT  = { hdr: '#7c3a7c', alt: '#fdf0fd' }
+    const C_WHITE = { hdr: '#2d6a3f', alt: '#f0fdf4' }
+    const C_RED   = { hdr: '#8b2020', alt: '#fff0f0' }
+    const C_ROSE  = { hdr: '#b45a8a', alt: '#fdf0f6' }
+
+    function buildSVG(sku) {
+      const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
+      try { window.JsBarcode(svg, sku, { format:'CODE128', width:3, height:90, displayValue:false, margin:12, background:'#ffffff' }) }
+      catch { return '' }
+      return new XMLSerializer().serializeToString(svg)
+    }
+
+    function rowsHtml(arr, alt) {
+      return arr.map((item, i) => {
+        if (item._spacer) return `<div style='flex:0 0 ${item._h||30}px;background:#fff;border-top:1px solid #dde2ea'></div>`
+        if (item._div)    return `<div style='flex:0 0 24px;display:flex;align-items:center;padding:0 10px;font-size:13px;font-weight:900;color:#fff;letter-spacing:.08em;background:${item._hdr}'>${item.name}</div>`
+        const sku = item.sku || item.square_item_id || ''
+        const bc  = sku ? buildSVG(sku) : ''
+        const bg  = i%2===0 ? '#ffffff' : alt
+        return `<div style='flex:1;display:flex;border-top:1px solid #dde2ea;min-height:52px;background:${bg}'>`
+          + `<div style='flex:1;display:flex;align-items:center;padding:0 10px;font-size:18px;font-weight:900;color:#1a2535;line-height:1.2'>${item.name}</div>`
+          + (bc ? `<div style='width:180px;flex:0 0 180px;display:flex;align-items:center;justify-content:center;padding:4px 8px'>${bc}</div>` : '')
+          + `</div>`
+      }).join('')
+    }
+
+    function colHtml(title, arr, hdr, alt, cont) {
+      return `<div style='flex:1;display:flex;flex-direction:column;min-width:0;border:1.5px solid #c0cad8;border-radius:4px;overflow:hidden'>`
+           + (cont ? '' : `<div style='flex:0 0 auto;padding:6px 10px;background:${hdr};color:#fff;font-size:18px;font-weight:900;letter-spacing:.05em;text-transform:uppercase'>${title}</div>`)
+           + `<div style='flex:1;display:flex;flex-direction:column;overflow:hidden'>${rowsHtml(arr, alt)}</div>`
+           + `</div>`
+    }
+
+    // Build page data
+    const RIGHT_MATCH = ['canadian club','glenlivet','jack daniel','jameson']
+    const spL = items.filter(i => i.category==='Spirits' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name)).filter(i=>!RIGHT_MATCH.some(n=>i.name.toLowerCase().includes(n)))
+    const spR = items.filter(i => i.category==='Spirits' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name)).filter(i=> RIGHT_MATCH.some(n=>i.name.toLowerCase().includes(n)))
+    const fort= items.filter(i => i.category==='Fortified & Liqueurs' && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
+    const wht = items.filter(i => ['White Wine','Rose'].includes(i.category) && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
+    const red = items.filter(i => ['Red Wine','Sparkling'].includes(i.category) && (i.onHand||0)>0).sort((a,b)=>a.name.localeCompare(b.name))
+
+    const spRFort = [
+      ...spR,
+      ...(fort.length ? [{ _spacer:true, _h:24 },{ _div:true, name:'FORTIFIED & LIQUEURS', _hdr:C_FORT.hdr }, ...fort] : []),
+    ]
+
+    const page = (cols, pg) =>
+      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:7mm 8mm 7mm 12mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
+      + `<div style='flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:2.5px solid ${ROYAL}'>`
+      + `<div style='font-size:22px;font-weight:900;color:${ROYAL}'>Paynter Bar — GemLife Palmwoods</div>`
+      + `<div style='font-size:15px;font-weight:700;color:#64748b'>Barcode Reference Sheet &nbsp;·&nbsp; Page ${pg} of 2 &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})}</div>`
+      + `</div>`
+      + `<div style='flex:1;display:flex;gap:8px;min-height:0;overflow:hidden'>${cols}</div>`
+      + `</div>`
+
+    const html = `<!DOCTYPE html><html><head><meta charset='utf-8'>`
+      + `<script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>`
+      + `<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}@page{size:A3 landscape;margin:0}@media print{body{width:420mm;height:297mm}}</style>`
+      + `</head><body>`
+      + page(colHtml('Spirits',spL,C_SP.hdr,C_SP.alt)+colHtml('Spirits (cont.)',spRFort,C_SP.hdr,C_SP.alt), 1)
+      + page(colHtml('White Wine & Rosé',wht,C_WHITE.hdr,C_WHITE.alt)+colHtml('Red Wine & Sparkling',red,C_RED.hdr,C_RED.alt), 2)
+      + `<script>document.querySelectorAll('svg[data-sku]').forEach(s=>{try{JsBarcode(s,s.dataset.sku,{format:'CODE128',width:3,height:90,displayValue:false,margin:12})}catch{}})</script>`
+      + `</body></html>`
+
+    const w = window.open('', '_blank')
+    w.document.write(html)
+    w.document.close()
+    w.focus()
+    // Wait for JsBarcode to load then print
+    setTimeout(() => {
+      w.print()
+    }, 1200)
+  }
+
   function doPrint1Page() {
     printWindow([{ subtitle: 'By the Glass Barcodes', html: sheetRef.current?.innerHTML || '' }])
   }
@@ -3921,6 +4006,7 @@ function BarcodeSheetView({ items }) {
           {!loaded && <span style={{ fontSize:12, color:'#94a3b8' }}>Loading…</span>}
           <button onClick={doPrint1Page} disabled={!loaded} style={btnStyle(loaded)}>🖨️ Print (1 page)</button>
           <button onClick={doPrint2Page} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#7c3aed' : '#94a3b8'}}>🖨️ Print (2 pages)</button>
+          <button onClick={printA3PDF} disabled={!loaded} style={{...btnStyle(loaded), background: loaded ? '#b45309' : '#94a3b8', color:'#fff'}}>📄 A3 Full Colour PDF</button>
         </div>
       </div>
 
