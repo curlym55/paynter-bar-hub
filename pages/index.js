@@ -1325,8 +1325,6 @@ export default function Home() {
     const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : salesPeriod === 'day' ? 'Prior Day' : 'Prior Period'
 
     if (exportXlsx) {
-      // ── Excel export ──────────────────────────────────────────────────────
-      const script = document.createElement('script')
       await loadExcelJS()
       const wb = new window.ExcelJS.Workbook()
 
@@ -1580,7 +1578,6 @@ export default function Home() {
 
     // ── Excel export ──────────────────────────────────────────────────────
     if (exportXlsx) {
-      const script = document.createElement('script')
       await loadExcelJS()
 
       // ── Style helpers ────────────────────────────────────────────────────
@@ -6035,7 +6032,6 @@ function StocktakeView({ items, readOnly, onExport }) {
 
   const exportHistoryToExcel = () => {
     if (!history?.length) return
-    const script = document.createElement('script')
     ;(async () => {
       await loadExcelJS()
       const NAVY  = '0F172A', TEAL = '0E7490', PURPLE = '7C3AED'
@@ -6311,7 +6307,6 @@ function StocktakeView({ items, readOnly, onExport }) {
   const mobileItem = filteredItems[mobileIdx] || null
 
   const exportToExcel = () => {
-    const script = document.createElement('script')
     ;(async () => {
       await loadExcelJS()
       const NAVY = '0F172A', TEAL = '0E7490', WHITE = 'FFFFFF', LGREY = 'F1F5F9'
