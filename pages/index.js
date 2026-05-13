@@ -1987,26 +1987,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
   }
 
   function exportStocktake() {
-    const script = document.createElement('script')
     ;(async () => {
       await loadExcelJS()
-      // Columns: A=Item B=Category C=Supplier D=Cool Room E=Store Room F=Bar
-      // G=Total Count H=Nips/Bottle I=Total Nips J=Square On Hand K=Difference
-      const rows = displayed.map(item => ({
-        'Item':           item.name,
-        'Category':       item.category,
-        'Supplier':       item.supplier,
-        'Cool Room':      '',
-        'Store Room':     '',
-        'Bar':            '',
-        'Total Count':    '',
-        'Nips/Bottle':    item.isSpirit ? (item.bottleML || 700) / (item.nipML || 30) : '',
-        'Total Nips':     '',
-        'Square On Hand': item.onHand,
-        'Difference':     '',
-      }))
-
-
       const ExcelJS = window.ExcelJS
       const wbSt = new ExcelJS.Workbook()
       const wsSt = wbSt.addWorksheet('Stocktake')
@@ -2026,19 +2008,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       displayed.forEach((item, idx) => {
         const rowNum = idx + 2
         const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
-        const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : null
+        const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : ''
         const row = wsSt.addRow([
           item.name, item.category, item.supplier, '', '', '',
           { formula: `D${rowNum}+E${rowNum}+F${rowNum}` },
-          nipsPerBottle,
-          item.isSpirit ? { formula: `G${rowNum}*H${rowNum}` } : null,
+          nipsPerBottle || '',
+          item.isSpirit ? { formula: `G${rowNum}*H${rowNum}` } : '',
           item.onHand,
           item.isSpirit ? { formula: `I${rowNum}-J${rowNum}` } : { formula: `G${rowNum}-J${rowNum}` },
         ])
         row.eachCell({ includeEmpty:true }, (cell, cn) => {
           cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:bg } }
           if (cn > 3) cell.alignment = { horizontal:'center' }
-          if (cn === 8 && nipsPerBottle) { cell.numFmt = '0.0' }
           if ([7,8,9,11].includes(cn)) cell.numFmt = '0.0'
         })
         row.getCell(1).font = { size:11 }
