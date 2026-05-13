@@ -19,8 +19,7 @@ const FOLDERS = [
 async function createFolder(token, path) {
   const parts = path.split('/')
   const name = parts.pop()
-  const parentPath = parts.join('/')
-  const parentUrl = parentPath
+  const parentUrl = parts.length
     ? `https://graph.microsoft.com/v1.0/me/drive/root:/${parts.map(encodeURIComponent).join('/')}:/children`
     : `https://graph.microsoft.com/v1.0/me/drive/root/children`
 
@@ -30,7 +29,9 @@ async function createFolder(token, path) {
     body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'ignore' }),
   })
   const data = await res.json()
-  return { path, ok: res.ok || data.error?.code === 'nameAlreadyExists', status: res.status, name: data.name }
+  const ok = res.ok || data.error?.code === 'nameAlreadyExists' || data.error?.code === 'ResourceAlreadyExists'
+  const errMsg = ok ? '' : (data.error?.message || `HTTP ${res.status}`)
+  return { path, ok, errMsg }
 }
 
 export default async function handler(req, res) {
@@ -43,17 +44,26 @@ export default async function handler(req, res) {
       const r = await createFolder(token, folder)
       results.push(r)
     }
-    const html = `<!DOCTYPE html><html><head><title>OneDrive Setup</title>
-<style>body{font-family:Arial,sans-serif;padding:32px;max-width:600px}h2{color:#1e3a5f}.ok{color:#16a34a}.fail{color:#dc2626}li{padding:4px 0}</style>
+
+    const rows = results.map(r =>
+      `<li style="color:${r.ok ? '#16a34a' : '#dc2626'};padding:4px 0">
+        ${r.ok ? '&#10003;' : '&#10007;'} ${r.path}
+        ${r.errMsg ? `<span style="font-size:11px;color:#dc2626;margin-left:8px">(${r.errMsg})</span>` : ''}
+      </li>`
+    ).join('')
+
+    const allOk = results.every(r => r.ok)
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    return res.send(`<!DOCTYPE html><html><head><meta charset="utf-8"><title>OneDrive Setup</title>
+<style>body{font-family:Arial,sans-serif;padding:32px;max-width:700px}h2{color:#1e3a5f}ul{margin-top:12px}li{font-size:13px}</style>
 </head><body>
-<h2>✅ OneDrive Folder Setup Complete</h2>
-<p>The following folders were created in your OneDrive:</p>
-<ul>${results.map(r => `<li class="${r.ok ? 'ok' : 'fail'}">${r.ok ? '✓' : '✗'} ${r.path}</li>`).join('')}</ul>
-<p style="margin-top:24px;color:#64748b;font-size:13px">You can now copy your existing files into the new folder structure. Close this tab when done.</p>
-</body></html>`
-    res.setHeader('Content-Type', 'text/html')
-    return res.send(html)
+<h2>${allOk ? 'OneDrive Folder Setup Complete' : 'OneDrive Folder Setup — Some Errors'}</h2>
+<p>Results:</p>
+<ul>${rows}</ul>
+<p style="margin-top:24px;color:#64748b;font-size:12px">You can now copy your existing files into the new folder structure.</p>
+</body></html>`)
   } catch (e) {
-    return res.status(500).json({ error: e.message })
+    res.setHeader('Content-Type', 'text/html; charset=utf-8')
+    return res.status(500).send(`<p style="color:red;font-family:Arial;padding:32px">Error: ${e.message}</p>`)
   }
 }
