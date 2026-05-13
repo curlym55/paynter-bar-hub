@@ -2373,7 +2373,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
             <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-                <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>✅ Stock Received — {receiptData.supplier}</div>
+                <div>
+                  <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>✅ Stock Received — {receiptData.supplier}</div>
+                  {receiptData.ref && <div style={{ fontSize:11, fontFamily:'monospace', color:'#16a34a', marginTop:2, fontWeight:700 }}>{receiptData.ref}</div>}
+                </div>
                 <button onClick={() => setReceiptData(null)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>✕</button>
               </div>
 
@@ -2445,7 +2448,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       const ref = receiptData.ref || ''
                       const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
                       const dateslug = d.replace(/\//g,'-')
-                      const fname = ref ? `${ref}-Receipt.xlsx` : 'RECV-' + slug + '-' + dateslug + '.xlsx'
+                      const safeRef = ref ? ref.replace(/\s+/g, '_') : ''
+                      const fname = safeRef ? `${safeRef}-Receipt.xlsx` : 'RECV-' + slug + '-' + dateslug + '.xlsx'
 
                       if (!window.ExcelJS) {
                         const s = document.createElement('script')
