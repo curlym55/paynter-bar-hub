@@ -1,71 +1,104 @@
-/**
- * POST /api/onedrive/save-report
- *
- * Generates a CSV receive report and saves it to OneDrive.
- *
- * Request body:
- * {
- *   reference: string,
- *   receivedBy: string,
- *   locationName: string,
- *   items: [
- *     {
- *       name: string,
- *       orderedQty: number,
- *       receivedQty: number,
- *       unit: string,
- *       note: string       // optional
- *     }
- *   ]
- * }
- *
- * Response:
- * { success: true, filename: string, webUrl: string }
- */
-
-import { saveFile, buildReceiveCsv } from '../../../lib/onedrive';
+import ExcelJS from 'exceljs'
+import { saveFile } from '../../../lib/onedrive'
 
 export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
-  }
+  if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  // If OneDrive is not configured, skip gracefully
   if (!process.env.ONEDRIVE_CLIENT_ID || !process.env.ONEDRIVE_CLIENT_SECRET) {
-    console.warn('[save-report] OneDrive env vars not set — skipping upload');
-    return res.status(200).json({
-      success: true,
-      skipped: true,
-      reason: 'OneDrive not configured — add ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET in Vercel',
-    });
+    return res.status(200).json({ success: true, skipped: true, reason: 'OneDrive not configured' })
   }
 
-  const { reference, receivedBy, locationName, items } = req.body ?? {};
+  const { reference, receivedBy, locationName, supplier, items } = req.body ?? {}
+  if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'items array required' })
 
-  if (!Array.isArray(items) || items.length === 0) {
-    return res.status(400).json({ error: 'items array required' });
-  }
-
-  // Build a filename: "Receive_YYYY-MM-DD_HHmm.csv"
-  const now = new Date();
-  const yymmdd = now.toISOString().slice(0, 10);
-  const hhmm = now.toTimeString().slice(0, 5).replace(':', '');
-  const filename = `Receive_${yymmdd}_${hhmm}.csv`;
+  const NAVY = 'FF1E3A5F', WHITE = 'FFFFFFFF', LGREY = 'FFF1F5F9'
+  const sup = supplier || 'Unknown'
+  const date = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
+  const dateFile = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }).replace(/\//g, '-')
 
   try {
-    const csv = buildReceiveCsv({ reference, receivedBy, locationName, items });
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Goods Received')
 
-    const { webUrl } = await saveFile(filename, csv, 'text/csv');
+    ws.views = [{ state: 'frozen', ySplit: reference ? 7 : 6 }]
+    ws.columns = [
+      { key: 'item', width: 42 },
+      { key: 'sku',  width: 16 },
+      { key: 'ordered', width: 12 },
+      { key: 'received', width: 12 },
+      { key: 'unit',  width: 10 },
+      { key: 'note',  width: 24 },
+    ]
 
-    return res.status(200).json({ success: true, filename, webUrl });
+    // Title
+    const titleRow = ws.addRow(['Paynter Bar — Goods Received', '', '', '', '', ''])
+    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: NAVY } }
+    titleRow.height = 22
+
+    // Metadata
+    const meta = (label, val) => {
+      const r = ws.addRow([label, val, '', '', '', ''])
+      r.getCell(1).font = { size: 10, color: { argb: 'FF64748B' } }
+      r.getCell(2).font = { size: 10, color: { argb: 'FF64748B' } }
+    }
+    meta('Supplier', sup)
+    meta('Date', date)
+    if (reference) meta('PO Reference', reference)
+    meta('Items received', String(items.filter(i => i.receivedQty > 0).length))
+    ws.addRow([])
+
+    // Header row
+    const hRow = ws.addRow(['Item', 'SKU', 'Ordered', 'Received', 'Unit', 'Note'])
+    hRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
+      cell.font = { bold: true, color: { argb: WHITE } }
+      cell.alignment = { horizontal: ['Ordered','Received'].includes(cell.value) ? 'right' : 'left', vertical: 'middle' }
+    })
+    hRow.height = 18
+
+    // Data rows
+    items.forEach((item, i) => {
+      const bg = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? LGREY : WHITE } }
+      const row = ws.addRow([item.name, item.sku || '', item.orderedQty ?? '', item.receivedQty, item.unit || '', item.note || ''])
+      row.getCell(1).fill = bg; row.getCell(1).font = { size: 12 }
+      row.getCell(2).fill = bg; row.getCell(2).font = { size: 11, color: { argb: 'FF64748B' } }
+      row.getCell(3).fill = bg; row.getCell(3).alignment = { horizontal: 'right' }
+      row.getCell(4).fill = bg; row.getCell(4).font = { bold: true, size: 12 }; row.getCell(4).alignment = { horizontal: 'right' }
+      row.getCell(5).fill = bg; row.getCell(5).font = { size: 11, color: { argb: 'FF64748B' } }
+      row.getCell(6).fill = bg; row.getCell(6).font = { size: 11, italic: true, color: { argb: 'FF94A3B8' } }
+    })
+
+    ws.addRow([])
+    const foot = ws.addRow(['Paynter Bar — GemLife Palmwoods', '', '', '', '', 'Generated by Paynter Bar Hub'])
+    ;[1,6].forEach(c => { foot.getCell(c).font = { size: 9, italic: true, color: { argb: 'FF94A3B8' } } })
+
+    // Autofilter on header row
+    const hdrRow = reference ? 7 : 6
+    ws.autoFilter = { from: `A${hdrRow}`, to: `F${hdrRow}` }
+
+    // Generate buffer and upload to supplier subfolder
+    const buf = await wb.xlsx.writeBuffer()
+    const safeSupplier = sup.replace(/[^a-zA-Z0-9 ]/g, '').trim()
+    const filename = `${reference ? reference.replace(/\s/g,'_') + '-' : ''}Receipt-${dateFile}.xlsx`
+    const folderPath = `Paynter Bar/Receive Reports/${safeSupplier}`
+
+    // Upload using saveFile helper but with dynamic folder
+    const token = await import('../../../lib/onedrive').then(m => m.getAccessToken())
+    const encodedPath = folderPath.split('/').map(encodeURIComponent).join('/')
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
+    const uploadRes = await fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+      body: buf,
+    })
+    if (!uploadRes.ok) {
+      const err = await uploadRes.json().catch(() => ({}))
+      throw new Error(err.error?.message || `Upload failed ${uploadRes.status}`)
+    }
+    const data = await uploadRes.json()
+    return res.status(200).json({ success: true, filename, webUrl: data.webUrl })
   } catch (err) {
-    console.error('[save-report]', err.message);
-    // Return 200 with error detail so the UI can show a warning rather than
-    // blocking a successful stock receive.
-    return res.status(200).json({
-      success: false,
-      skipped: true,
-      reason: err.message,
-    });
+    console.error('[save-report]', err.message)
+    return res.status(200).json({ success: false, skipped: true, reason: err.message })
   }
 }

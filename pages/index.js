@@ -356,7 +356,13 @@ export default function Home() {
           const odRes = await fetch('/api/onedrive/save-report', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ reference: `${supplier} delivery`, receivedBy: '', locationName: 'Paynter Bar', items: odItems })
+            body: JSON.stringify({
+              reference: receiveModal.ref || '',
+              supplier,
+              receivedBy: 'Bar Manager',
+              locationName: 'Paynter Bar',
+              items: odItems
+            })
           })
           oneDriveResult = await odRes.json()
         } catch (odErr) {
