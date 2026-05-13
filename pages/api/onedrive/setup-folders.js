@@ -26,10 +26,10 @@ async function createFolder(token, path) {
   const res = await fetch(parentUrl, {
     method: 'POST',
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name, folder: {}, '@microsoft.graph.conflictBehavior': 'ignore' }),
+    body: JSON.stringify({ name, folder: {} }),
   })
   const data = await res.json()
-  const ok = res.ok || data.error?.code === 'nameAlreadyExists' || data.error?.code === 'ResourceAlreadyExists'
+  const ok = res.ok || res.status === 409 || data.error?.code === 'nameAlreadyExists' || data.error?.code === 'ResourceAlreadyExists'
   const errMsg = ok ? '' : (data.error?.message || `HTTP ${res.status}`)
   return { path, ok, errMsg }
 }
