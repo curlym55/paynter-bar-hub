@@ -363,7 +363,7 @@ export default function Home() {
 
         const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
         setReceiveModal(null)
-        setReceiptData({ supplier, date: dateStr, items: receivedItems, sqResult, oneDriveResult })
+        setReceiptData({ supplier, ref: receiveModal.ref || '', date: dateStr, items: receivedItems, sqResult, oneDriveResult })
         setReceiptSaved(false)
       }
     } finally {
@@ -2442,9 +2442,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     try {
                       const sup = receiptData.supplier
                       const d = receiptData.date
+                      const ref = receiptData.ref || ''
                       const slug = sup.replace(/\s+/g,'').replace(/[^a-zA-Z0-9]/g,'')
                       const dateslug = d.replace(/\//g,'-')
-                      const fname = 'RECV-' + slug + '-' + dateslug + '.xlsx'
+                      const fname = ref ? `${ref}-Receipt.xlsx` : 'RECV-' + slug + '-' + dateslug + '.xlsx'
 
                       if (!window.ExcelJS) {
                         const s = document.createElement('script')
@@ -2455,7 +2456,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       const wb = new window.ExcelJS.Workbook()
                       const ws = wb.addWorksheet('Goods Received')
 
-                      ws.views = [{ state: 'frozen', ySplit: 6 }]
+                      ws.views = [{ state: 'frozen', ySplit: ref ? 7 : 6 }]
                       ws.columns = [
                         { key: 'item', width: 42 },
                         { key: 'sku',  width: 16 },
@@ -2477,6 +2478,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       }
                       addMeta('Supplier', sup)
                       addMeta('Date', d)
+                      if (ref) addMeta('PO Reference', ref)
                       addMeta('Items received', String(receiptData.items.length))
                       ws.addRow([])
 
