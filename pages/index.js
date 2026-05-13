@@ -39,6 +39,8 @@ export default function Home() {
 
   const [saving, setSaving]             = useState({})
   const [rundownItems, setRundownItems]   = useState({})
+  const [documents, setDocuments]         = useState([])
+  const [docsLoading, setDocsLoading]     = useState(false)
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -362,7 +364,26 @@ export default function Home() {
         }
 
         const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
+        const poRef = receiveModal.ref || supplier
+        // Save document record to Supabase (receive report)
+        fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action: 'receive', po_ref: poRef, supplier,
+            receive_date: new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'}),
+            item_count: receivedItems.length,
+            items: receivedItems.map(i => ({ name: i.name, orderedQty: i.orderQty||0, receivedQty: receiveQtys[i.name]||i.orderQty||0, unit: i.isSpirit ? 'nips' : 'units' }))
+          }) }).catch(()=>null)
+        // Upload invoice to Supabase if attached
+        if (invoiceFile) {
+          const ext = invoiceFile.name.split('.').pop()
+          const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
+          fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType }) }).catch(()=>null)
+          fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
+        }
         setReceiveModal(null)
+        setInvoiceFile(null)
         setReceiptData({ supplier, ref: receiveModal.ref || '', date: dateStr, items: receivedItems, sqResult, oneDriveResult })
         setReceiptSaved(false)
       }
@@ -371,6 +392,16 @@ export default function Home() {
     }
   }
 
+
+  async function loadDocuments() {
+    setDocsLoading(true)
+    try {
+      const r = await fetch('/api/documents/list')
+      const d = await r.json()
+      setDocuments(d.documents || [])
+    } catch {}
+    setDocsLoading(false)
+  }
 
   function generatePoExcel(supplier) {
     const poItems = items.filter(i =>
@@ -500,6 +531,9 @@ export default function Home() {
     })
     const d = await r.json()
     if (d.ok) {
+      // Create document record for this PO
+      fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action:'order', po_ref: d.ref || ref, supplier, order_date: new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'}), item_count: poItems.length }) }).catch(()=>null)
       setOrderedItems(d.ordered)
       setPrinting(null)
     }
@@ -2087,6 +2121,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               { icon: '⭐', label: 'Specials', tab: 'specials', action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
                  { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
               { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+              { icon: '📁', label: 'Documents', tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
               { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
             ]},
             { label: 'Reports', icon: '📋', items: [
@@ -2165,7 +2200,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -3165,6 +3200,64 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
+        {mainTab === 'documents' && (
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📁 Purchase Documents</div>
+                <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>All PO records with receive reports and invoices</div>
+              </div>
+              <button onClick={loadDocuments} style={{ padding: '7px 14px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                🔄 Refresh
+              </button>
+            </div>
+            {docsLoading ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>Loading documents…</div>
+            ) : documents.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>No documents yet. Documents are created automatically when orders are placed and received.</div>
+            ) : (
+              <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, overflow: 'hidden' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                  <thead>
+                    <tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                      {['PO Reference','Supplier','Ordered','Received','Items','Receipt','Invoice','Status'].map(h => (
+                        <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {documents.map((doc, i) => (
+                      <tr key={doc.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
+                        <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>{doc.po_ref}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 13 }}>{doc.supplier}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
+                        <td style={{ padding: '10px 12px' }}>
+                          {doc.receive_url
+                            ? <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Download</a>
+                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          {doc.invoice_url
+                            ? <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Download</a>
+                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,
+                            background: doc.status === 'received' ? '#f0fdf4' : doc.status === 'partial' ? '#fffbeb' : '#eff6ff',
+                            color: doc.status === 'received' ? '#16a34a' : doc.status === 'partial' ? '#d97706' : '#1d4ed8' }}>
+                            {doc.status === 'received' ? '✓ Received' : doc.status === 'partial' ? '⚡ Partial' : '🛒 Ordered'}
+                          </span>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
         {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
         {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to committee members.</div>}
