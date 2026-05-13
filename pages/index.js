@@ -538,8 +538,14 @@ export default function Home() {
     const d = await r.json()
     if (d.ok) {
       // Create document record for this PO
+      const poDocRef = d.ref || ref
+      const poOrderDate = new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'})
       fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'order', po_ref: d.ref || ref, supplier, order_date: new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'}), item_count: poItems.length }) }).catch(()=>null)
+        body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier, order_date: poOrderDate, item_count: poItems.length }) }).catch(()=>null)
+      // Save PO Excel to OneDrive
+      fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ po_ref: poDocRef, supplier, order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
+          items: poItems.map(i => ({ name: i.name, sku: i.sku||'', orderQty: i.orderQty, bottlesToOrder: i.bottlesToOrder||null, isSpirit: i.isSpirit||false })) }) }).catch(()=>null)
       setOrderedItems(d.ordered)
       setPrinting(null)
     }

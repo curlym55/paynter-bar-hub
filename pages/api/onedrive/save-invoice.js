@@ -14,7 +14,7 @@ export default async function handler(req, res) {
     const token = await getAccessToken()
     const buffer = Buffer.from(base64, 'base64')
     const safeSupplier = (supplier || 'Unknown').replace(/[^a-zA-Z0-9 ]/g, '').trim()
-    const folder = `Paynter Bar/Invoices/${safeSupplier}`
+    const folder = `POs Invoices and Receive Reports/Invoices/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
     const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
 
