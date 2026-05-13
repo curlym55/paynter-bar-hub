@@ -1754,6 +1754,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const mColor = (p) => p==null ? null : p < 20 ? { argb:'FFFEE2E2' } : p < 35 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
     const mFont  = (p) => p==null ? null : p < 20 ? { argb:'FF991B1B' } : p < 35 ? { argb:'FF92400E' } : { argb:'FF166534' }
+    const mpValues = [], bpValues = []
 
     for (const item of allItems) {
       const isWine = WINE_C.includes(item.category)
@@ -1815,6 +1816,39 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         const c = row.getCell(k)
         if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
       })
+      if (mp != null) mpValues.push(mp)
+      if (bp != null) bpValues.push(bp)
+    }
+
+    // Summary row — overall average margins
+    ws.addRow({})  // blank separator
+    const lastDataRow = ws.rowCount
+    const avgMp = mpValues.length ? mpValues.reduce((a,b)=>a+b,0)/mpValues.length : null
+    const avgBp = bpValues.length ? bpValues.reduce((a,b)=>a+b,0)/bpValues.length : null
+    const summaryRow = ws.addRow({
+      name: 'OVERALL AVERAGE MARGIN',
+      cat:  `${mpValues.length} items`,
+      margin:    avgMp != null ? avgMp/100 : '',
+      btlMargin: avgBp != null ? avgBp/100 : '',
+    })
+    summaryRow.getCell('name').font  = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } }
+    summaryRow.getCell('cat').font   = { italic: true, color: { argb: 'FF64748B' }, size: 10 }
+    summaryRow.getCell('name').fill  = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
+    summaryRow.getCell('cat').fill   = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
+    ;['sup','unit','buy','sell','btlSell','onHand'].forEach(k => {
+      summaryRow.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
+    })
+    if (avgMp != null) {
+      const mc = summaryRow.getCell('margin')
+      mc.numFmt = '0.0%'; mc.font = { bold: true, size: 12, color: mFont(avgMp) }
+      mc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(avgMp) }
+      mc.alignment = { horizontal: 'right' }
+    }
+    if (avgBp != null) {
+      const bc = summaryRow.getCell('btlMargin')
+      bc.numFmt = '0.0%'; bc.font = { bold: true, size: 12, color: mFont(avgBp) }
+      bc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(avgBp) }
+      bc.alignment = { horizontal: 'right' }
     }
 
     // Export
