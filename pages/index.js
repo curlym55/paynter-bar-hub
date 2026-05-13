@@ -1670,7 +1670,6 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     w.document.write(html)
     w.document.close()
     w.focus()
-    setTimeout(() => w.print(), 500)
   }
 
   function printDeliverySheet(supplier, supplierItems, ref) {
@@ -2654,10 +2653,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
                 {view !== 'all' && !readOnly && (
-                  <button onClick={() => printOrderSheet(view)}
-                    style={{ ...styles.tab, color: '#374151', borderColor: '#374151', background: '#f8fafc', fontWeight: 700 }}>
-                    🖨️ Print Order
-                  </button>
+                  <>
+                    <button onClick={() => printOrderSheet(view)}
+                      style={{ ...styles.tab, color: '#374151', borderColor: '#374151', background: '#f8fafc', fontWeight: 700 }}>
+                      📋 Order Sheet
+                    </button>
+                    <button onClick={() => openRefModalWithNumber(view)}
+                      style={{ ...styles.tab, color: '#16a34a', borderColor: '#16a34a', background: '#f0fdf4', fontWeight: 700 }}>
+                      ✓ Mark as Ordered
+                    </button>
+                  </>
                 )}
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
