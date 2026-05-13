@@ -31,12 +31,12 @@ export default async function handler(req, res) {
   }
 
   // If OneDrive is not configured, skip gracefully
-  if (!process.env.ONEDRIVE_CLIENT_ID || !process.env.ONEDRIVE_REFRESH_TOKEN) {
+  if (!process.env.ONEDRIVE_CLIENT_ID || !process.env.ONEDRIVE_CLIENT_SECRET) {
     console.warn('[save-report] OneDrive env vars not set — skipping upload');
     return res.status(200).json({
       success: true,
       skipped: true,
-      reason: 'OneDrive not configured',
+      reason: 'OneDrive not configured — add ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET in Vercel',
     });
   }
 
