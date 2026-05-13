@@ -365,6 +365,8 @@ export default function Home() {
             })
           })
           oneDriveResult = await odRes.json()
+          if (oneDriveResult?.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'update_urls', po_ref: receiveModal.ref||supplier, receipt_onedrive_url: oneDriveResult.webUrl }) }).catch(()=>null)
         } catch (odErr) {
           oneDriveResult = { skipped: true, reason: odErr.message }
         }
@@ -384,7 +386,11 @@ export default function Home() {
           const ext = invoiceFile.name.split('.').pop()
           const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
           fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) }).catch(()=>null)
+            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) })
+            .then(r => r.json()).then(d => {
+              if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                body: JSON.stringify({ action:'update_urls', po_ref: poRef, invoice_onedrive_url: d.webUrl }) })
+            }).catch(()=>null)
           fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
         }
@@ -542,10 +548,14 @@ export default function Home() {
       const poOrderDate = new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'})
       fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier, order_date: poOrderDate, item_count: poItems.length }) }).catch(()=>null)
-      // Save PO Excel to OneDrive
+      // Save PO Excel to OneDrive, then update document record with URL
       fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ po_ref: poDocRef, supplier, order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
-          items: poItems.map(i => ({ name: i.name, sku: i.sku||'', orderQty: i.orderQty, bottlesToOrder: i.bottlesToOrder||null, isSpirit: i.isSpirit||false })) }) }).catch(()=>null)
+          items: poItems.map(i => ({ name: i.name, sku: i.sku||'', orderQty: i.orderQty, bottlesToOrder: i.bottlesToOrder||null, isSpirit: i.isSpirit||false })) }) })
+        .then(r => r.json()).then(d => {
+          if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: d.webUrl }) })
+        }).catch(()=>null)
       setOrderedItems(d.ordered)
       setPrinting(null)
     }
@@ -3232,7 +3242,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                      {['PO Reference','Supplier','Ordered','Received','Items','Receipt','Invoice','Status'].map(h => (
+                      {['PO Reference','Supplier','Ordered','Received','Items','PO','Receipt','Invoice','Status'].map(h => (
                         <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
@@ -3246,14 +3256,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
                         <td style={{ padding: '10px 12px' }}>
-                          {doc.receive_url
-                            ? <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Download</a>
+                          {doc.po_onedrive_url
+                            ? <a href={doc.po_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
                             : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          {doc.invoice_url
-                            ? <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Download</a>
-                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                            {doc.receive_url && <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Supabase</a>}
+                            {doc.receipt_onedrive_url && <a href={doc.receipt_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
+                            {!doc.receive_url && !doc.receipt_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                          </div>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                            {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
+                            {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                          </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <span style={{ display: 'inline-block', padding: '2px 8px', borderRadius: 4, fontSize: 11, fontWeight: 700,

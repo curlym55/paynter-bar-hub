@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   const { data, error } = await sb.from('bar_documents').select('*').order('created_at', { ascending: false })
   if (error) return res.status(500).json({ error: error.message })
 
-  // Generate 1-hour signed download URLs
+  // Generate 1-hour signed download URLs for Supabase Storage files
   const docs = await Promise.all(data.map(async doc => {
     const urls = {}
     if (doc.receive_report_path) {
