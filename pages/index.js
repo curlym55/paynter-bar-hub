@@ -1816,8 +1816,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         const c = row.getCell(k)
         if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
       })
-      if (mp != null) mpValues.push(mp)
-      if (bp != null) bpValues.push(bp)
+      if (mp != null && !rundownItems[item.name]) mpValues.push(mp)
+      if (bp != null && !rundownItems[item.name]) bpValues.push(bp)
     }
 
     // Summary row — overall average margins
@@ -1827,7 +1827,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const avgBp = bpValues.length ? bpValues.reduce((a,b)=>a+b,0)/bpValues.length : null
     const summaryRow = ws.addRow({
       name: 'OVERALL AVERAGE MARGIN',
-      cat:  `${mpValues.length} items`,
+      cat:  `${mpValues.length} items (excl. rundown)`,
       margin:    avgMp != null ? avgMp/100 : '',
       btlMargin: avgBp != null ? avgBp/100 : '',
     })
