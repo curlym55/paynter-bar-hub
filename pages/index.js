@@ -2653,6 +2653,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
+                {view !== 'all' && !readOnly && (
+                  <button onClick={() => printOrderSheet(view)}
+                    style={{ ...styles.tab, color: '#374151', borderColor: '#374151', background: '#f8fafc', fontWeight: 700 }}>
+                    🖨️ Print Order
+                  </button>
+                )}
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                 <label style={styles.filterCheck}>
@@ -2675,7 +2681,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
 
 
-                <div style={{ position: 'relative' }}>
+                {view === 'all' && <div style={{ position: 'relative' }}>
                   <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
                     onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>🖨️ Print Order List</button>
                   {printing === 'menu' && (
@@ -2697,7 +2703,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
                     </div>
                   )}
-                </div>
+                </div>}
               </div>
             </div>
 
