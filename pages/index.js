@@ -54,6 +54,7 @@ export default function Home() {
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
+  const [invoiceFile, setInvoiceFile]         = useState(null) // { name, base64, mimeType }
   const [refModal, setRefModal]               = useState(null) // { supplier } — order ref prompt
   const [refInput, setRefInput]               = useState('')
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
@@ -2320,6 +2321,34 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </div>
                   )
                 })}
+              </div>
+
+              {/* Invoice file picker */}
+              <div style={{ marginBottom: 12, border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', background: invoiceFile ? '#f0fdf4' : '#fafafa' }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>📎 Attach Supplier Invoice (optional)</div>
+                {invoiceFile ? (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
+                    <button onClick={() => setInvoiceFile(null)}
+                      style={{ fontSize: 11, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#64748b' }}>Remove</button>
+                  </div>
+                ) : (
+                  <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
+                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                      onChange={async e => {
+                        const file = e.target.files?.[0]
+                        if (!file) return
+                        const base64 = await new Promise(resolve => {
+                          const reader = new FileReader()
+                          reader.onload = () => resolve(reader.result.split(',')[1])
+                          reader.readAsDataURL(file)
+                        })
+                        setInvoiceFile({ name: file.name, base64, mimeType: file.type })
+                      }} />
+                    <span style={{ fontSize: 13, color: '#3b82f6', textDecoration: 'underline' }}>Select PDF or image…</span>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>Saved to OneDrive/Paynter Bar/Invoices/</span>
+                  </label>
+                )}
               </div>
 
               <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', alignItems: 'center' }}>
