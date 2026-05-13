@@ -1,4 +1,4 @@
-import { saveFile } from '../../../lib/onedrive'
+import { getAccessToken } from '../../../lib/onedrive'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -7,31 +7,26 @@ export default async function handler(req, res) {
     return res.status(200).json({ skipped: true, reason: 'OneDrive not configured' })
   }
 
-  const { filename, base64, mimeType } = req.body
+  const { filename, base64, mimeType, supplier } = req.body
   if (!filename || !base64) return res.status(400).json({ error: 'filename and base64 required' })
 
   try {
+    const token = await getAccessToken()
     const buffer = Buffer.from(base64, 'base64')
-
-    // Save to Paynter Bar/Invoices/ using the existing saveFile helper
-    // Temporarily override the folder by patching the path directly via Graph
-    const token = await import('../../../lib/onedrive').then(m => m.getAccessToken())
-    const folder = 'Paynter Bar/Invoices'
+    const safeSupplier = (supplier || 'Unknown').replace(/[^a-zA-Z0-9 ]/g, '').trim()
+    const folder = `Paynter Bar/Invoices/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
     const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
 
     const uploadRes = await fetch(url, {
       method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': mimeType || 'application/octet-stream',
-      },
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': mimeType || 'application/octet-stream' },
       body: buffer,
     })
 
     if (!uploadRes.ok) {
       const err = await uploadRes.json().catch(() => ({}))
-      return res.status(200).json({ skipped: true, reason: err.error?.message || 'Upload failed' })
+      return res.status(200).json({ skipped: true, reason: err.error?.message || `Upload failed ${uploadRes.status}` })
     }
 
     const data = await uploadRes.json()

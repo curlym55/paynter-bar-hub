@@ -384,7 +384,7 @@ export default function Home() {
           const ext = invoiceFile.name.split('.').pop()
           const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
           fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType }) }).catch(()=>null)
+            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) }).catch(()=>null)
           fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
         }
