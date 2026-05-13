@@ -3242,7 +3242,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                   <thead>
                     <tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                      {['PO Reference','Supplier','Ordered','Received','Items','PO','Receipt','Invoice','Status'].map(h => (
+                      {['PO Reference','Supplier','Ordered','Received','Items','PO','Receipt','Invoice','Status',''].map(h => (
                         <th key={h} style={{ padding: '9px 12px', textAlign: 'left', fontSize: 11, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>{h}</th>
                       ))}
                     </tr>
@@ -3280,6 +3280,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             color: doc.status === 'received' ? '#16a34a' : doc.status === 'partial' ? '#d97706' : '#1d4ed8' }}>
                             {doc.status === 'received' ? '✓ Received' : doc.status === 'partial' ? '⚡ Partial' : '🛒 Ordered'}
                           </span>
+                        </td>
+                        <td style={{ padding: '10px 12px' }}>
+                          <button onClick={async () => {
+                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                            const r = await fetch('/api/documents/delete', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
+                            })
+                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                            else alert('Delete failed')
+                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            🗑 Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
