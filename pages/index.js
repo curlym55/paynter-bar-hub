@@ -788,6 +788,68 @@ export default function Home() {
   }, [authed])
 
   // ── GENERATE PRICE LIST PDF ───────────────────────────────────────────────
+
+  // ── ExcelJS helpers — translate xlsx-js-style AOA rows to ExcelJS ─────────
+  async function loadExcelJS() {
+    if (!window.ExcelJS) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+    return window.ExcelJS
+  }
+
+  function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, autoFilter } = {}) {
+    const ws = wb.addWorksheet(sheetName)
+    if (cols) ws.columns = cols.map(c => ({ width: c.wch || 12 }))
+    if (freeze) ws.views = [{ state: 'frozen', ySplit: freeze }]
+    aoa.forEach((rowData, ri) => {
+      if (!rowData || rowData.length === 0) { ws.addRow([]); return }
+      const values = rowData.map(c => {
+        if (!c || typeof c !== 'object') return c ?? ''
+        if (c.f) return { formula: c.f }
+        return c.v ?? ''
+      })
+      const row = ws.addRow(values)
+      if (rowHeights?.[ri]) row.height = rowHeights[ri].hpt
+      rowData.forEach((c, ci) => {
+        if (!c || typeof c !== 'object') return
+        const xc = row.getCell(ci + 1)
+        const s = c.s || {}
+        if (s.font) {
+          const f = {}
+          if (s.font.bold !== undefined) f.bold = s.font.bold
+          if (s.font.italic) f.italic = true
+          if (s.font.sz) f.size = s.font.sz
+          if (s.font.color?.rgb) f.color = { argb: 'FF' + s.font.color.rgb }
+          xc.font = f
+        }
+        if (s.fill?.fgColor?.rgb) xc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+s.fill.fgColor.rgb } }
+        if (s.alignment) xc.alignment = { horizontal:s.alignment.horizontal, vertical:s.alignment.vertical, wrapText:s.alignment.wrapText }
+        if (s.numFmt) xc.numFmt = s.numFmt
+        if (s.border) {
+          const b = {}
+          for (const side of ['top','bottom','left','right']) {
+            if (s.border[side]) b[side] = { style:s.border[side].style, color:{ argb:'FF'+s.border[side].color.rgb } }
+          }
+          xc.border = b
+        }
+      })
+    })
+    if (merges) merges.forEach(m => ws.mergeCells(m.s.r+1, m.s.c+1, m.e.r+1, m.e.c+1))
+    if (autoFilter) ws.autoFilter = autoFilter
+    return ws
+  }
+
+  async function xlsDownload(wb, filename) {
+    const buf = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function generatePriceListPDF(items, settings) {
     const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
     const generated = new Date().toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
@@ -1060,11 +1122,7 @@ export default function Home() {
 
     // ── Excel export ──────────────────────────────────────────────────────
     if (exportXlsx) {
-      const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-      document.head.appendChild(script)
-      await new Promise(r => { script.onload = r })
-      const XLSX = window.XLSX
+      await loadExcelJS()
 
       // ── Style helpers ────────────────────────────────────────────────────
       const NAVY  = '0F172A'
@@ -1170,32 +1228,14 @@ export default function Home() {
       }
 
       const allRows = [...summaryRows, ...dataRows]
-      const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }, { wch: 14 }, { wch: 16 }]
-      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 32 } : { hpt: 20 })
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
-      ]
-
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      const wbBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
-      // Inject freeze pane via JSZip since xlsx-js-style doesn't support !views
-      const jszipScript = document.createElement('script')
-      jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
-      document.head.appendChild(jszipScript)
-      await new Promise(r => { jszipScript.onload = r })
-      const zip = await window.JSZip.loadAsync(wbBuf)
-      const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
-      const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
-      const patchedXml = sheetXml.replace('<sheetViews><sheetView workbookViewId="0"/></sheetViews>', freezeXml)
-      zip.file('xl/worksheets/sheet1.xml', patchedXml)
-      const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-      const url = URL.createObjectURL(outBuf)
-      const a = document.createElement('a'); a.href = url; a.download = `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`; a.click()
-      URL.revokeObjectURL(url)
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, allRows, 'Stock on Hand', {
+        cols: [{ wch:44 },{ wch:12 },{ wch:12 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:22 },{ wch:14 },{ wch:16 }],
+        rowHeights: allRows.map((_, i) => i === 0 ? { hpt:32 } : { hpt:20 }),
+        merges: [{ s:{r:0,c:0}, e:{r:0,c:6} }, { s:{r:3,c:0}, e:{r:3,c:6} }, { s:{r:5,c:0}, e:{r:5,c:6} }],
+        freeze: 9,
+      })
+      await xlsDownload(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
 
@@ -1287,12 +1327,8 @@ export default function Home() {
     if (exportXlsx) {
       // ── Excel export ──────────────────────────────────────────────────────
       const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-      document.head.appendChild(script)
-      await new Promise(r => { script.onload = r })
-      const XLSX = window.XLSX
-
-      const wb = XLSX.utils.book_new()
+      await loadExcelJS()
+      const wb = new window.ExcelJS.Workbook()
 
       // ── Style helpers ──────────────────────────────────────────────────────
       const NAVY   = '0F172A'
@@ -1408,23 +1444,19 @@ export default function Home() {
         ...itemDataRows,
       ]
 
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      ws['!cols'] = [{ wch: 36 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, ...(hasRev ? [{ wch: 14 }] : [])]
 
-      // Merge title cell across all columns
-      const lastCol = hasRev ? 5 : 4
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: lastCol } },
-        { s: { r: 4, c: 0 }, e: { r: 4, c: lastCol } },
-        { s: { r: rows.indexOf(rows.find((r,i) => i > 4 && r[0]?.v === 'CATEGORY BREAKDOWN')), c: 0 },
-          e: { r: rows.indexOf(rows.find((r,i) => i > 4 && r[0]?.v === 'CATEGORY BREAKDOWN')), c: lastCol } },
+      const lastCol2 = hasRev ? 5 : 4
+      const salesMerges = [
+        { s:{r:0,c:0}, e:{r:0,c:lastCol2} },
+        { s:{r:4,c:0}, e:{r:4,c:lastCol2} },
       ]
-
-      // Row heights
-      ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 28 } : { hpt: 18 })
-
-      XLSX.utils.book_append_sheet(wb, ws, 'Sales Report')
-      XLSX.writeFile(wb, `PaynterBar_Sales_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
+      xlsAOAtoWS(wb, rows, 'Sales Report', {
+        cols: [{ wch:36 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:12 },...(hasRev ? [{ wch:14 }] : [])],
+        rowHeights: rows.map((_, i) => i === 0 ? { hpt:28 } : { hpt:18 }),
+        merges: salesMerges,
+        freeze: 0,
+      })
+      await xlsDownload(wb, `PaynterBar_Sales_${periodLabel.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
 
@@ -1549,10 +1581,7 @@ export default function Home() {
     // ── Excel export ──────────────────────────────────────────────────────
     if (exportXlsx) {
       const script = document.createElement('script')
-      script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-      document.head.appendChild(script)
-      await new Promise(r => { script.onload = r })
-      const XLSX = window.XLSX
+      await loadExcelJS()
 
       // ── Style helpers ────────────────────────────────────────────────────
       const NAVY  = '0F172A'
@@ -1656,32 +1685,14 @@ export default function Home() {
       }
 
       const allRows = [...summaryRows, ...dataRows]
-      const ws = XLSX.utils.aoa_to_sheet(allRows)
-      ws['!cols'] = [{ wch: 44 }, { wch: 12 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 20 }, { wch: 22 }]
-      ws['!rows'] = allRows.map((_, i) => i === 0 ? { hpt: 32 } : { hpt: 20 })
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-        { s: { r: 3, c: 0 }, e: { r: 3, c: 6 } },
-        { s: { r: 5, c: 0 }, e: { r: 5, c: 6 } },
-      ]
-
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Stock on Hand')
-      const wbBuf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' })
-      // Inject freeze pane via JSZip since xlsx-js-style doesn't support !views
-      const jszipScript = document.createElement('script')
-      jszipScript.src = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js'
-      document.head.appendChild(jszipScript)
-      await new Promise(r => { jszipScript.onload = r })
-      const zip = await window.JSZip.loadAsync(wbBuf)
-      const sheetXml = await zip.file('xl/worksheets/sheet1.xml').async('string')
-      const freezeXml = '<sheetViews><sheetView workbookViewId="0"><pane ySplit="9" topLeftCell="A10" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A10" sqref="A10"/></sheetView></sheetViews>'
-      const patchedXml = sheetXml.replace('<sheetViews><sheetView workbookViewId="0"/></sheetViews>', freezeXml)
-      zip.file('xl/worksheets/sheet1.xml', patchedXml)
-      const outBuf = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' })
-      const url = URL.createObjectURL(outBuf)
-      const a = document.createElement('a'); a.href = url; a.download = `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`; a.click()
-      URL.revokeObjectURL(url)
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, allRows, 'Stock on Hand', {
+        cols: [{ wch:44 },{ wch:12 },{ wch:12 },{ wch:12 },{ wch:14 },{ wch:20 },{ wch:22 }],
+        rowHeights: allRows.map((_, i) => i === 0 ? { hpt:32 } : { hpt:20 }),
+        merges: [{ s:{r:0,c:0}, e:{r:0,c:6} }, { s:{r:3,c:0}, e:{r:3,c:6} }, { s:{r:5,c:0}, e:{r:5,c:6} }],
+        freeze: 9,
+      })
+      await xlsDownload(wb, `PaynterBar_SOH_${monthName.replace(/[^a-zA-Z0-9]/g, '_')}.xlsx`)
       return
     }
 
@@ -1977,17 +1988,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   function exportStocktake() {
     const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-    script.onload = () => {
-      // Columns:
-      // A=Item, B=Category, C=Supplier,
-      // D=Cool Room, E=Store Room, F=Bar,
-      // G=Total Count (=D+E+F)  [bottles (decimal) for spirits, units for others]
-      // H=Nips/Bottle           [pre-filled for spirits, blank for others]
-      // I=Total Nips            [=G*H for spirits, blank for others]
-      // J=Square On Hand        [nips for spirits, units for others]
-      // K=Difference            [=I-J for spirits, =G-J for others]
-
+    ;(async () => {
+      await loadExcelJS()
+      // Columns: A=Item B=Category C=Supplier D=Cool Room E=Store Room F=Bar
+      // G=Total Count H=Nips/Bottle I=Total Nips J=Square On Hand K=Difference
       const rows = displayed.map(item => ({
         'Item':           item.name,
         'Category':       item.category,
@@ -2002,63 +2006,47 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         'Difference':     '',
       }))
 
-      const ws = window.XLSX.utils.json_to_sheet(rows)
 
-      ws['!cols'] = [
-        { wch: 40 }, // A Item
-        { wch: 18 }, // B Category
-        { wch: 16 }, // C Supplier
-        { wch: 12 }, // D Cool Room
-        { wch: 12 }, // E Store Room
-        { wch: 8  }, // F Bar
-        { wch: 13 }, // G Total Count
-        { wch: 12 }, // H Nips/Bottle
-        { wch: 12 }, // I Total Nips
-        { wch: 16 }, // J Square On Hand
-        { wch: 12 }, // K Difference
+      const ExcelJS = window.ExcelJS
+      const wbSt = new ExcelJS.Workbook()
+      const wsSt = wbSt.addWorksheet('Stocktake')
+      wsSt.views = [{ state:'frozen', ySplit:1 }]
+      wsSt.columns = [
+        { width:40 },{ width:18 },{ width:16 },{ width:12 },{ width:12 },{ width:8 },
+        { width:13 },{ width:12 },{ width:12 },{ width:16 },{ width:12 },
       ]
-      ws['!views'] = [{ state: 'frozen', xSplit: 0, ySplit: 1 }]
-
-      const range = window.XLSX.utils.decode_range(ws['!ref'])
-
-      // Style header row — dark navy background, white bold text, taller row
-      const headerStyle = {
-        font:      { bold: true, color: { rgb: 'FFFFFF' }, sz: 12 },
-        fill:      { fgColor: { rgb: '0F172A' }, patternType: 'solid' },
-        alignment: { horizontal: 'center', vertical: 'center', wrapText: true },
-        border: {
-          bottom: { style: 'medium', color: { rgb: '2563EB' } }
-        }
-      }
-      const cols = ['A','B','C','D','E','F','G','H','I','J','K']
-      cols.forEach(col => {
-        if (ws[`${col}1`]) ws[`${col}1`].s = headerStyle
+      const hRow = wsSt.addRow(['Item','Category','Supplier','Cool Room','Store Room','Bar','Total Count','Nips/Bottle','Total Nips','Square On Hand','Difference'])
+      hRow.height = 28
+      hRow.eachCell(cell => {
+        cell.font = { bold:true, color:{ argb:'FFFFFFFF' }, size:12 }
+        cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0F172A' } }
+        cell.alignment = { horizontal:'center', vertical:'center', wrapText:true }
+        cell.border = { bottom:{ style:'medium', color:{ argb:'FF2563EB' } } }
       })
-      ws['!rows'] = [{ hpt: 28 }] // taller header row
-
-      // Format data rows
       displayed.forEach((item, idx) => {
-        const row = idx + 2
-        ws[`G${row}`] = { f: `D${row}+E${row}+F${row}`, t: 'n', z: '0.0' }
-
-        if (item.isSpirit) {
-          // Format pre-filled Nips/Bottle to 1dp
-          if (ws[`H${row}`] && ws[`H${row}`].v !== '') {
-            ws[`H${row}`] = { v: ws[`H${row}`].v, t: 'n', z: '0.0' }
-          }
-          ws[`I${row}`] = { f: `G${row}*H${row}`, t: 'n', z: '0.0' }
-          ws[`K${row}`] = { f: `I${row}-J${row}`, t: 'n', z: '0.0' }
-        } else {
-          ws[`I${row}`] = { v: '', t: 's' }
-          ws[`K${row}`] = { f: `G${row}-J${row}`, t: 'n', z: '0.0' }
-        }
+        const rowNum = idx + 2
+        const bg = idx % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
+        const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : null
+        const row = wsSt.addRow([
+          item.name, item.category, item.supplier, '', '', '',
+          { formula: `D${rowNum}+E${rowNum}+F${rowNum}` },
+          nipsPerBottle,
+          item.isSpirit ? { formula: `G${rowNum}*H${rowNum}` } : null,
+          item.onHand,
+          item.isSpirit ? { formula: `I${rowNum}-J${rowNum}` } : { formula: `G${rowNum}-J${rowNum}` },
+        ])
+        row.eachCell({ includeEmpty:true }, (cell, cn) => {
+          cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:bg } }
+          if (cn > 3) cell.alignment = { horizontal:'center' }
+          if (cn === 8 && nipsPerBottle) { cell.numFmt = '0.0' }
+          if ([7,8,9,11].includes(cn)) cell.numFmt = '0.0'
+        })
+        row.getCell(1).font = { size:11 }
+        row.getCell(2).font = { size:10, color:{ argb:'FF64748B' } }
+        row.getCell(3).font = { size:10, color:{ argb:'FF64748B' } }
       })
-
-      const wb = window.XLSX.utils.book_new()
-      window.XLSX.utils.book_append_sheet(wb, ws, 'Stocktake')
-      window.XLSX.writeFile(wb, `Paynter-Bar-Stocktake-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-    document.head.appendChild(script)
+      await xlsDownload(wbSt, `Paynter-Bar-Stocktake-${new Date().toISOString().split('T')[0]}.xlsx`)
+    })()
   }
 
   const dontOrder = item => !!rundownItems[item.name]
@@ -6067,9 +6055,8 @@ function StocktakeView({ items, readOnly, onExport }) {
   const exportHistoryToExcel = () => {
     if (!history?.length) return
     const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-    script.onload = () => {
-      const XLSX  = window.XLSX
+    ;(async () => {
+      await loadExcelJS()
       const NAVY  = '0F172A', TEAL = '0E7490', PURPLE = '7C3AED'
       const WHITE = 'FFFFFF', LGREY = 'F1F5F9', LPUR = 'EDE9FE'
 
@@ -6154,10 +6141,13 @@ function StocktakeView({ items, readOnly, onExport }) {
         rows.push([]) // spacer between days
       }
 
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      ws['!cols'] = [{ wch: 38 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 10 }]
-      ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 26 } : { hpt: 18 })
-      ws['!merges'] = merges
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, rows, 'Summary', {
+        cols: [{ wch:38 },{ wch:20 },{ wch:14 },{ wch:36 },{ wch:10 }],
+        rowHeights: rows.map((_, i) => i === 0 ? { hpt:26 } : { hpt:18 }),
+        merges,
+        freeze: 3,
+      })
       // ── Sheet 2: Flat filterable data ──────────────────────────────────
       const flatRows = []
       const fhStyle = {
@@ -6217,17 +6207,14 @@ function StocktakeView({ items, readOnly, onExport }) {
         }
       }
 
-      const ws2 = XLSX.utils.aoa_to_sheet(flatRows)
-      ws2['!cols'] = [{ wch: 12 }, { wch: 8 }, { wch: 36 }, { wch: 20 }, { wch: 14 }, { wch: 36 }, { wch: 8 }, { wch: 8 }, { wch: 8 }]
-      ws2['!rows'] = flatRows.map((_, i) => i === 0 ? { hpt: 22 } : { hpt: 18 })
-      // AutoFilter on header row covering all columns
-
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws,  'Summary')
-      XLSX.utils.book_append_sheet(wb, ws2, 'Data')
-      XLSX.writeFile(wb, `Paynter-Bar-Stocktake-History-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-    document.head.appendChild(script)
+      xlsAOAtoWS(wb, flatRows, 'Data', {
+        cols: [{ wch:12 },{ wch:8 },{ wch:36 },{ wch:20 },{ wch:14 },{ wch:36 },{ wch:8 },{ wch:8 },{ wch:8 }],
+        rowHeights: flatRows.map((_, i) => i === 0 ? { hpt:22 } : { hpt:18 }),
+        freeze: 1,
+        autoFilter: { from:'A1', to:'I1' },
+      })
+      await xlsDownload(wb, `Paynter-Bar-Stocktake-History-${new Date().toISOString().split('T')[0]}.xlsx`)
+    })()
   }
 
   const loadSyncPreview = async () => {
@@ -6344,9 +6331,8 @@ function StocktakeView({ items, readOnly, onExport }) {
 
   const exportToExcel = () => {
     const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-    script.onload = () => {
-      const XLSX = window.XLSX
+    ;(async () => {
+      await loadExcelJS()
       const NAVY = '0F172A', TEAL = '0E7490', WHITE = 'FFFFFF', LGREY = 'F1F5F9'
       const hStyle = { font: { bold: true, color: { rgb: WHITE }, sz: 11 }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: 'center', vertical: 'center' }, border: { bottom: { style: 'medium', color: { rgb: TEAL } } } }
       const hStyleL = { ...hStyle, alignment: { horizontal: 'left', vertical: 'center' } }
@@ -6394,18 +6380,15 @@ function StocktakeView({ items, readOnly, onExport }) {
         ])
       })
 
-      const ws = XLSX.utils.aoa_to_sheet(rows)
-      ws['!cols'] = [{ wch: 36 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 10 }, { wch: 10 }, { wch: 12 }, { wch: 10 }, { wch: 10 }]
-      ws['!rows'] = rows.map((_, i) => i === 0 ? { hpt: 24 } : i === 3 ? { hpt: 24 } : { hpt: 18 })
-      ws['!merges'] = [
-        { s: { r: 0, c: 0 }, e: { r: 0, c: 9 } },
-        { s: { r: 1, c: 0 }, e: { r: 1, c: 9 } },
-      ]
-      const wb = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(wb, ws, 'Stocktake')
-      XLSX.writeFile(wb, `Paynter-Bar-Stocktake-${new Date().toISOString().split('T')[0]}.xlsx`)
-    }
-    document.head.appendChild(script)
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, rows, 'Stocktake', {
+        cols: [{ wch:36 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:8 },{ wch:10 },{ wch:10 },{ wch:12 },{ wch:10 },{ wch:10 }],
+        rowHeights: rows.map((_, i) => i === 0 ? { hpt:24 } : i === 3 ? { hpt:24 } : { hpt:18 }),
+        merges: [{ s:{r:0,c:0}, e:{r:0,c:9} }, { s:{r:1,c:0}, e:{r:1,c:9} }],
+        freeze: 4,
+      })
+      await xlsDownload(wb, `Paynter-Bar-Stocktake-${new Date().toISOString().split('T')[0]}.xlsx`)
+    })()
   }
 
   const printBlankSheet = () => {
@@ -7214,11 +7197,7 @@ function SohHistoryView() {
   }
 
   async function downloadReport(report) {
-    const script = document.createElement('script')
-    script.src = 'https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js'
-    document.head.appendChild(script)
-    await new Promise(r => { script.onload = r })
-    const XLSX = window.XLSX
+    await loadExcelJS()
 
     const NAVY = '1E3A5F'; const WHITE = 'FFFFFF'; const GOLD = 'C8A84B'
     const LGREY = 'F1F5F9'; const DGREY = '334155'; const MGREY = 'E2E8F0'
@@ -7234,14 +7213,12 @@ function SohHistoryView() {
     const reportDateStr = new Date(report.report_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
     const rows = []
 
-    // Title
     rows.push([{ v: `Paynter Bar — Stock on Hand as at ${reportDateStr}`, s: { font: { bold: true, sz: 14, color: { rgb: NAVY } } } }, ...Array(6).fill(empty())])
     rows.push([{ v: `GemLife Palmwoods  ·  ${report.items_count} items  ·  Total Inventory Value: $${Number(report.total_value).toFixed(2)}`, s: { font: { sz: 10, color: { rgb: '64748B' }, italic: true } } }, ...Array(6).fill(empty())])
     rows.push([{ v: `Generated: ${new Date(report.generated_at).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} AEST`, s: { font: { sz: 9, color: { rgb: '94A3B8' } } } }, ...Array(6).fill(empty())])
     rows.push(Array(7).fill(empty()))
     rows.push([hdr('Item'), hdr('Category'), hdr('Supplier'), hdr('On Hand', true), hdr('Wkly Avg', true), hdr('Buy Price', true), hdr('Total Value', true)])
 
-    // Group by category
     const cats = {}
     const CAT_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
     for (const item of report.data) { const c2 = item.category || 'Other'; if (!cats[c2]) cats[c2] = []; cats[c2].push(item) }
@@ -7260,24 +7237,20 @@ function SohHistoryView() {
       rows.push(Array(7).fill(empty()))
     }
 
-    // Grand total
     rows.push([
       { v: 'GRAND TOTAL', s: { font: { bold: true, sz: 12, color: { rgb: WHITE } }, fill: { fgColor: { rgb: NAVY } } } },
       ...Array(5).fill({ v: '', s: { fill: { fgColor: { rgb: NAVY } } } }),
       { v: Number(report.total_value), s: { font: { bold: true, sz: 12, color: { rgb: GOLD } }, fill: { fgColor: { rgb: NAVY } }, alignment: { horizontal: 'right' }, numFmt: '$#,##0.00' } }
     ])
 
-    const ws = XLSX.utils.aoa_to_sheet(rows)
-    ws['!cols'] = [{ wch: 40 }, { wch: 20 }, { wch: 18 }, { wch: 12 }, { wch: 12 }, { wch: 14 }, { wch: 16 }]
-    ws['!rows'] = [{ hpt: 28 }, { hpt: 16 }, { hpt: 14 }]
-    ws['!merges'] = [
-      { s: { r: 0, c: 0 }, e: { r: 0, c: 6 } },
-      { s: { r: 1, c: 0 }, e: { r: 1, c: 6 } },
-      { s: { r: 2, c: 0 }, e: { r: 2, c: 6 } },
-    ]
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, 'SOH Report')
-    XLSX.writeFile(wb, `SOH_${report.report_date}.xlsx`)
+    const wb = new window.ExcelJS.Workbook()
+    xlsAOAtoWS(wb, rows, 'SOH Report', {
+      cols: [{ wch:40 },{ wch:20 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:14 },{ wch:16 }],
+      rowHeights: [{ hpt:28 }, { hpt:16 }, { hpt:14 }],
+      merges: [{ s:{r:0,c:0}, e:{r:0,c:6} }, { s:{r:1,c:0}, e:{r:1,c:6} }, { s:{r:2,c:0}, e:{r:2,c:6} }],
+      freeze: 5,
+    })
+    await xlsDownload(wb, `SOH_${report.report_date}.xlsx`)
   }
 
   return (
