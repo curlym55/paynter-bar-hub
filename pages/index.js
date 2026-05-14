@@ -2114,7 +2114,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           const SC = sidebarCollapsed
           const groups = [
             { label: 'Inventory', icon: '📦', items: [
-              { icon: '🏠', label: 'Dashboard',        tab: 'home',       action: () => setMainTab('home') },
               { icon: '📦', label: 'Reorder Planner',  tab: 'reorder',    action: () => setMainTab('reorder') },
               { icon: '📋', label: 'Stocktake',        tab: 'stocktake',  action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
               { icon: '📊', label: 'SOH Report',       tab: 'soh',        action: () => setSohModal(true) },
@@ -2163,6 +2162,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               </div>
               {/* Nav groups */}
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
+                {/* Dashboard — always visible at top */}
+                <button onClick={() => { setMainTab('home'); setMenuOpen(false) }}
+                  style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding: SC ? '9px 0' : '8px 12px', background: mainTab==='home' ? '#1e3a5f' : 'none', border:'none', borderLeft: mainTab==='home' && !SC ? '3px solid #0e7490' : '3px solid transparent', cursor:'pointer', color: mainTab==='home' ? '#e2e8f0' : '#f1f5f9', fontSize:12, fontWeight: mainTab==='home' ? 700 : 600, justifyContent: SC ? 'center' : 'flex-start', marginBottom:4 }}>
+                  <span style={{ fontSize:15, width:18, textAlign:'center', flexShrink:0 }}>🏠</span>
+                  {!SC && <span>Dashboard</span>}
+                </button>
+                <div style={{ margin: SC ? '4px 6px' : '4px 12px', height:1, background:'#1e293b' }} />
                 {groups.map(group => (
                   <div key={group.label}>
                     <button onClick={() => !SC && group.items.length > 1 && setSidebarOpenGroups(g => ({ ...g, [group.label]: !g[group.label] }))}
@@ -2220,9 +2226,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastUpdated && <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" }}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
-              {mainTab !== 'home' && (
-                <button style={{ ...styles.btn, padding: '7px 16px', fontSize: 12, background: '#1e3a5f' }} onClick={() => setMainTab('home')}>🏠 Dashboard</button>
-              )}
               <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true); fetch('/api/fy-chart?refresh=true').catch(()=>{}) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
             </div>
           </div>
