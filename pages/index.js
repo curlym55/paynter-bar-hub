@@ -2948,7 +2948,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {!item.isSpirit ? (
-                            <EditSelect value={String(item.pack || '')} options={['6', '18', '24', '30', '48']}
+                            <EditSelect value={String(item.pack || '')} options={['1', '6', '12', '18', '24', '30', '48']}
                               onChange={v => saveSetting(item.name, 'pack', Number(v))}
                               saving={saving[`${item.name}_pack`]} readOnly={readOnly} />
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
