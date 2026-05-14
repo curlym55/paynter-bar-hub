@@ -48,7 +48,7 @@ export default async function handler(req, res) {
       .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.name.localeCompare(b.name))
 
     const totalValue = items.reduce((sum, i) => sum + (i.totalValue || 0), 0)
-    const reportDate = new Date(Date.now() + 10 * 60 * 60 * 1000).toISOString().slice(0, 10)
+    const reportDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
 
     const { error } = await supabase.from('soh_reports').insert({
       report_date: reportDate,
