@@ -21,6 +21,67 @@ const CATEGORY_ORDER_LIST = [
   'Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks'
 ]
 
+// ── ExcelJS helpers — module-level so available to all components ─────────
+async function loadExcelJS() {
+  if (!window.ExcelJS) {
+    const s = document.createElement('script')
+    s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
+    document.head.appendChild(s)
+    await new Promise(r => { s.onload = r })
+  }
+  return window.ExcelJS
+}
+
+function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, autoFilter } = {}) {
+  const ws = wb.addWorksheet(sheetName)
+  if (cols) ws.columns = cols.map(c => ({ width: c.wch || 12 }))
+  if (freeze) ws.views = [{ state: 'frozen', ySplit: freeze }]
+  aoa.forEach((rowData, ri) => {
+    if (!rowData || rowData.length === 0) { ws.addRow([]); return }
+    const values = rowData.map(c => {
+      if (!c || typeof c !== 'object') return c ?? ''
+      if (c.f) return { formula: c.f }
+      return c.v ?? ''
+    })
+    const row = ws.addRow(values)
+    if (rowHeights?.[ri]) row.height = rowHeights[ri].hpt
+    rowData.forEach((c, ci) => {
+      if (!c || typeof c !== 'object') return
+      const xc = row.getCell(ci + 1)
+      const s = c.s || {}
+      if (s.font) {
+        const f = {}
+        if (s.font.bold !== undefined) f.bold = s.font.bold
+        if (s.font.italic) f.italic = true
+        if (s.font.sz) f.size = s.font.sz
+        if (s.font.color?.rgb) f.color = { argb: 'FF' + s.font.color.rgb }
+        xc.font = f
+      }
+      if (s.fill?.fgColor?.rgb) xc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+s.fill.fgColor.rgb } }
+      if (s.alignment) xc.alignment = { horizontal:s.alignment.horizontal, vertical:s.alignment.vertical, wrapText:s.alignment.wrapText }
+      if (s.numFmt) xc.numFmt = s.numFmt
+      if (s.border) {
+        const b = {}
+        for (const side of ['top','bottom','left','right']) {
+          if (s.border[side]) b[side] = { style:s.border[side].style, color:{ argb:'FF'+s.border[side].color.rgb } }
+        }
+        xc.border = b
+      }
+    })
+  })
+  if (merges) merges.forEach(m => ws.mergeCells(m.s.r+1, m.s.c+1, m.e.r+1, m.e.c+1))
+  if (autoFilter) ws.autoFilter = autoFilter
+  return ws
+}
+
+async function xlsDownload(wb, filename) {
+  const buf = await wb.xlsx.writeBuffer()
+  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default function Home() {
   const [authed, setAuthed]             = useState(false)
   const [readOnly, setReadOnly]         = useState(false)
@@ -788,67 +849,6 @@ export default function Home() {
   }, [authed])
 
   // ── GENERATE PRICE LIST PDF ───────────────────────────────────────────────
-
-  // ── ExcelJS helpers — translate xlsx-js-style AOA rows to ExcelJS ─────────
-  async function loadExcelJS() {
-    if (!window.ExcelJS) {
-      const s = document.createElement('script')
-      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
-      document.head.appendChild(s)
-      await new Promise(r => { s.onload = r })
-    }
-    return window.ExcelJS
-  }
-
-  function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, autoFilter } = {}) {
-    const ws = wb.addWorksheet(sheetName)
-    if (cols) ws.columns = cols.map(c => ({ width: c.wch || 12 }))
-    if (freeze) ws.views = [{ state: 'frozen', ySplit: freeze }]
-    aoa.forEach((rowData, ri) => {
-      if (!rowData || rowData.length === 0) { ws.addRow([]); return }
-      const values = rowData.map(c => {
-        if (!c || typeof c !== 'object') return c ?? ''
-        if (c.f) return { formula: c.f }
-        return c.v ?? ''
-      })
-      const row = ws.addRow(values)
-      if (rowHeights?.[ri]) row.height = rowHeights[ri].hpt
-      rowData.forEach((c, ci) => {
-        if (!c || typeof c !== 'object') return
-        const xc = row.getCell(ci + 1)
-        const s = c.s || {}
-        if (s.font) {
-          const f = {}
-          if (s.font.bold !== undefined) f.bold = s.font.bold
-          if (s.font.italic) f.italic = true
-          if (s.font.sz) f.size = s.font.sz
-          if (s.font.color?.rgb) f.color = { argb: 'FF' + s.font.color.rgb }
-          xc.font = f
-        }
-        if (s.fill?.fgColor?.rgb) xc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+s.fill.fgColor.rgb } }
-        if (s.alignment) xc.alignment = { horizontal:s.alignment.horizontal, vertical:s.alignment.vertical, wrapText:s.alignment.wrapText }
-        if (s.numFmt) xc.numFmt = s.numFmt
-        if (s.border) {
-          const b = {}
-          for (const side of ['top','bottom','left','right']) {
-            if (s.border[side]) b[side] = { style:s.border[side].style, color:{ argb:'FF'+s.border[side].color.rgb } }
-          }
-          xc.border = b
-        }
-      })
-    })
-    if (merges) merges.forEach(m => ws.mergeCells(m.s.r+1, m.s.c+1, m.e.r+1, m.e.c+1))
-    if (autoFilter) ws.autoFilter = autoFilter
-    return ws
-  }
-
-  async function xlsDownload(wb, filename) {
-    const buf = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
-    URL.revokeObjectURL(url)
-  }
 
   function generatePriceListPDF(items, settings) {
     const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
