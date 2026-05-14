@@ -2723,6 +2723,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <input type="checkbox" checked={filterOrder} onChange={e => setFilterOrder(e.target.checked)} style={{ marginRight: 6 }} />
                   Order items only
                 </label>
+                {(() => {
+                  const missingBuy = items.filter(i => i.buyPrice == null).length
+                  return missingBuy > 0 ? (
+                    <button onClick={() => setViewMode('pricing')}
+                      title="Click to open Pricing view to set buy prices"
+                      style={{ display:'flex', alignItems:'center', gap:4, padding:'3px 8px', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:5, fontSize:11, color:'#dc2626', fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                      ⚠️ {missingBuy} item{missingBuy>1?'s':''} missing buy price
+                    </button>
+                  ) : null
+                })()}
                 <button onClick={() => setShowDetails(d => !d)}
                   style={{ background: showDetails ? '#1e3a5f' : '#f1f5f9', color: showDetails ? '#fff' : '#475569', border: '1px solid #e2e8f0', borderRadius: 6, padding: '4px 12px', fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
                   {showDetails ? '▲ Hide details' : '▼ Show details'}
@@ -2914,7 +2924,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     return (
                       <tr key={item.name} style={{ background: rowBg }}>
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
-                          {item.name}{item.buyPrice == null && viewMode === 'pricing' && <span title="No cost price set" style={{ marginLeft: 5, color: '#dc2626', fontSize: 9, fontWeight: 700 }}>●</span>}
+                          {item.name}
+                          {item.buyPrice == null && !item.isSpirit && (
+                            <span title="No buy price set — affects margin and stock value calculations"
+                              style={{ marginLeft:5, background:'#fef2f2', color:'#dc2626', fontSize:9, fontWeight:700, padding:'1px 4px', borderRadius:3, border:'1px solid #fca5a5', whiteSpace:'nowrap' }}>$ missing</span>
+                          )}
                         </td>
                         <td style={{ ...styles.td, display: showDetails ? '' : 'none' }}>
                           <EditSelect value={item.category} options={CATEGORIES}
