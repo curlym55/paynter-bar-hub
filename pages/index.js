@@ -3402,123 +3402,159 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden', marginBottom:16 }}>
                   <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Upload Supplier Invoice (PDF)</div>
                   <div style={{ padding:16 }}>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Upload a Dan Murphy's, Coles or ACW invoice PDF. Claude will automatically extract all items and prices for review before saving.</div>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Upload one or more supplier invoices (PDF). Claude will automatically extract all items and prices for review before saving.</div>
                     {!phExtracted ? (
-                      <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                      <div style={{ display:'flex', gap:10, alignItems:'center', flexWrap:'wrap' }}>
                         <label style={{ cursor:'pointer' }}>
-                          <input type="file" accept=".pdf" style={{ display:'none' }}
+                          <input type="file" accept=".pdf" multiple style={{ display:'none' }}
                             onChange={e => {
-                              const file = e.target.files?.[0]
-                              if (!file) return
-                              const reader = new FileReader()
-                              reader.onload = () => setPhPdf({ name: file.name, base64: reader.result.split(',')[1] })
-                              reader.readAsDataURL(file)
+                              const files = Array.from(e.target.files || [])
+                              if (!files.length) return
+                              Promise.all(files.map(file => new Promise(resolve => {
+                                const reader = new FileReader()
+                                reader.onload = () => resolve({ name: file.name, base64: reader.result.split(',')[1] })
+                                reader.readAsDataURL(file)
+                              }))).then(pdfs => setPhPdf(pdfs))
                             }} />
-                          <span style={{ padding:'7px 16px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, fontSize:13, fontWeight:600 }}>
-                            {phPdf ? `✓ ${phPdf.name}` : '📎 Select PDF…'}
+                          <span style={{ padding:'7px 16px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                            {phPdf ? `✓ ${phPdf.length} file${phPdf.length > 1 ? 's' : ''} selected` : '📎 Select PDF(s)…'}
                           </span>
                         </label>
-                        {phPdf && (
+                        {phPdf?.length > 0 && (
+                          <div style={{ fontSize:12, color:'#64748b' }}>
+                            {phPdf.map(f => f.name).join(', ')}
+                          </div>
+                        )}
+                        {phPdf?.length > 0 && (
                           <button onClick={async () => {
                             setPhExtracting(true)
-                            try {
-                              const r = await fetch('/api/invoices/extract', {
-                                method:'POST', headers:{'Content-Type':'application/json'},
-                                body: JSON.stringify({ pdf_base64: phPdf.base64 })
-                              })
-                              const d = await r.json()
-                              if (!r.ok) throw new Error(d.error)
-                              setPhExtracted({ ...d, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) })
-                            } catch (e) { alert('Extraction failed: ' + e.message) }
+                            const allItems = []
+                            for (let idx = 0; idx < phPdf.length; idx++) {
+                              const pdf = phPdf[idx]
+                              setPhExtracted({ _progress: `Extracting ${idx + 1} of ${phPdf.length}: ${pdf.name}…` })
+                              try {
+                                const r = await fetch('/api/invoices/extract', {
+                                  method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ pdf_base64: pdf.base64 })
+                                })
+                                const d = await r.json()
+                                if (!r.ok) throw new Error(d.error)
+                                allItems.push({ ...d, source_file: pdf.name, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) })
+                              } catch (e) {
+                                allItems.push({ source_file: pdf.name, error: e.message })
+                              }
+                            }
+                            setPhExtracted({ invoices: allItems })
                             setPhExtracting(false)
                           }} disabled={phExtracting}
                             style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                            {phExtracting ? '⏳ Extracting…' : '🔍 Extract Items'}
+                            {phExtracting ? '⏳ Extracting…' : `🔍 Extract ${phPdf.length} Invoice${phPdf.length > 1 ? 's' : ''}`}
                           </button>
                         )}
                       </div>
+                    ) : phExtracted?._progress ? (
+                      <div style={{ padding:'12px 16px', background:'#eff6ff', borderRadius:8, fontSize:13, color:'#1d4ed8', fontWeight:600 }}>
+                        ⏳ {phExtracted._progress}
+                      </div>
                     ) : (
                       <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
-                        <span style={{ fontSize:13, fontWeight:700, color:'#16a34a' }}>✓ Extracted from {phPdf?.name}</span>
+                        <span style={{ fontSize:13, fontWeight:700, color:'#16a34a' }}>
+                          ✓ Extracted {phExtracted.invoices?.filter(i=>!i.error).length} of {phExtracted.invoices?.length} invoice(s)
+                        </span>
                         <button onClick={() => { setPhExtracted(null); setPhPdf(null) }}
                           style={{ fontSize:11, padding:'2px 8px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:4, cursor:'pointer' }}>
-                          Upload different file
+                          Start over
                         </button>
                       </div>
                     )}
                   </div>
                 </div>
 
-                {phExtracted && (
+                {phExtracted?.invoices && (
                   <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
                     <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between' }}>
-                      <span>Review Extracted Items — {phExtracted.supplier} · {phExtracted.invoice_ref} · {phExtracted.invoice_date}</span>
-                      <span style={{ fontSize:11, opacity:0.7 }}>{phExtracted.gst_included ? 'Prices include GST' : 'Prices ex GST'}</span>
+                      <span>Review Extracted Items</span>
+                      <span style={{ fontSize:11, opacity:0.7 }}>{phExtracted.invoices.reduce((s,inv) => s + (inv.items?.filter(i=>i.include).length||0), 0)} items selected across {phExtracted.invoices.filter(i=>!i.error).length} invoices</span>
                     </div>
-                    <div style={{ padding:12, fontSize:12, color:'#64748b', background:'#f8fafc' }}>
-                      Review the extracted items. Edit <strong>Hub Name</strong> to match your Hub item exactly, and check <strong>Units/Pack</strong> is correct. Untick items to exclude.
+                    <div style={{ padding:'8px 12px', fontSize:12, color:'#64748b', background:'#f8fafc' }}>
+                      Edit <strong>Hub Name</strong> to match your Hub item exactly, adjust <strong>Units/Pack</strong> if needed, untick to exclude.
                     </div>
-                    <div style={{ overflowX:'auto' }}>
-                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                        <thead>
-                          <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                            <th style={{ padding:'8px', width:32 }}></th>
-                            {['Invoice Description','Hub Name (editable)','Qty','Units/Pack','Invoice Price','Per Unit (ex GST)'].map(h => (
-                              <th key={h} style={{ padding:'8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {phExtracted.items.map((item, i) => {
-                            const unitPrice = phExtracted.gst_included
-                              ? item.invoice_unit_price / item.units_per_pack / 1.10
-                              : item.invoice_unit_price / item.units_per_pack
-                            return (
-                              <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: item.include ? (i%2===0?'#fff':'#f8fafc') : '#fef2f2', opacity: item.include ? 1 : 0.5 }}>
-                                <td style={{ padding:'6px 8px', textAlign:'center' }}>
-                                  <input type="checkbox" checked={item.include}
-                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, include: e.target.checked} : it) }))} />
-                                </td>
-                                <td style={{ padding:'6px 8px', color:'#64748b', maxWidth:220, fontSize:11 }}>{item.item_name_raw}</td>
-                                <td style={{ padding:'6px 8px' }}>
-                                  <input value={item.item_name_hub}
-                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, item_name_hub: e.target.value} : it) }))}
-                                    style={{ width:'100%', minWidth:180, padding:'3px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }} />
-                                </td>
-                                <td style={{ padding:'6px 8px', textAlign:'center' }}>{item.invoice_qty}</td>
-                                <td style={{ padding:'6px 8px', textAlign:'center' }}>
-                                  <input type="number" value={item.units_per_pack} min={1}
-                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, units_per_pack: Number(e.target.value)||1} : it) }))}
-                                    style={{ width:56, padding:'3px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
-                                </td>
-                                <td style={{ padding:'6px 8px', textAlign:'right' }}>${item.invoice_unit_price.toFixed(2)}</td>
-                                <td style={{ padding:'6px 8px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>${unitPrice.toFixed(3)}</td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
+                    {phExtracted.invoices.map((inv, invIdx) => (
+                      <div key={invIdx}>
+                        {inv.error ? (
+                          <div style={{ padding:'10px 16px', background:'#fef2f2', color:'#dc2626', fontSize:12 }}>
+                            ✗ {inv.source_file}: {inv.error}
+                          </div>
+                        ) : (
+                          <>
+                            <div style={{ padding:'6px 14px', background:'#e0f2fe', fontSize:11, fontWeight:700, color:'#0369a1', borderTop:'2px solid #bae6fd' }}>
+                              {inv.supplier} · {inv.invoice_ref} · {inv.invoice_date} · {inv.source_file}
+                              <span style={{ marginLeft:8, fontWeight:400 }}>{inv.gst_included ? 'Prices inc GST' : 'Prices ex GST'}</span>
+                            </div>
+                            <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                              <thead>
+                                <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
+                                  <th style={{ padding:'5px 8px', width:32 }}></th>
+                                  {['Invoice Description','Hub Name','Qty','Units/Pack','Invoice Price','Per Unit ex GST'].map(h => (
+                                    <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11 }}>{h}</th>
+                                  ))}
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {inv.items.map((item, i) => {
+                                  const unitPrice = inv.gst_included
+                                    ? item.invoice_unit_price / item.units_per_pack / 1.10
+                                    : item.invoice_unit_price / item.units_per_pack
+                                  return (
+                                    <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: item.include ? (i%2===0?'#fff':'#f8fafc') : '#fef2f2', opacity: item.include?1:0.5 }}>
+                                      <td style={{ padding:'4px 8px', textAlign:'center' }}>
+                                        <input type="checkbox" checked={item.include}
+                                          onChange={e => setPhExtracted(prev => ({ ...prev, invoices: prev.invoices.map((inv2,ii) => ii!==invIdx ? inv2 : { ...inv2, items: inv2.items.map((it,j) => j===i ? {...it, include: e.target.checked} : it) }) }))} />
+                                      </td>
+                                      <td style={{ padding:'4px 8px', color:'#64748b', maxWidth:200, fontSize:11 }}>{item.item_name_raw}</td>
+                                      <td style={{ padding:'4px 8px' }}>
+                                        <input value={item.item_name_hub}
+                                          onChange={e => setPhExtracted(prev => ({ ...prev, invoices: prev.invoices.map((inv2,ii) => ii!==invIdx ? inv2 : { ...inv2, items: inv2.items.map((it,j) => j===i ? {...it, item_name_hub: e.target.value} : it) }) }))}
+                                          style={{ width:'100%', minWidth:160, padding:'2px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }} />
+                                      </td>
+                                      <td style={{ padding:'4px 8px', textAlign:'center' }}>{item.invoice_qty}</td>
+                                      <td style={{ padding:'4px 8px', textAlign:'center' }}>
+                                        <input type="number" value={item.units_per_pack} min={1}
+                                          onChange={e => setPhExtracted(prev => ({ ...prev, invoices: prev.invoices.map((inv2,ii) => ii!==invIdx ? inv2 : { ...inv2, items: inv2.items.map((it,j) => j===i ? {...it, units_per_pack: Number(e.target.value)||1} : it) }) }))}
+                                          style={{ width:50, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11, textAlign:'center' }} />
+                                      </td>
+                                      <td style={{ padding:'4px 8px', textAlign:'right' }}>${item.invoice_unit_price.toFixed(2)}</td>
+                                      <td style={{ padding:'4px 8px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>${unitPrice.toFixed(3)}</td>
+                                    </tr>
+                                  )
+                                })}
+                              </tbody>
+                            </table>
+                          </>
+                        )}
+                      </div>
+                    ))}
                     <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0' }}>
-                      <span style={{ fontSize:12, color:'#64748b', flex:1, alignSelf:'center' }}>
-                        {phExtracted.items.filter(i=>i.include).length} of {phExtracted.items.length} items will be saved
-                      </span>
                       <button onClick={async () => {
                         setPhSaving(true)
-                        try {
-                          const r = await fetch('/api/invoices/save', {
-                            method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ invoice_ref: phExtracted.invoice_ref, supplier: phExtracted.supplier,
-                              invoice_date: phExtracted.invoice_date, gst_included: phExtracted.gst_included, items: phExtracted.items })
-                          })
-                          const d = await r.json()
-                          if (!r.ok) throw new Error(d.error)
-                          alert(`✓ ${d.saved} items saved to price history.`)
-                          setPhExtracted(null); setPhPdf(null)
-                        } catch (e) { alert('Save failed: ' + e.message) }
+                        let total = 0
+                        for (const inv of phExtracted.invoices) {
+                          if (inv.error || !inv.items?.length) continue
+                          try {
+                            const r = await fetch('/api/invoices/save', {
+                              method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ invoice_ref: inv.invoice_ref, supplier: inv.supplier,
+                                invoice_date: inv.invoice_date, gst_included: inv.gst_included, items: inv.items })
+                            })
+                            const d = await r.json()
+                            if (r.ok) total += d.saved
+                          } catch {}
+                        }
+                        alert(`✓ ${total} items saved to price history across ${phExtracted.invoices.filter(i=>!i.error).length} invoices.`)
+                        setPhExtracted(null); setPhPdf(null)
                         setPhSaving(false)
-                      }} disabled={phSaving} style={{ padding:'7px 18px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                        {phSaving ? '⏳ Saving…' : `💾 Save ${phExtracted.items.filter(i=>i.include).length} Items to History`}
+                      }} disabled={phSaving} style={{ padding:'7px 20px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                        {phSaving ? '⏳ Saving…' : `💾 Save All to History`}
                       </button>
                     </div>
                   </div>
