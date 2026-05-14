@@ -766,6 +766,22 @@ export default function Home() {
     })
   }
 
+  async function deleteSupplier(name) {
+    const itemsUsingSupplier = items.filter(i => i.supplier === name).length
+    const msg = itemsUsingSupplier > 0
+      ? `Remove "${name}"? ${itemsUsingSupplier} item(s) are assigned to this supplier — they will become unassigned.`
+      : `Remove "${name}"?`
+    if (!confirm(msg)) return
+    const updated = suppliers.filter(s => s !== name)
+    setSuppliers(updated)
+    if (view === name) setView('all')
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemName: '_global', field: 'suppliers', value: updated })
+    })
+  }
+
 
   // ── LOAD QUARTERLY TREND DATA ─────────────────────────────────────────────
   async function loadTrendData() {
@@ -2627,8 +2643,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button style={{ ...styles.tab, ...(view === 'all' ? styles.tabActive : {}) }}
                   onClick={() => setView('all')}>All Items</button>
                 {suppliers.map(s => (
-                  <button key={s} style={{ ...styles.tab, ...(view === s ? { ...styles.tabActive, background: SUPPLIER_COLORS[s] || '#374151', color: '#fff', borderColor: SUPPLIER_COLORS[s] || '#374151' } : {}) }}
-                    onClick={() => setView(s)}>{s}</button>
+                  <div key={s} style={{ display:'flex', alignItems:'center', gap:0 }}>
+                    <button style={{ ...styles.tab, ...(view === s ? { ...styles.tabActive, background: SUPPLIER_COLORS[s] || '#374151', color: '#fff', borderColor: SUPPLIER_COLORS[s] || '#374151' } : {}), borderRadius: showDetails && !readOnly ? '6px 0 0 6px' : 6 }}
+                      onClick={() => setView(s)}>{s}</button>
+                    {showDetails && !readOnly && (
+                      <button onClick={() => deleteSupplier(s)}
+                        title={`Remove ${s}`}
+                        style={{ padding:'4px 6px', fontSize:11, background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderLeft:'none', borderRadius:'0 6px 6px 0', cursor:'pointer', lineHeight:1 }}>✕</button>
+                    )}
+                  </div>
                 ))}
                 {addingSupplier ? (
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>

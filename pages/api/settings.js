@@ -9,6 +9,11 @@ async function get(key, fallback = null) {
     if (val !== null && val !== undefined) {
       await kvSet(key, val).catch(() => {}) // restore to Redis
       console.log('[settings] restored', key, 'from Supabase backup')
+    } else if (fallback !== null && fallback !== undefined) {
+      // Persist default so it gets backed up
+      await kvSet(key, fallback).catch(() => {})
+      sbConfigSet(key, fallback).catch(() => {})
+      return fallback
     }
   }
   return val ?? fallback
