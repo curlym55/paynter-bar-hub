@@ -5648,18 +5648,18 @@ function HelpTab() {
       items: [
         { q: 'Reading the table', a: 'Each row shows current stock (On Hand), weekly average sales, target stock level, and how much to order. Red = CRITICAL (below target), yellow = LOW, green = OK.' },
         { q: 'Order Qty vs Bottles', a: 'For spirits and fortified wines, Order Qty shows nips needed and Bottles shows full bottles to buy (rounded up). For all other items, Order Qty shows units to order.' },
-        { q: 'Target Weeks', a: 'Click the number in the header stats bar to change how many weeks of stock to hold. Default is 6 weeks. Affects all items target stock calculations.' },
+        { q: 'Target Weeks', a: 'The default target weeks is set in ⚙️ Settings. You can also override it per item using the Target Wks column in Show Details mode. Default is 6 weeks.' },
         { q: 'Filtering to order items', a: 'Tick \"Order items only\" in the controls bar to hide items that don\'t need ordering — useful when preparing orders.' },
-        { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. Use + Supplier to add a new supplier.' },
+        { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. When a supplier is selected, 📋 Order Sheet and ✓ Mark as Ordered buttons appear in the toolbar.' },
+        { q: 'Order Sheet', a: 'Select a supplier tab then click 📋 Order Sheet to open a formatted printable order sheet for that supplier. Use the Print this sheet button on the page.' },
+        { q: 'Mark as Ordered', a: 'Select a supplier tab then click ✓ Mark as Ordered to record that an order has been placed. Enter a PO reference number — this links the order to its receive report and invoice in Documents.' },
+        { q: 'Receiving an order', a: 'When stock arrives, click the banner that appears for the pending order and select Receive. Enter the quantities received — Square inventory updates automatically on confirm.' },
         { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all committee members.' },
         { q: 'Adding notes', a: 'Click the Notes column for any item to add a note (e.g. \"Discontinued\", \"Check price\"). Notes are saved and visible to all.' },
-        { q: 'Print Order List', a: 'Click 🖨️ Print Order List and choose a supplier to generate a formatted A4 order sheet. Use this list when creating the Purchase Order manually in Square Dashboard.' },
+        { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average margin in the pricing export.' },
+        { q: 'Missing buy prices', a: 'A red ⚠️ warning appears in the toolbar if any items are missing a buy price. Click it to jump to Pricing view. Buy prices affect margin calculations and stock value reports.' },
+        { q: 'Adding or removing suppliers', a: 'Suppliers are managed in ⚙️ Settings in the sidebar. Add or remove suppliers there, and assign items to suppliers by clicking the Supplier column inline.' },
       ]
-    },
-    {
-      icon: '📬',
-      title: 'On Order Tracking — Removed',
-      items: []
     },
     {
       icon: '🥃',
@@ -5762,7 +5762,7 @@ function HelpTab() {
       icon: '📤',
       title: 'Other Exports',
       items: [
-        { q: 'Print Order Sheet', a: 'In the Reorder Planner, click Print Order Sheet and choose a supplier to open a formatted, print-ready order form for that supplier.' },
+        { q: 'Print Order Sheet', a: 'Select a supplier tab in the Reorder Planner, then click 📋 Order Sheet to open a formatted printable order sheet for that supplier. Use the Print this sheet button on the page.' },
         { q: 'Stocktake Export', a: 'Downloads an Excel spreadsheet for quarterly stocktakes. Count columns for Cool Room, Store Room and Bar. For spirits, enter decimal bottles (e.g. 4.5) — the sheet calculates nips automatically and shows the variance against Square.' },
         { q: 'Notes Print', a: 'In the Notes tab, click 🖨️ Print to export the current filtered notes as a formatted A4 table.' },
         { q: 'Wastage Print', a: 'In the Wastage Log, click 🖨️ Print to export the current filtered wastage entries as a formatted A4 table.' },
@@ -5783,7 +5783,7 @@ function HelpTab() {
       title: 'Settings & Administration',
       items: [
         { q: 'Shared settings', a: 'All settings (categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility) are saved to the cloud and shared instantly across all management sessions.' },
-        { q: 'Adding suppliers', a: 'Use the + Supplier button in the controls bar of the Reorder Planner. Assign items to suppliers by clicking the Supplier column inline.' },
+        { q: 'Adding suppliers', a: 'Manage suppliers in ⚙️ Settings in the sidebar — add, remove, and set Square vendor names there. Assign items to suppliers by clicking the Supplier column inline in the Reorder Planner.' },
         { q: 'Item categories', a: 'Available categories: Beer, Cider, PreMix, White Wine, Red Wine, Rose, Sparkling, Fortified & Liqueurs, Spirits, Soft Drinks, Snacks. Spirits and Fortified & Liqueurs items get the bottle and nip size columns.' },
         { q: 'Square POS connection', a: 'The app connects to Square via API. Stock levels, sales and prices update on every Refresh. Square is always the source of truth — all transactions and price changes are made in Square.' },
       ]
