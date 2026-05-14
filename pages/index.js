@@ -2137,7 +2137,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               { icon: '👥', label: 'Roster',       tab: 'roster',      action: () => window.open('/roster','_blank') },
             ]},
             ...(!readOnly ? [{ label: 'Settings', icon: '⚙️', items: [
-              { icon: '⚙️', label: 'Settings', tab: 'settings', action: () => setMainTab(t => t==='settings'?'reorder':'settings') },
+              { icon: '⚙️', label: 'Settings', tab: 'settings', action: () => {
+                setMainTab(t => t==='settings'?'reorder':'settings')
+                fetch('/api/settings').then(r=>r.json()).then(d => setSettingsRevTarget(d.revenueTarget ?? ''))
+              }},
             ]}] : []),
             { label: 'Help', icon: '❓', items: [
               { icon: '❓', label: 'Help', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
@@ -3212,12 +3215,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
         {mainTab === 'settings' && !readOnly && (
-          <div style={{ padding: '16px 0', maxWidth: 700 }} ref={el => { if (el && settingsRevTarget === null) {
-            fetch('/api/settings').then(r=>r.json()).then(d => {
-              setSettingsRevTarget(d.revenueTarget ?? '')
-              setSettingsTargetWeeks(d.targetWeeks ?? 6)
-            })
-          }}}
+          <div style={{ padding: '16px 0', maxWidth: 700 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>⚙️ Settings</div>
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 24 }}>Manage suppliers, reorder defaults and app configuration</div>
 
@@ -3282,10 +3280,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div style={{ padding:16 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
                   <span style={{ width:180, fontSize:13, fontWeight:600 }}>Default target weeks</span>
-                  <input type="number" defaultValue={settingsTargetWeeks ?? 6} min={1} max={26}
+                  <input type="number" defaultValue={settingsTargetWeeks ?? targetWeeks} min={1} max={26}
                     onBlur={async e => {
                       const val = Number(e.target.value)
                       if (!val || val < 1) return
+                      setTargetWeeks(val)
                       setSettingsTargetWeeks(val)
                       await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
