@@ -107,6 +107,15 @@ export default function Home() {
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
+  const [phSubTab, setPhSubTab] = useState('import')
+  const [phPdf, setPhPdf] = useState(null)
+  const [phExtracting, setPhExtracting] = useState(false)
+  const [phExtracted, setPhExtracted] = useState(null)
+  const [phSaving, setPhSaving] = useState(false)
+  const [phAvgData, setPhAvgData] = useState(null)
+  const [phDays, setPhDays] = useState('90')
+  const [phSupFilter, setPhSupFilter] = useState('all')
+  const [phLoading, setPhLoading] = useState(false)
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -2133,6 +2142,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             ]},
             { label: 'Administration', icon: '📁', items: [
               { icon: '📁', label: 'Documents',    tab: 'documents',   action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+              { icon: '📄', label: 'Price History', tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
               { icon: '🖨️', label: 'Barcode Sheet',tab: 'barcodesheet',action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
               { icon: '👥', label: 'Roster',       tab: 'roster',      action: () => window.open('/roster','_blank') },
             ]},
@@ -2224,7 +2234,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -3371,6 +3381,243 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 })()}
               </div>
             </div>
+          </div>
+        )}
+
+        {mainTab === 'pricehistory' && (
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              {['import','reports'].map(t => (
+                <button key={t} onClick={() => setPhSubTab(t)}
+                  style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
+                    background: phSubTab===t ? '#1e3a5f' : '#f8fafc', color: phSubTab===t ? '#fff' : '#374151' }}>
+                  {t === 'import' ? '📄 Import Invoice' : '📊 Average Prices'}
+                </button>
+              ))}
+            </div>
+
+            {/* ── IMPORT TAB ─────────────────────────────────────── */}
+            {phSubTab === 'import' && (
+              <div style={{ maxWidth: 900 }}>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden', marginBottom:16 }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Upload Supplier Invoice (PDF)</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Upload a Dan Murphy's, Coles or ACW invoice PDF. Claude will automatically extract all items and prices for review before saving.</div>
+                    {!phExtracted ? (
+                      <div style={{ display:'flex', gap:10, alignItems:'center' }}>
+                        <label style={{ cursor:'pointer' }}>
+                          <input type="file" accept=".pdf" style={{ display:'none' }}
+                            onChange={e => {
+                              const file = e.target.files?.[0]
+                              if (!file) return
+                              const reader = new FileReader()
+                              reader.onload = () => setPhPdf({ name: file.name, base64: reader.result.split(',')[1] })
+                              reader.readAsDataURL(file)
+                            }} />
+                          <span style={{ padding:'7px 16px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, fontSize:13, fontWeight:600 }}>
+                            {phPdf ? `✓ ${phPdf.name}` : '📎 Select PDF…'}
+                          </span>
+                        </label>
+                        {phPdf && (
+                          <button onClick={async () => {
+                            setPhExtracting(true)
+                            try {
+                              const r = await fetch('/api/invoices/extract', {
+                                method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ pdf_base64: phPdf.base64 })
+                              })
+                              const d = await r.json()
+                              if (!r.ok) throw new Error(d.error)
+                              setPhExtracted({ ...d, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) })
+                            } catch (e) { alert('Extraction failed: ' + e.message) }
+                            setPhExtracting(false)
+                          }} disabled={phExtracting}
+                            style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                            {phExtracting ? '⏳ Extracting…' : '🔍 Extract Items'}
+                          </button>
+                        )}
+                      </div>
+                    ) : (
+                      <div style={{ display:'flex', gap:8, alignItems:'center', marginBottom:4 }}>
+                        <span style={{ fontSize:13, fontWeight:700, color:'#16a34a' }}>✓ Extracted from {phPdf?.name}</span>
+                        <button onClick={() => { setPhExtracted(null); setPhPdf(null) }}
+                          style={{ fontSize:11, padding:'2px 8px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:4, cursor:'pointer' }}>
+                          Upload different file
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {phExtracted && (
+                  <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                    <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between' }}>
+                      <span>Review Extracted Items — {phExtracted.supplier} · {phExtracted.invoice_ref} · {phExtracted.invoice_date}</span>
+                      <span style={{ fontSize:11, opacity:0.7 }}>{phExtracted.gst_included ? 'Prices include GST' : 'Prices ex GST'}</span>
+                    </div>
+                    <div style={{ padding:12, fontSize:12, color:'#64748b', background:'#f8fafc' }}>
+                      Review the extracted items. Edit <strong>Hub Name</strong> to match your Hub item exactly, and check <strong>Units/Pack</strong> is correct. Untick items to exclude.
+                    </div>
+                    <div style={{ overflowX:'auto' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
+                            <th style={{ padding:'8px', width:32 }}></th>
+                            {['Invoice Description','Hub Name (editable)','Qty','Units/Pack','Invoice Price','Per Unit (ex GST)'].map(h => (
+                              <th key={h} style={{ padding:'8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {phExtracted.items.map((item, i) => {
+                            const unitPrice = phExtracted.gst_included
+                              ? item.invoice_unit_price / item.units_per_pack / 1.10
+                              : item.invoice_unit_price / item.units_per_pack
+                            return (
+                              <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: item.include ? (i%2===0?'#fff':'#f8fafc') : '#fef2f2', opacity: item.include ? 1 : 0.5 }}>
+                                <td style={{ padding:'6px 8px', textAlign:'center' }}>
+                                  <input type="checkbox" checked={item.include}
+                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, include: e.target.checked} : it) }))} />
+                                </td>
+                                <td style={{ padding:'6px 8px', color:'#64748b', maxWidth:220, fontSize:11 }}>{item.item_name_raw}</td>
+                                <td style={{ padding:'6px 8px' }}>
+                                  <input value={item.item_name_hub}
+                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, item_name_hub: e.target.value} : it) }))}
+                                    style={{ width:'100%', minWidth:180, padding:'3px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }} />
+                                </td>
+                                <td style={{ padding:'6px 8px', textAlign:'center' }}>{item.invoice_qty}</td>
+                                <td style={{ padding:'6px 8px', textAlign:'center' }}>
+                                  <input type="number" value={item.units_per_pack} min={1}
+                                    onChange={e => setPhExtracted(prev => ({ ...prev, items: prev.items.map((it,j) => j===i ? {...it, units_per_pack: Number(e.target.value)||1} : it) }))}
+                                    style={{ width:56, padding:'3px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
+                                </td>
+                                <td style={{ padding:'6px 8px', textAlign:'right' }}>${item.invoice_unit_price.toFixed(2)}</td>
+                                <td style={{ padding:'6px 8px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>${unitPrice.toFixed(3)}</td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                    <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0' }}>
+                      <span style={{ fontSize:12, color:'#64748b', flex:1, alignSelf:'center' }}>
+                        {phExtracted.items.filter(i=>i.include).length} of {phExtracted.items.length} items will be saved
+                      </span>
+                      <button onClick={async () => {
+                        setPhSaving(true)
+                        try {
+                          const r = await fetch('/api/invoices/save', {
+                            method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ invoice_ref: phExtracted.invoice_ref, supplier: phExtracted.supplier,
+                              invoice_date: phExtracted.invoice_date, gst_included: phExtracted.gst_included, items: phExtracted.items })
+                          })
+                          const d = await r.json()
+                          if (!r.ok) throw new Error(d.error)
+                          alert(`✓ ${d.saved} items saved to price history.`)
+                          setPhExtracted(null); setPhPdf(null)
+                        } catch (e) { alert('Save failed: ' + e.message) }
+                        setPhSaving(false)
+                      }} disabled={phSaving} style={{ padding:'7px 18px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                        {phSaving ? '⏳ Saving…' : `💾 Save ${phExtracted.items.filter(i=>i.include).length} Items to History`}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── REPORTS TAB ────────────────────────────────────── */}
+            {phSubTab === 'reports' && (
+              <div>
+                <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+                  <div style={{ display:'flex', gap:4 }}>
+                    {['30','60','90','180'].map(d => (
+                      <button key={d} onClick={() => setPhDays(d)}
+                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
+                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
+                        {d} days
+                      </button>
+                    ))}
+                  </div>
+                  <select value={phSupFilter} onChange={e => setPhSupFilter(e.target.value)}
+                    style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
+                    <option value="all">All Suppliers</option>
+                    {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                  </select>
+                  <button onClick={async () => {
+                    setPhLoading(true)
+                    const r = await fetch(`/api/invoices/avg-prices?days=${phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
+                    const d = await r.json()
+                    setPhAvgData(d)
+                    setPhLoading(false)
+                  }} style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    {phLoading ? '⏳ Loading…' : '📊 Load Report'}
+                  </button>
+                </div>
+
+                {phAvgData && (
+                  phAvgData.items?.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>No price history found for this period. Import some invoices first.</div>
+                  ) : (
+                    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                      <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
+                        Average Buy Prices — last {phAvgData.period_days} days (ex GST) · {phAvgData.items?.length} items
+                      </div>
+                      <div style={{ overflowX:'auto' }}>
+                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                          <thead>
+                            <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
+                              {['Item','Supplier','Avg Buy Price','# Invoices','Min','Max','Variance','Current Hub Price','Action'].map(h => (
+                                <th key={h} style={{ padding:'8px 10px', textAlign: h.includes('Price')||h.includes('Min')||h.includes('Max')||h.includes('Var') ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
+                              ))}
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {phAvgData.items?.map((row, i) => {
+                              const hubItem = items.find(it => it.name === row.item_name)
+                              const currentBuy = hubItem?.buyPrice
+                              const diff = currentBuy != null ? row.avg_unit_price_ex_gst - currentBuy : null
+                              const variance = row.max_price - row.min_price
+                              return (
+                                <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0?'#fff':'#f8fafc' }}>
+                                  <td style={{ padding:'7px 10px', fontWeight:600 }}>{row.item_name}</td>
+                                  <td style={{ padding:'7px 10px', color:'#64748b' }}>{row.supplier}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>${row.avg_unit_price_ex_gst?.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'center', color:'#64748b' }}>{row.invoice_count}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.min_price?.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.max_price?.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', color: variance > 0.5 ? '#d97706' : '#64748b' }}>${variance.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                                    {currentBuy != null ? (
+                                      <span style={{ color: diff > 0.02 ? '#dc2626' : diff < -0.02 ? '#16a34a' : '#64748b' }}>
+                                        ${Number(currentBuy).toFixed(3)}
+                                        {diff != null && <span style={{ fontSize:10, marginLeft:4 }}>({diff > 0 ? '+' : ''}{diff.toFixed(3)})</span>}
+                                      </span>
+                                    ) : <span style={{ color:'#94a3b8' }}>—</span>}
+                                  </td>
+                                  <td style={{ padding:'7px 10px' }}>
+                                    {row.avg_unit_price_ex_gst != null && (
+                                      <button onClick={async () => {
+                                        if (!confirm(`Update buy price for "${row.item_name}" to $${row.avg_unit_price_ex_gst.toFixed(3)}?`)) return
+                                        await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                                          body: JSON.stringify({ itemName: row.item_name, field:'buyPrice', value: row.avg_unit_price_ex_gst }) })
+                                        alert('✓ Buy price updated.')
+                                      }} style={{ padding:'2px 8px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                        ↑ Update
+                                      </button>
+                                    )}
+                                  </td>
+                                </tr>
+                              )
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )
+                )}
+              </div>
+            )}
           </div>
         )}
 
