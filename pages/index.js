@@ -104,6 +104,8 @@ export default function Home() {
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
   const [settingsSaving, setSettingsSaving] = useState(false)
+  const [settingsRevTarget, setSettingsRevTarget] = useState(null)
+  const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -3210,7 +3212,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
         {mainTab === 'settings' && !readOnly && (
-          <div style={{ padding: '16px 0', maxWidth: 700 }}>
+          <div style={{ padding: '16px 0', maxWidth: 700 }} ref={el => { if (el && settingsRevTarget === null) {
+            fetch('/api/settings').then(r=>r.json()).then(d => {
+              setSettingsRevTarget(d.revenueTarget ?? '')
+              setSettingsTargetWeeks(d.targetWeeks ?? 6)
+            })
+          }}}
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>⚙️ Settings</div>
             <div style={{ fontSize: 12, color: '#64748b', marginBottom: 24 }}>Manage suppliers, reorder defaults and app configuration</div>
 
@@ -3275,11 +3282,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div style={{ padding:16 }}>
                 <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
                   <span style={{ width:180, fontSize:13, fontWeight:600 }}>Default target weeks</span>
-                  <input type="number" defaultValue={targetWeeks} min={1} max={26}
+                  <input type="number" defaultValue={settingsTargetWeeks ?? 6} min={1} max={26}
                     onBlur={async e => {
                       const val = Number(e.target.value)
                       if (!val || val < 1) return
-                      setTargetWeeks(val)
+                      setSettingsTargetWeeks(val)
                       await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
                     }}
@@ -3288,10 +3295,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 </div>
                 <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                   <span style={{ width:180, fontSize:13, fontWeight:600 }}>Revenue target ($/wk)</span>
-                  <input type="number" defaultValue={revenueTarget || ''} min={0}
+                  <input type="number" defaultValue={settingsRevTarget ?? ''} min={0}
                     onBlur={async e => {
                       const val = e.target.value === '' ? null : Number(e.target.value)
-                      setRevenueTarget(val)
+                      setSettingsRevTarget(val ?? '')
                       await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
                         body: JSON.stringify({ itemName:'_global', field:'revenueTarget', value: val }) })
                     }}
