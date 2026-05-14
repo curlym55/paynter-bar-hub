@@ -1,4 +1,5 @@
 import { kvGet, kvSet } from '../../lib/redis'
+import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
 
 const SUPPLIER_ABBR = {
   'dan murphy':   'DAN',
@@ -13,14 +14,28 @@ function supplierAbbr(supplier) {
 }
 
 async function getNextPoNumber(peek = false) {
-  const current = (await kvGet('poNextNumber').catch(() => null)) || 99
+  const current = (await get('poNextNumber', 99))
   const next = current + 1
-  if (!peek) await kvSet('poNextNumber', next)
+  if (!peek) await set('poNextNumber', next)
   return next
 }
 
 // GET  — return current on-order state
 // POST — place order (flag items) or clear supplier (received)
+async function get(key, fallback = null) {
+  let val = await kvGet(key).catch(() => null)
+  if (val === null || val === undefined) {
+    val = await sbConfigGet(key)
+    if (val !== null && val !== undefined) await kvSet(key, val).catch(() => {})
+  }
+  return val ?? fallback
+}
+async function set(key, value) {
+  await kvSet(key, value)
+  sbConfigSet(key, value).catch(() => {})
+}
+
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     const { action } = req.query
@@ -29,7 +44,7 @@ export default async function handler(req, res) {
       const num = await getNextPoNumber(true)
       return res.json({ num })
     }
-    const ordered = (await kvGet('orderedItems')) || {}
+    const ordered = (await get('orderedItems', {}))
     return res.json({ ordered })
   }
 
@@ -38,7 +53,7 @@ export default async function handler(req, res) {
 
     if (action === 'place') {
       // items: [{ name, sku, orderQty, bottlesToOrder, isSpirit, unitCost }]
-      const ordered = (await kvGet('orderedItems')) || {}
+      const ordered = (await get('orderedItems', {}))
       const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
       const abbr = supplierAbbr(supplier)
       const poNum = await getNextPoNumber()
@@ -63,14 +78,14 @@ export default async function handler(req, res) {
           sku:            item.sku || '',
         }
       }
-      await kvSet('orderedItems', ordered)
+      await set('orderedItems', ordered)
       return res.json({ ok: true, ordered, ref, poNumber: poNum })
     }
 
     if (action === 'receiveByRef') {
       // Clear items belonging to a specific PO ref
       const { ref, receivedItems } = req.body
-      const ordered = (await kvGet('orderedItems')) || {}
+      const ordered = (await get('orderedItems', {}))
       for (const [name, info] of Object.entries(ordered)) {
         if (info.ref === ref) {
           if (!receivedItems || receivedItems.includes(name)) {
@@ -78,28 +93,28 @@ export default async function handler(req, res) {
           }
         }
       }
-      await kvSet('orderedItems', ordered)
+      await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'receive') {
       // Clear all items for this supplier
-      const ordered = (await kvGet('orderedItems')) || {}
+      const ordered = (await get('orderedItems', {}))
       for (const [name, info] of Object.entries(ordered)) {
         if ((info.supplier || 'Unknown') === supplier) delete ordered[name]
       }
-      await kvSet('orderedItems', ordered)
+      await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'partialReceive') {
       // Clear only the specified item names
       const { receivedItems } = req.body // array of item names received
-      const ordered = (await kvGet('orderedItems')) || {}
+      const ordered = (await get('orderedItems', {}))
       for (const name of (receivedItems || [])) {
         delete ordered[name]
       }
-      await kvSet('orderedItems', ordered)
+      await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
