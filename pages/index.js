@@ -3321,6 +3321,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
 
         {mainTab === 'documents' && (
+          <div style={{ padding: '16px 0' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📁 Purchase Documents</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>All PO records with receive reports and invoices</div>
