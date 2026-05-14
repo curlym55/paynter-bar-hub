@@ -2833,25 +2833,25 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1 — Review</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Check suggested quantities. Adjust Order Qty if needed.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Check suggested quantities. Adjust Order Qty if needed. Select a supplier tab to focus on one supplier.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Print list for reference when ordering with supplier online. Click Mark as Ordered to track it here.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Select a supplier tab, click 📋 Order Sheet for a printable list. Click ✓ Mark as Ordered to record the PO.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>📦</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3 — Receive</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>When delivery arrives, click Receive on the order banner. Enter actual quantities received.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>When delivery arrives, click Receive on the order banner. Enter quantities and attach the supplier invoice.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>✅</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Done</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Download HTML receipt for your records.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Receipt and invoice saved to Documents and OneDrive.</div>
                 </div>
               </div>
             )}
