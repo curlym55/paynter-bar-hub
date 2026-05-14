@@ -3582,9 +3582,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </select>
                   <button onClick={async () => {
                     setPhLoading(true)
-                    const r = await fetch(`/api/invoices/avg-prices?days=${phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
-                    const d = await r.json()
-                    setPhAvgData(d)
+                    setPhAvgData(null)
+                    try {
+                      const r = await fetch(`/api/invoices/avg-prices?days=${phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
+                      const d = await r.json()
+                      if (!r.ok) throw new Error(d.error || 'Load failed')
+                      setPhAvgData(d)
+                    } catch (e) {
+                      alert('Failed to load report: ' + e.message)
+                    }
                     setPhLoading(false)
                   }} style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
