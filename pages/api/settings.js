@@ -122,12 +122,18 @@ export default async function handler(req, res) {
       }
 
       // Audit log — record when and (coarsely) who changed each field
-      const audit = (await kvGet('settingsAudit')) || {}
+      const audit = (await get('settingsAudit', {}))
       const auditKey = `${resolvedName}__${field}`
       if (value === null || value === '' || value === false) {
         delete audit[auditKey]
       } else {
-        audit[auditKey] = { ts: new Date().toISOString(), who: req.body.who || 'committee' }
+        const oldVal = allSettings[resolvedName]?.[field] ?? null
+        audit[auditKey] = {
+          ts: new Date().toISOString(),
+          who: req.body.who || 'committee',
+          oldValue: oldVal,
+          newValue: value
+        }
       }
       await set('settingsAudit', audit)
 

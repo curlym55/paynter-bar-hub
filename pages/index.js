@@ -2662,18 +2662,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <button key={s} style={{ ...styles.tab, ...(view === s ? { ...styles.tabActive, background: SUPPLIER_COLORS[s] || '#374151', color: '#fff', borderColor: SUPPLIER_COLORS[s] || '#374151' } : {}) }}
                     onClick={() => setView(s)}>{s}</button>
                 ))}
-                {addingSupplier ? (
-                  <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
-                    <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)}
-                      onKeyDown={e => { if (e.key === 'Enter') addSupplier(); if (e.key === 'Escape') setAddingSupplier(false) }}
-                      placeholder="Supplier name..." style={styles.supplierInput} autoFocus />
-                    <button style={{ ...styles.tab, background: '#16a34a', color: '#fff', borderColor: '#16a34a' }} onClick={addSupplier}>Add</button>
-                    <button style={styles.tab} onClick={() => setAddingSupplier(false)}>Cancel</button>
-                  </div>
-                ) : (
-                  <button style={{ ...styles.tab, borderStyle: 'dashed', color: '#64748b' }}
-                    onClick={() => setAddingSupplier(true)}>+ Supplier</button>
-                )}
+
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
                 {/* Square vendor name mapping — small ✎ per supplier */}
                 {showDetails && !readOnly && suppliers.map(s => {
@@ -3373,7 +3362,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                         <thead>
                           <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
-                            {['Date','Item','Field','By'].map(h => (
+                            {['Date','Item','Field','Old Value','New Value','By'].map(h => (
                               <th key={h} style={{ padding:'4px 8px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
                             ))}
                           </tr>
@@ -3393,6 +3382,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   {FIELD_LABELS[e.field] || e.field}
                                 </span>
                               </td>
+                              <td style={{ padding:'5px 8px', color:'#94a3b8', fontStyle: e.oldValue == null ? 'italic' : 'normal' }}>{e.oldValue != null ? String(e.oldValue) : '—'}</td>
+                              <td style={{ padding:'5px 8px', fontWeight:600, color:'#0f172a' }}>{e.newValue != null ? String(e.newValue) : '—'}</td>
                               <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'committee'}</td>
                             </tr>
                           ))}
