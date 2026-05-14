@@ -106,6 +106,7 @@ export default function Home() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
+  const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -2138,7 +2139,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             ...(!readOnly ? [{ label: 'Settings', icon: '⚙️', items: [
               { icon: '⚙️', label: 'Settings', tab: 'settings', action: () => {
                 setMainTab(t => t==='settings'?'reorder':'settings')
-                fetch('/api/settings').then(r=>r.json()).then(d => setSettingsRevTarget(d.revenueTarget ?? ''))
+                fetch('/api/settings').then(r=>r.json()).then(d => {
+                  setSettingsRevTarget(d.revenueTarget ?? '')
+                })
+                fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {}))
               }},
             ]}] : []),
             { label: 'Help', icon: '❓', items: [
@@ -3338,6 +3342,65 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                   {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
                 </button>
+              </div>
+            </div>
+
+            {/* Recent Changes */}
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden', marginTop:16 }}>
+              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                <span>Recent Changes</span>
+                <button onClick={() => fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit||{}))}
+                  style={{ fontSize:11, background:'rgba(255,255,255,0.15)', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', cursor:'pointer' }}>↻ Refresh</button>
+              </div>
+              <div style={{ padding:16 }}>
+                {!settingsAuditData ? (
+                  <div style={{ color:'#94a3b8', fontSize:12 }}>Loading…</div>
+                ) : Object.keys(settingsAuditData).length === 0 ? (
+                  <div style={{ color:'#94a3b8', fontSize:12 }}>No changes recorded yet.</div>
+                ) : (() => {
+                  const FIELD_LABELS = { buyPrice:'Buy Price', sellPrice:'Sell Price', sellPriceBottle:'Bottle Sell Price', supplier:'Supplier', category:'Category', pack:'Pack Size', bottleML:'Bottle mL', nipML:'Nip mL', targetWeeksOverride:'Target Weeks', weeklyAvgOverride:'Weekly Avg Override', stockOverride:'Stock Override', notes:'Notes', bottleOnly:'Bottle Only' }
+                  const entries = Object.entries(settingsAuditData)
+                    .map(([key, val]) => {
+                      const parts = key.split('__')
+                      const field = parts.pop()
+                      const itemName = parts.join('__')
+                      return { itemName, field, ts: val.ts, who: val.who }
+                    })
+                    .sort((a,b) => new Date(b.ts) - new Date(a.ts))
+                    .slice(0, 30)
+                  return (
+                    <div style={{ maxHeight:320, overflowY:'auto' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
+                            {['Date','Item','Field','By'].map(h => (
+                              <th key={h} style={{ padding:'4px 8px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {entries.map((e, i) => (
+                            <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0 ? '#fff' : '#f8fafc' }}>
+                              <td style={{ padding:'5px 8px', color:'#64748b', whiteSpace:'nowrap' }}>
+                                {new Date(e.ts).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric', timeZone:'Australia/Brisbane' })}
+                                <span style={{ marginLeft:4, color:'#94a3b8' }}>
+                                  {new Date(e.ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', timeZone:'Australia/Brisbane' })}
+                                </span>
+                              </td>
+                              <td style={{ padding:'5px 8px', fontWeight:500 }}>{e.itemName}</td>
+                              <td style={{ padding:'5px 8px' }}>
+                                <span style={{ background:'#e0f2fe', color:'#0369a1', padding:'1px 6px', borderRadius:3, fontSize:11, fontWeight:600 }}>
+                                  {FIELD_LABELS[e.field] || e.field}
+                                </span>
+                              </td>
+                              <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'committee'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )
+                })()}
               </div>
             </div>
           </div>
