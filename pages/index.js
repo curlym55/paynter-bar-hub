@@ -2742,29 +2742,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
 
 
-                {view === 'all' && <div style={{ position: 'relative' }}>
-                  <button style={{ ...styles.btn, background: '#374151', fontSize: 12, padding: '6px 14px' }}
-                    onClick={() => setPrinting(p => p === 'menu' ? null : 'menu')}>🖨️ Print Order List</button>
-                  {printing === 'menu' && (
-                    <div style={{ position: 'fixed', inset: 0, zIndex: 49 }} onClick={() => setPrinting(null)} />
-                  )}
-                  {printing === 'menu' && (
-                    <div style={styles.dropdown}>
-                      {suppliers.map(s => (
-                        <div key={s} style={{ borderBottom: '1px solid #f1f5f9', padding: '4px 0' }}>
-                          <div style={{ padding: '4px 12px 2px', fontSize: 10, fontWeight: 700, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{s}</div>
-                          <button style={styles.dropItem} onClick={() => { printOrderSheet(s); setPrinting(null) }}>
-                            🖨️ Print Order List
-                          </button>
-                          <button style={{ ...styles.dropItem, color: '#16a34a', fontWeight: 700 }} onClick={() => { openRefModalWithNumber(s); setPrinting(null) }}>
-                            ✓ Mark as Ordered
-                          </button>
-                        </div>
-                      ))}
-
-                    </div>
-                  )}
-                </div>}
               </div>
             </div>
 
