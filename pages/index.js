@@ -103,6 +103,7 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
+  const [settingsSaving, setSettingsSaving] = useState(false)
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -2110,29 +2111,32 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {(() => {
           const SC = sidebarCollapsed
           const groups = [
-            { label: 'Stock', icon: '📦', items: [
-              { icon: '🏠', label: 'Dashboard', tab: 'home', action: () => setMainTab('home') },
-              { icon: '📦', label: 'Reorder Planner', tab: 'reorder', action: () => setMainTab('reorder') },
-              { icon: '📋', label: 'Stocktake', tab: 'stocktake', action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+            { label: 'Inventory', icon: '📦', items: [
+              { icon: '🏠', label: 'Dashboard',        tab: 'home',       action: () => setMainTab('home') },
+              { icon: '📦', label: 'Reorder Planner',  tab: 'reorder',    action: () => setMainTab('reorder') },
+              { icon: '📋', label: 'Stocktake',        tab: 'stocktake',  action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+              { icon: '📊', label: 'SOH Report',       tab: 'soh',        action: () => setSohModal(true) },
+              { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory', action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
             ]},
-            { label: 'Sales & Analytics', icon: '📊', items: [
-              { icon: '📊', label: 'Sales Report', tab: 'sales', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-              { icon: '📈', label: 'Quarterly Trends', tab: 'trends', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
-              { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
+            { label: 'Analytics', icon: '📈', items: [
+              { icon: '📊', label: 'Sales Report',        tab: 'sales',       action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+              { icon: '📈', label: 'Quarterly Trends',    tab: 'trends',      action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
+              { icon: '🏆', label: 'Best & Worst Sellers',tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
             ]},
-            { label: 'Operations', icon: '🗑️', items: [
-              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage', action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
+            { label: 'Bar', icon: '🍺', items: [
+              { icon: '⭐', label: 'Specials',     tab: 'specials',    action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+              { icon: '🏷️', label: 'Price List',  tab: 'pricelist',   action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage',     action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
               ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
-              { icon: '⭐', label: 'Specials', tab: 'specials', action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-                 { icon: '🏷️', label: 'Price List', tab: 'pricelist', action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-              { icon: '🖨️', label: 'Barcode Sheet', tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-              { icon: '📁', label: 'Documents', tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
-              { icon: '👥', label: 'Roster', tab: 'roster', action: () => window.open('/roster','_blank') },
             ]},
-            { label: 'Reports', icon: '📋', items: [
-              { icon: '📋', label: 'SOH Report', tab: 'soh', action: () => setSohModal(true) },
-                 { icon: '🗓️', label: 'SOH History', tab: 'sohhistory', action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+            { label: 'Administration', icon: '📁', items: [
+              { icon: '📁', label: 'Documents',    tab: 'documents',   action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+              { icon: '🖨️', label: 'Barcode Sheet',tab: 'barcodesheet',action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+              { icon: '👥', label: 'Roster',       tab: 'roster',      action: () => window.open('/roster','_blank') },
             ]},
+            ...(!readOnly ? [{ label: 'Settings', icon: '⚙️', items: [
+              { icon: '⚙️', label: 'Settings', tab: 'settings', action: () => setMainTab(t => t==='settings'?'reorder':'settings') },
+            ]}] : []),
             { label: 'Help', icon: '❓', items: [
               { icon: '❓', label: 'Help', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
             ]},
@@ -2205,7 +2209,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -2643,15 +2647,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button style={{ ...styles.tab, ...(view === 'all' ? styles.tabActive : {}) }}
                   onClick={() => setView('all')}>All Items</button>
                 {suppliers.map(s => (
-                  <div key={s} style={{ display:'flex', alignItems:'center', gap:0 }}>
-                    <button style={{ ...styles.tab, ...(view === s ? { ...styles.tabActive, background: SUPPLIER_COLORS[s] || '#374151', color: '#fff', borderColor: SUPPLIER_COLORS[s] || '#374151' } : {}), borderRadius: showDetails && !readOnly ? '6px 0 0 6px' : 6 }}
-                      onClick={() => setView(s)}>{s}</button>
-                    {showDetails && !readOnly && (
-                      <button onClick={() => deleteSupplier(s)}
-                        title={`Remove ${s}`}
-                        style={{ padding:'4px 6px', fontSize:11, background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderLeft:'none', borderRadius:'0 6px 6px 0', cursor:'pointer', lineHeight:1 }}>✕</button>
-                    )}
-                  </div>
+                  <button key={s} style={{ ...styles.tab, ...(view === s ? { ...styles.tabActive, background: SUPPLIER_COLORS[s] || '#374151', color: '#fff', borderColor: SUPPLIER_COLORS[s] || '#374151' } : {}) }}
+                    onClick={() => setView(s)}>{s}</button>
                 ))}
                 {addingSupplier ? (
                   <div style={{ display: 'flex', gap: 4, alignItems: 'center' }}>
@@ -3212,9 +3209,118 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
         {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
+        {mainTab === 'settings' && !readOnly && (
+          <div style={{ padding: '16px 0', maxWidth: 700 }}>
+            <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>⚙️ Settings</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 24 }}>Manage suppliers, reorder defaults and app configuration</div>
+
+            {/* Suppliers */}
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
+              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Suppliers</div>
+              <div style={{ padding:16 }}>
+                {suppliers.map(s => (
+                  <div key={s} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'#f8fafc', borderRadius:6, marginBottom:6 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                      <div style={{ width:12, height:12, borderRadius:'50%', background: SUPPLIER_COLORS[s] || '#374151' }} />
+                      <span style={{ fontWeight:600, fontSize:14 }}>{s}</span>
+                      {supplierVendorNames[s] && <span style={{ fontSize:11, color:'#64748b', background:'#e2e8f0', padding:'1px 6px', borderRadius:4 }}>Square: {supplierVendorNames[s]}</span>}
+                    </div>
+                    <button onClick={() => deleteSupplier(s)} style={{ padding:'3px 10px', background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer' }}>🗑 Remove</button>
+                  </div>
+                ))}
+                <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                  {addingSupplier ? (
+                    <>
+                      <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)}
+                        onKeyDown={e => { if(e.key==='Enter') addSupplier(); if(e.key==='Escape') setAddingSupplier(false) }}
+                        placeholder="Supplier name..." autoFocus
+                        style={{ flex:1, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                      <button onClick={addSupplier} style={{ padding:'6px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer' }}>Add</button>
+                      <button onClick={() => setAddingSupplier(false)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer' }}>Cancel</button>
+                    </>
+                  ) : (
+                    <button onClick={() => setAddingSupplier(true)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px dashed #94a3b8', borderRadius:6, fontSize:13, cursor:'pointer', color:'#64748b' }}>+ Add Supplier</button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Square Vendor Names */}
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
+              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Square Vendor Names</div>
+              <div style={{ padding:16 }}>
+                <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Map each supplier to their name in Square — used to match invoices and filter Square reports.</div>
+                {suppliers.map(s => (
+                  <div key={s} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                    <span style={{ width:140, fontWeight:600, fontSize:13 }}>{s}</span>
+                    <input defaultValue={supplierVendorNames[s] || ''}
+                      onBlur={async e => {
+                        const val = e.target.value.trim()
+                        const updated = { ...supplierVendorNames }
+                        if (!val) delete updated[s]; else updated[s] = val
+                        setSupplierVendorNames(updated)
+                        await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ itemName:'_global', field:'supplierVendorNames', value: updated }) })
+                      }}
+                      placeholder={`Square name for ${s}...`}
+                      style={{ flex:1, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Reorder Defaults */}
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
+              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Reorder Defaults</div>
+              <div style={{ padding:16 }}>
+                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
+                  <span style={{ width:180, fontSize:13, fontWeight:600 }}>Default target weeks</span>
+                  <input type="number" defaultValue={targetWeeks} min={1} max={26}
+                    onBlur={async e => {
+                      const val = Number(e.target.value)
+                      if (!val || val < 1) return
+                      setTargetWeeks(val)
+                      await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
+                    }}
+                    style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                  <span style={{ fontSize:12, color:'#64748b' }}>weeks of stock to maintain</span>
+                </div>
+                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                  <span style={{ width:180, fontSize:13, fontWeight:600 }}>Revenue target ($/wk)</span>
+                  <input type="number" defaultValue={revenueTarget || ''} min={0}
+                    onBlur={async e => {
+                      const val = e.target.value === '' ? null : Number(e.target.value)
+                      setRevenueTarget(val)
+                      await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                        body: JSON.stringify({ itemName:'_global', field:'revenueTarget', value: val }) })
+                    }}
+                    placeholder="Not set"
+                    style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                  <span style={{ fontSize:12, color:'#64748b' }}>optional weekly revenue target</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Data Backup */}
+            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Data Backup</div>
+              <div style={{ padding:16 }}>
+                <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
+                <button onClick={async () => {
+                  setSettingsSaving(true)
+                  const r = await fetch('/api/admin/sync-to-supabase')
+                  setSettingsSaving(false)
+                  alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
+                }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                  {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {mainTab === 'documents' && (
-          <div style={{ padding: '16px 0' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
                 <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📁 Purchase Documents</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>All PO records with receive reports and invoices</div>
