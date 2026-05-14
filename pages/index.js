@@ -40,7 +40,7 @@ function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, auto
     if (!rowData || rowData.length === 0) { ws.addRow([]); return }
     const values = rowData.map(c => {
       if (!c || typeof c !== 'object') return c ?? ''
-      if (c.f) return { formula: c.f }
+      if (c.f) return { formula: c.f, result: 0 }
       return c.v ?? ''
     })
     const row = ws.addRow(values)
@@ -75,6 +75,7 @@ function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, auto
 }
 
 async function xlsDownload(wb, filename) {
+  wb.calcProperties = { fullCalcOnLoad: true }
   const buf = await wb.xlsx.writeBuffer()
   const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
   const url = URL.createObjectURL(blob)
