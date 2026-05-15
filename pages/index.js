@@ -116,6 +116,9 @@ export default function Home() {
   const [phDays, setPhDays] = useState('90')
   const [phSupFilter, setPhSupFilter] = useState('all')
   const [phLoading, setPhLoading] = useState(false)
+  const [phManageData, setPhManageData] = useState(null)
+  const [phManageLoading, setPhManageLoading] = useState(false)
+  const [phManageSaving, setPhManageSaving] = useState({})
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -3387,11 +3390,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'pricehistory' && (
           <div style={{ padding: '16px 0' }}>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              {['import','reports'].map(t => (
+              {['import','reports','manage'].map(t => (
                 <button key={t} onClick={() => setPhSubTab(t)}
                   style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
                     background: phSubTab===t ? '#1e3a5f' : '#f8fafc', color: phSubTab===t ? '#fff' : '#374151' }}>
-                  {t === 'import' ? '📄 Import Invoice' : '📊 Average Prices'}
+                  {t === 'import' ? '📄 Import Invoice' : t === 'reports' ? '📊 Average Prices' : '🔧 Manage History'}
                 </button>
               ))}
             </div>
@@ -3556,6 +3559,101 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       }} disabled={phSaving} style={{ padding:'7px 20px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                         {phSaving ? '⏳ Saving…' : `💾 Save All to History`}
                       </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ── MANAGE TAB ─────────────────────────────────────── */}
+            {phSubTab === 'manage' && (
+              <div>
+                <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
+                  <button onClick={async () => {
+                    setPhManageLoading(true)
+                    try {
+                      const r = await fetch('/api/invoices/manage')
+                      const d = await r.json()
+                      if (!r.ok) throw new Error(d.error)
+                      setPhManageData(d.items.map(i => ({ ...i, _hub: i.item_name_hub || i.item_name_raw, _units: i.units_per_pack, _dirty: false })))
+                    } catch (e) { alert('Load failed: ' + e.message) }
+                    setPhManageLoading(false)
+                  }} style={{ padding:'6px 16px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                    {phManageLoading ? '⏳ Loading…' : '🔄 Load Items'}
+                  </button>
+                  {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
+                </div>
+
+                {phManageData && (
+                  <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                    <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
+                      Fix Item Names &amp; Units Per Pack
+                    </div>
+                    <div style={{ padding:'8px 12px', fontSize:12, color:'#64748b', background:'#fffbeb', borderBottom:'1px solid #fde68a' }}>
+                      ⚠️ All items currently have <strong>units_per_pack=6</strong>. Fix spirits to 1, beer blocks to 30, beer/cider cases to 24, wine cases to 6 or 12. Saving recalculates all historical per-unit prices automatically.
+                    </div>
+                    <div style={{ overflowX:'auto' }}>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
+                            {['Invoice Description','Hub Name','Sup','Inv. Unit Price','Units/Pack','Per Unit ex GST','Lines','Action'].map(h => (
+                              <th key={h} style={{ padding:'7px 8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {phManageData.map((row, i) => {
+                            const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
+                            const saved = phManageSaving[row.item_name_raw]
+                            return (
+                              <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: row._dirty ? '#fffbeb' : (i%2===0?'#fff':'#f8fafc') }}>
+                                <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, maxWidth:200 }}>{row.item_name_raw}</td>
+                                <td style={{ padding:'5px 8px', minWidth:180 }}>
+                                  <select value={row._hub}
+                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
+                                    style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
+                                    <option value={row._hub}>{row._hub}</option>
+                                    {items.filter(it => it.name !== row._hub).map(it => (
+                                      <option key={it.name} value={it.name}>{it.name}</option>
+                                    ))}
+                                  </select>
+                                </td>
+                                <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
+                                <td style={{ padding:'5px 8px', textAlign:'right' }}>${Number(row.invoice_unit_price).toFixed(2)}</td>
+                                <td style={{ padding:'5px 8px', textAlign:'center' }}>
+                                  <input type="number" value={row._units} min={1}
+                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _units: Number(e.target.value)||1, _dirty: true} : r))}
+                                    style={{ width:50, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11, textAlign:'center' }} />
+                                </td>
+                                <td style={{ padding:'5px 8px', textAlign:'right', fontWeight:700, color: row._dirty ? '#d97706' : '#1e3a5f' }}>
+                                  ${calcUnit.toFixed(4)}
+                                </td>
+                                <td style={{ padding:'5px 8px', textAlign:'center', color:'#64748b' }}>{row.count}</td>
+                                <td style={{ padding:'5px 8px' }}>
+                                  {row._dirty && (
+                                    <button onClick={async () => {
+                                      setPhManageSaving(prev => ({ ...prev, [row.item_name_raw]: true }))
+                                      try {
+                                        const r = await fetch('/api/invoices/manage', {
+                                          method:'PATCH', headers:{'Content-Type':'application/json'},
+                                          body: JSON.stringify({ item_name_raw: row.item_name_raw, item_name_hub: row._hub, units_per_pack: row._units })
+                                        })
+                                        const d = await r.json()
+                                        if (!r.ok) throw new Error(d.error)
+                                        setPhManageData(prev => prev.map((r2,j) => j===i ? {...r2, item_name_hub: r2._hub, units_per_pack: r2._units, _dirty: false} : r2))
+                                      } catch (e) { alert('Save failed: ' + e.message) }
+                                      setPhManageSaving(prev => ({ ...prev, [row.item_name_raw]: false }))
+                                    }} style={{ padding:'3px 10px', background:'#16a34a', color:'#fff', border:'none', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                      {saved ? '⏳' : '💾 Save'}
+                                    </button>
+                                  )}
+                                  {!row._dirty && <span style={{ fontSize:11, color:'#94a3b8' }}>✓</span>}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
                     </div>
                   </div>
                 )}
