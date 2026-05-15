@@ -3540,9 +3540,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0' }}>
                       <button onClick={async () => {
                         setPhSaving(true)
-                        let total = 0
+                        const results = []
                         for (const inv of phExtracted.invoices) {
-                          if (inv.error || !inv.items?.length) continue
+                          if (inv.error || !inv.items?.length) {
+                            results.push({ ref: inv.invoice_ref || inv.source_file, status: 'skipped', count: 0 })
+                            continue
+                          }
                           try {
                             const r = await fetch('/api/invoices/save', {
                               method:'POST', headers:{'Content-Type':'application/json'},
@@ -3550,11 +3553,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 invoice_date: inv.invoice_date, gst_included: inv.gst_included, items: inv.items })
                             })
                             const d = await r.json()
-                            if (r.ok) total += d.saved
-                          } catch {}
+                            if (!r.ok) throw new Error(d.error)
+                            results.push({ ref: inv.invoice_ref, status: 'ok', count: d.saved })
+                          } catch (e) {
+                            results.push({ ref: inv.invoice_ref || inv.source_file, status: 'error', error: e.message })
+                          }
                         }
-                        alert(`✓ ${total} items saved to price history across ${phExtracted.invoices.filter(i=>!i.error).length} invoices.`)
-                        setPhExtracted(null); setPhPdf(null)
+                        const ok = results.filter(r => r.status === 'ok')
+                        const failed = results.filter(r => r.status === 'error')
+                        const total = ok.reduce((s, r) => s + r.count, 0)
+                        let msg = `✓ Saved ${total} items across ${ok.length} invoice(s).\n`
+                        if (failed.length) msg += `\n⚠️ ${failed.length} failed:\n` + failed.map(r => `  ${r.ref}: ${r.error}`).join('\n')
+                        alert(msg)
+                        if (ok.length > 0) { setPhExtracted(null); setPhPdf(null) }
                         setPhSaving(false)
                       }} disabled={phSaving} style={{ padding:'7px 20px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                         {phSaving ? '⏳ Saving…' : `💾 Save All to History`}
