@@ -3661,11 +3661,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   <select value={row._hub}
                                     onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
-                                    <option value={row._hub}>{row._hub}</option>
-                                    {(phHubNames.length > 0 ? phHubNames : items.map(i=>i.name))
-                                      .filter(n => n !== row._hub).map(n => (
-                                        <option key={n} value={n}>{n}</option>
-                                      ))}
+                                    <option value="">-- select Hub item --</option>
+                                    {items.length > 0
+                                      ? items.map(it => <option key={it.name} value={it.name} selected={it.name === row._hub}>{it.name}</option>)
+                                      : phHubNames.map(n => <option key={n} value={n} selected={n === row._hub}>{n}</option>)
+                                    }
+                                  </select>
                                   </select>
                                 </td>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
