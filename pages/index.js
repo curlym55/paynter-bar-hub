@@ -3475,6 +3475,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </div>
                 </div>
 
+                {phSaveResult && (
+                  <div style={{ marginTop:10, padding:'10px 14px', borderRadius:8, fontWeight:600, fontSize:13,
+                    background: phSaveResult.type==='ok' ? '#f0fdf4' : phSaveResult.type==='warn' ? '#fffbeb' : '#fef2f2',
+                    color: phSaveResult.type==='ok' ? '#16a34a' : phSaveResult.type==='warn' ? '#d97706' : '#dc2626',
+                    border: `1px solid ${phSaveResult.type==='ok' ? '#bbf7d0' : phSaveResult.type==='warn' ? '#fde68a' : '#fca5a5'}` }}>
+                    {phSaveResult.msg}
+                  </div>
+                )}
+
                 {phExtracted?.invoices && (
                   <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
                     <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between' }}>
@@ -3581,8 +3590,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           let msg = `✓ Saved ${total} items across ${ok.length} invoice(s).`
                           if (skipped.length) msg += ` Skipped ${skipped.length} (no items).`
                           if (failed.length) msg += ` ⚠️ ${failed.length} failed: ` + failed.map(r => `${r.ref}: ${r.error}`).join(', ')
-                          setPhSaveResult({ type: ok.length > 0 ? 'ok' : 'warn', msg })
-                          if (ok.length > 0) { setPhExtracted(null); setPhPdf(null) }
+                          setPhSaveResult({ type: total > 0 ? 'ok' : 'warn', msg })
+                          if (total > 0) { setPhExtracted(null); setPhPdf(null) }
                         } catch (e) {
                           setPhSaveResult({ type:'error', msg:'Unexpected error: ' + e.message })
                           console.error('[save]', e)
