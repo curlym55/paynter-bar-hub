@@ -3540,34 +3540,47 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     ))}
                     <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0' }}>
                       <button onClick={async () => {
-                        setPhSaving(true)
-                        const results = []
-                        for (const inv of phExtracted.invoices) {
-                          if (inv.error || !inv.items?.length) {
-                            results.push({ ref: inv.invoice_ref || inv.source_file, status: 'skipped', count: 0 })
-                            continue
+                        try {
+                          setPhSaving(true)
+                          const results = []
+                          if (!phExtracted?.invoices?.length) {
+                            alert('No invoices to save — please extract first.')
+                            setPhSaving(false)
+                            return
                           }
-                          try {
-                            const r = await fetch('/api/invoices/save', {
-                              method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ invoice_ref: inv.invoice_ref, supplier: inv.supplier,
-                                invoice_date: inv.invoice_date, gst_included: inv.gst_included, items: inv.items })
-                            })
-                            const d = await r.json()
-                            if (!r.ok) throw new Error(d.error)
-                            results.push({ ref: inv.invoice_ref, status: 'ok', count: d.saved })
-                          } catch (e) {
-                            results.push({ ref: inv.invoice_ref || inv.source_file, status: 'error', error: e.message })
+                          for (const inv of phExtracted.invoices) {
+                            if (inv.error || !inv.items?.length) {
+                              results.push({ ref: inv.invoice_ref || inv.source_file, status: 'skipped', count: 0 })
+                              continue
+                            }
+                            try {
+                              const r = await fetch('/api/invoices/save', {
+                                method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ invoice_ref: inv.invoice_ref, supplier: inv.supplier,
+                                  invoice_date: inv.invoice_date, gst_included: inv.gst_included, items: inv.items })
+                              })
+                              const d = await r.json()
+                              if (!r.ok) throw new Error(d.error)
+                              results.push({ ref: inv.invoice_ref, status: 'ok', count: d.saved })
+                            } catch (e) {
+                              results.push({ ref: inv.invoice_ref || inv.source_file, status: 'error', error: e.message })
+                            }
                           }
+                          const ok = results.filter(r => r.status === 'ok')
+                          const failed = results.filter(r => r.status === 'error')
+                          const skipped = results.filter(r => r.status === 'skipped')
+                          const total = ok.reduce((s, r) => s + r.count, 0)
+                          let msg = `✓ Saved ${total} items across ${ok.length} invoice(s).`
+                          if (skipped.length) msg += `\n— Skipped ${skipped.length} (no items extracted)`
+                          if (failed.length) msg += `\n\n⚠️ ${failed.length} failed:\n` + failed.map(r => `  ${r.ref}: ${r.error}`).join('\n')
+                          alert(msg)
+                          if (ok.length > 0) { setPhExtracted(null); setPhPdf(null) }
+                        } catch (e) {
+                          alert('Unexpected error: ' + e.message + '\n\nCheck browser console for details.')
+                          console.error('[save] unexpected:', e)
+                        } finally {
+                          setPhSaving(false)
                         }
-                        const ok = results.filter(r => r.status === 'ok')
-                        const failed = results.filter(r => r.status === 'error')
-                        const total = ok.reduce((s, r) => s + r.count, 0)
-                        let msg = `✓ Saved ${total} items across ${ok.length} invoice(s).\n`
-                        if (failed.length) msg += `\n⚠️ ${failed.length} failed:\n` + failed.map(r => `  ${r.ref}: ${r.error}`).join('\n')
-                        alert(msg)
-                        if (ok.length > 0) { setPhExtracted(null); setPhPdf(null) }
-                        setPhSaving(false)
                       }} disabled={phSaving} style={{ padding:'7px 20px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                         {phSaving ? '⏳ Saving…' : `💾 Save All to History`}
                       </button>
@@ -3608,8 +3621,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
                       Fix Item Names &amp; Units Per Pack
                     </div>
-                    <div style={{ padding:'8px 12px', fontSize:12, color:'#64748b', background:'#fffbeb', borderBottom:'1px solid #fde68a' }}>
-                      ⚠️ All items currently have <strong>units_per_pack=6</strong>. Fix spirits to 1, beer blocks to 30, beer/cider cases to 24, wine cases to 6 or 12. Saving recalculates all historical per-unit prices automatically.
+                    <div style={{ padding:'8px 12px', fontSize:12, color:'#64748b', background:'#f8fafc' }}>
+                      Edit <strong>Hub Name</strong> to match your Hub item exactly. Change <strong>Units/Pack</strong> if needed — saving recalculates all historical per-unit prices automatically.
                     </div>
                     <div style={{ overflowX:'auto' }}>
                       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
