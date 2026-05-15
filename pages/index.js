@@ -3734,8 +3734,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </thead>
                           <tbody>
                             {phAvgData.items?.map((row, i) => {
-                              const hubItem = items.find(it => it.name === row.item_name)
-                              const currentBuy = hubItem?.buyPrice
+                              const currentBuy = row.current_buy_price
                               const diff = currentBuy != null ? row.avg_unit_price_ex_gst - currentBuy : null
                               const variance = row.max_price - row.min_price
                               return (
