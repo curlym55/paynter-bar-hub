@@ -119,6 +119,7 @@ export default function Home() {
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
+  const [phSaveResult, setPhSaveResult] = useState(null)
   const [phHubNames, setPhHubNames] = useState([])
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
@@ -3538,13 +3539,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         )}
                       </div>
                     ))}
-                    <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0' }}>
+                    <div style={{ padding:14, display:'flex', justifyContent:'flex-end', gap:8, borderTop:'1px solid #e2e8f0', alignItems:'center' }}>
+                      {phSaveResult && (
+                        <span style={{ fontSize:12, fontWeight:600, flex:1,
+                          color: phSaveResult.type==='ok' ? '#16a34a' : phSaveResult.type==='warn' ? '#d97706' : '#dc2626' }}>
+                          {phSaveResult.msg}
+                        </span>
+                      )}
                       <button onClick={async () => {
                         try {
                           setPhSaving(true)
+                          setPhSaveResult(null)
                           const results = []
                           if (!phExtracted?.invoices?.length) {
-                            alert('No invoices to save — please extract first.')
+                            setPhSaveResult({ type:'error', msg:'No invoices to save — please extract first.' })
                             setPhSaving(false)
                             return
                           }
@@ -3571,13 +3579,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const skipped = results.filter(r => r.status === 'skipped')
                           const total = ok.reduce((s, r) => s + r.count, 0)
                           let msg = `✓ Saved ${total} items across ${ok.length} invoice(s).`
-                          if (skipped.length) msg += `\n— Skipped ${skipped.length} (no items extracted)`
-                          if (failed.length) msg += `\n\n⚠️ ${failed.length} failed:\n` + failed.map(r => `  ${r.ref}: ${r.error}`).join('\n')
-                          alert(msg)
+                          if (skipped.length) msg += ` Skipped ${skipped.length} (no items).`
+                          if (failed.length) msg += ` ⚠️ ${failed.length} failed: ` + failed.map(r => `${r.ref}: ${r.error}`).join(', ')
+                          setPhSaveResult({ type: ok.length > 0 ? 'ok' : 'warn', msg })
                           if (ok.length > 0) { setPhExtracted(null); setPhPdf(null) }
                         } catch (e) {
-                          alert('Unexpected error: ' + e.message + '\n\nCheck browser console for details.')
-                          console.error('[save] unexpected:', e)
+                          setPhSaveResult({ type:'error', msg:'Unexpected error: ' + e.message })
+                          console.error('[save]', e)
                         } finally {
                           setPhSaving(false)
                         }
