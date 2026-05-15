@@ -3663,10 +3663,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
                                     <option value="">-- select Hub item --</option>
                                     {items.length > 0
-                                      ? items.map(it => <option key={it.name} value={it.name} selected={it.name === row._hub}>{it.name}</option>)
-                                      : phHubNames.map(n => <option key={n} value={n} selected={n === row._hub}>{n}</option>)
+                                      ? items.map(it => <option key={it.name} value={it.name}>{it.name}</option>)
+                                      : phHubNames.map(n => <option key={n} value={n}>{n}</option>)
                                     }
-                                  </select>
                                   </select>
                                 </td>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
