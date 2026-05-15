@@ -119,6 +119,7 @@ export default function Home() {
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
+  const [phHubNames, setPhHubNames] = useState([])
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
@@ -3582,6 +3583,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ display:'flex', gap:8, marginBottom:16, alignItems:'center' }}>
                   <button onClick={async () => {
                     setPhManageLoading(true)
+                    // Load Hub item names if not yet fetched
+                    if (phHubNames.length === 0) {
+                      fetch('/api/settings').then(r=>r.json()).then(d => {
+                        const names = Object.keys(d.settings || {}).sort()
+                        setPhHubNames(names)
+                      }).catch(() => {})
+                    }
                     try {
                       const r = await fetch('/api/invoices/manage')
                       const d = await r.json()
@@ -3624,9 +3632,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
                                     <option value={row._hub}>{row._hub}</option>
-                                    {items.filter(it => it.name !== row._hub).map(it => (
-                                      <option key={it.name} value={it.name}>{it.name}</option>
-                                    ))}
+                                    {(phHubNames.length > 0 ? phHubNames : items.map(i=>i.name))
+                                      .filter(n => n !== row._hub).map(n => (
+                                        <option key={n} value={n}>{n}</option>
+                                      ))}
                                   </select>
                                 </td>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
