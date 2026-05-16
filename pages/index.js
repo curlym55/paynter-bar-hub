@@ -3758,7 +3758,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       if (!r.ok) throw new Error(d.error || 'Load failed')
                       setPhAvgData(d)
                       // Extract distinct suppliers from results
-                      const sups = [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
+                      const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
                       setPhDbSuppliers(sups)
                     } catch (e) {
                       alert('Failed to load report: ' + e.message)

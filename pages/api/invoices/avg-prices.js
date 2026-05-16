@@ -2,11 +2,22 @@ import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 
+const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
+
+// Normalize supplier names to match Hub suppliers
+function normalizeSupplier(s) {
+  const l = (s || '').toLowerCase()
+  if (l.includes('dan murphy')) return "Dan Murphy's"
+  if (l.includes('acw') || l.includes('sunshine') || l.includes('confectionery')) return 'ACW'
+  if (l.includes('coles') || l.includes('woolies') || l.includes('woolworths')) return 'Coles Woolies'
+  return s
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { days = '90', supplier = 'all' } = req.query
-  const daysInt = Math.min(parseInt(days) || 90, 365)
+  const { days = '180', supplier = 'all' } = req.query
+  const daysInt = Math.min(parseInt(days) || 180, 730)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - daysInt)
   const cutoffStr = cutoff.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
@@ -14,27 +25,30 @@ export default async function handler(req, res) {
   try {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-    // Fetch price history and item settings in parallel
     let q = sb.from('buy_price_history')
-      .select('item_name_hub, supplier, unit_price_ex_gst, qty_units, invoice_ref')
+      .select('item_name_hub, supplier, unit_price_ex_gst, qty_units, invoice_ref, invoice_date')
       .gte('invoice_date', cutoffStr)
       .not('item_name_hub', 'is', null)
-    if (supplier !== 'all') q = q.eq('supplier', supplier)
 
-    const [{ data: rows, error }, itemSettings] = await Promise.all([
-      q,
-      kvGet('itemSettings').catch(() => null).then(v => v || sbConfigGet('itemSettings').catch(() => null))
-    ])
-
+    const { data: rows, error } = await q
     if (error) return res.status(500).json({ error: error.message })
 
-    const settings = itemSettings || {}
+    const [rawSettings] = await Promise.all([
+      kvGet('itemSettings').catch(() => null).then(v => v || sbConfigGet('itemSettings').catch(() => null))
+    ])
+    const settings = rawSettings || {}
+    const settingsNorm = {}
+    for (const [k, v] of Object.entries(settings)) {
+      settingsNorm[norm(k)] = { originalKey: k, ...v }
+    }
 
-    // Aggregate
+    // Aggregate — filter by normalised supplier if needed
     const map = {}
     for (const r of rows || []) {
+      const normSup = normalizeSupplier(r.supplier)
+      if (supplier !== 'all' && normSup !== supplier) continue
       const k = r.item_name_hub
-      if (!map[k]) map[k] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: r.supplier }
+      if (!map[k]) map[k] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
       const qty = Number(r.qty_units) || 1
       const price = Number(r.unit_price_ex_gst) || 0
       map[k].tc += price * qty
@@ -45,7 +59,10 @@ export default async function handler(req, res) {
 
     const items = Object.entries(map).map(([name, d]) => {
       const avg = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
-      const currentBuy = settings[name]?.buyPrice ?? null
+      const exactMatch = settings[name]
+      const fuzzyMatch = !exactMatch ? settingsNorm[norm(name)] : null
+      const matched = exactMatch || fuzzyMatch
+      const currentBuy = matched?.buyPrice != null ? Number(matched.buyPrice) : null
       return {
         item_name: name,
         supplier: d.sup,
@@ -54,11 +71,15 @@ export default async function handler(req, res) {
         min_price: Math.round(Math.min(...d.prices) * 10000) / 10000,
         max_price: Math.round(Math.max(...d.prices) * 10000) / 10000,
         total_units: d.tu,
-        current_buy_price: currentBuy !== null ? Number(currentBuy) : null,
+        current_buy_price: currentBuy,
+        matched_hub_key: exactMatch ? name : fuzzyMatch?.originalKey || null,
       }
     }).sort((a, b) => a.item_name.localeCompare(b.item_name))
 
-    return res.status(200).json({ items, period_days: daysInt, cutoff: cutoffStr })
+    // Distinct normalised suppliers for filter dropdown
+    const dbSuppliers = [...new Set((rows || []).map(r => normalizeSupplier(r.supplier)).filter(Boolean))].sort()
+
+    return res.status(200).json({ items, period_days: daysInt, cutoff: cutoffStr, db_suppliers: dbSuppliers })
   } catch (e) {
     console.error('[avg-prices]', e.message)
     return res.status(500).json({ error: e.message })
