@@ -6269,6 +6269,7 @@ function HelpTab() {
         { q: 'Settings', a: 'The ⚙️ Settings panel is only visible to committee members — hidden in read-only mode.' },
       ]
     },
+  ]
   return (
     <div style={{ padding: '32px', maxWidth: 900, margin: '0 auto' }}>
       <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '24px 32px', marginBottom: 24 }}>
