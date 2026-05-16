@@ -3453,11 +3453,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </div>
                         )}
                         {phPdf?.length > 0 && (
-                          <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b', cursor:'pointer', userSelect:'none' }}>
-                    <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
-                    Active items only
-                  </label>
-                  <button onClick={async () => {
+                          <button onClick={async () => {
                             setPhExtracting(true)
                             const allItems = []
                             for (let idx = 0; idx < phPdf.length; idx++) {
@@ -3754,6 +3750,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
+                  <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b', cursor:'pointer', userSelect:'none' }}>
+                    <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
+                    Active items only
+                  </label>
                   <button onClick={async () => {
                     setPhLoading(true)
                     setPhAvgData(null)
