@@ -473,6 +473,26 @@ export default function Home() {
             }).catch(()=>null)
           fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
+
+          // Auto-extract prices into buy_price_history (background, non-blocking)
+          if (invoiceFile.mimeType === 'application/pdf' || invoiceFile.name.toLowerCase().endsWith('.pdf')) {
+            fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => {
+                if (!d?.items?.length) return
+                return fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({
+                    invoice_ref: d.invoice_ref || poRef,
+                    supplier: d.supplier || supplier,
+                    invoice_date: d.invoice_date || dateStr,
+                    gst_included: d.gst_included ?? true,
+                    items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })),
+                  })
+                })
+              })
+              .catch(() => null) // silent — never block the receive flow
+          }
         }
         setReceiveModal(null)
         setInvoiceFile(null)
