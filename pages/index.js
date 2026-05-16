@@ -3795,7 +3795,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0?'#fff':'#f8fafc' }}>
                                   <td style={{ padding:'7px 10px', fontWeight:600 }}>{row.item_name}</td>
                                   <td style={{ padding:'7px 10px', color:'#64748b' }}>{row.supplier}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>${row.avg_unit_price_ex_gst?.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>
+                                    ${row.avg_unit_price_ex_gst?.toFixed(3)}
+                                    {row.is_spirit && <div style={{ fontSize:9, color:'#94a3b8', fontWeight:400 }}>{row.unit_label}</div>}
+                                  </td>
                                   <td style={{ padding:'7px 10px', textAlign:'center', color:'#64748b' }}>{row.invoice_count}</td>
                                   <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.min_price?.toFixed(3)}</td>
                                   <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.max_price?.toFixed(3)}</td>
