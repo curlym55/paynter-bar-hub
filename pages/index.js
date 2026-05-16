@@ -113,8 +113,9 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
-  const [phDays, setPhDays] = useState('90')
+  const [phDays, setPhDays] = useState('180')
   const [phSupFilter, setPhSupFilter] = useState('all')
+  const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
@@ -3746,7 +3747,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <select value={phSupFilter} onChange={e => setPhSupFilter(e.target.value)}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
-                    {suppliers.map(s => <option key={s} value={s}>{s}</option>)}
+                    {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                   <button onClick={async () => {
                     setPhLoading(true)
@@ -3756,6 +3757,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       const d = await r.json()
                       if (!r.ok) throw new Error(d.error || 'Load failed')
                       setPhAvgData(d)
+                      // Extract distinct suppliers from results
+                      const sups = [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
+                      setPhDbSuppliers(sups)
                     } catch (e) {
                       alert('Failed to load report: ' + e.message)
                     }
