@@ -117,6 +117,7 @@ export default function Home() {
   const [phSupFilter, setPhSupFilter] = useState('all')
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
+  const [phActiveOnly, setPhActiveOnly] = useState(true)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
@@ -3452,7 +3453,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </div>
                         )}
                         {phPdf?.length > 0 && (
-                          <button onClick={async () => {
+                          <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b', cursor:'pointer', userSelect:'none' }}>
+                    <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
+                    Active items only
+                  </label>
+                  <button onClick={async () => {
                             setPhExtracting(true)
                             const allItems = []
                             for (let idx = 0; idx < phPdf.length; idx++) {
@@ -3787,7 +3792,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             </tr>
                           </thead>
                           <tbody>
-                            {phAvgData.items?.map((row, i) => {
+                            {phAvgData.items?.filter(row => {
+                              if (!phActiveOnly) return true
+                              // Hide if no matched Hub key or matched key not in current Square items
+                              if (!row.matched_hub_key) return false
+                              return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
+                            }).map((row, i) => {
                               const currentBuy = row.current_buy_price
                               const diff = currentBuy != null ? row.avg_unit_price_ex_gst - currentBuy : null
                               const variance = row.max_price - row.min_price
