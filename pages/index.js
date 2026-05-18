@@ -1929,9 +1929,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       // Hub buy price (manually entered)
       const buy  = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
 
-      // 90-day average buy price from price history
+      // 90-day average buy price from price history — convert to per-nip for spirits
       const avgEntry = avgPriceMap[item.name]
-      const avgBuy   = avgEntry?.avg ?? null
+      const avgBuyRaw = avgEntry?.avg ?? null
+      const avgBuy = (item.isSpirit && item.bottleML && item.nipML && avgBuyRaw != null)
+        ? Math.round(avgBuyRaw / (item.bottleML / item.nipML) * 10000) / 10000
+        : avgBuyRaw
       const invCount = avgEntry?.count ?? null
 
       // Margin calculations — Hub buy price
