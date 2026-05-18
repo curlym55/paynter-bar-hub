@@ -3870,32 +3870,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
               const TARGET = 35
-              const BAND   = 3   // ±3%
+              const BAND   = 3
               const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
               const mround = (v, m) => Math.round(v / m) * m
+              const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
 
-              // Build analysis from loaded avg data + Hub items
               const rows = []
               for (const row of (phAvgData?.items || [])) {
                 if (!row.matched_hub_key) continue
-                if (row.supplier !== "Dan Murphy's") continue
+                if (row.supplier !== priceReviewModal) continue
                 const hubItem = items.find(i => i.name === row.matched_hub_key)
                 if (!hubItem) continue
 
-                const isWine   = WINE_C.includes(hubItem.category)
+                const isWine    = WINE_C.includes(hubItem.category)
                 const glassWine = isWine && (hubItem.sellUnit || 'glass') === 'glass' && hubItem.category !== 'Sparkling' && !hubItem.bottleOnly
-                const serves   = glassWine ? 5 : 1
-                const vars     = hubItem.variations || []
-                const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
-                const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-                const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+                const vars      = hubItem.variations || []
+                const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
+                const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+                const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
                 const sellGlass = hubItem.isSpirit
                   ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
                   : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
                 const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : (hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null)
-                const sell = isWine && !glassWine ? sellBottle : sellGlass
 
-                // Per-nip/per-unit avg buy inc GST
                 const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
                 const effNipML  = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
                 const effBotML  = hubItem.bottleML || 700
@@ -3903,16 +3900,38 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 const avgExGst  = row.avg_unit_price_ex_gst != null
                   ? (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst)
                   : null
-                const avgBuy = avgExGst != null ? Math.round(avgExGst * 1.10 * 1000) / 1000 : null
-                if (avgBuy == null || sell == null || sell <= 0) continue
+                const avgBuyPerUnit = avgExGst != null ? Math.round(avgExGst * 1.10 * 1000) / 1000 : null
+                // For wine: avgBuyPerBottle = per-bottle buy price
+                const avgBuyPerBottle = row.avg_unit_price_ex_gst != null ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000 : null
 
-                const rev    = sell * serves
-                const margin = (rev - avgBuy) / rev * 100
-                const diff   = margin - TARGET
-                if (Math.abs(diff) <= BAND) continue  // within band — skip
+                // Glass / nip / each entry
+                if (avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
+                  const serves = glassWine ? 5 : 1
+                  const rev = sellGlass * serves
+                  const margin = (rev - avgBuyPerUnit) / rev * 100
+                  if (Math.abs(margin - TARGET) > BAND) {
+                    rows.push({
+                      name: row.matched_hub_key, cat: hubItem.category,
+                      unit: hubItem.isSpirit ? 'nip' : glassWine ? 'glass' : 'each',
+                      sell: sellGlass, avgBuy: avgBuyPerUnit, margin,
+                      diff: margin - TARGET,
+                      suggSell: mround(avgBuyPerUnit / (serves * (1 - TARGET/100)), 0.50)
+                    })
+                  }
+                }
 
-                const suggSell = mround(avgBuy / (serves * (1 - TARGET/100)), 0.50)
-                rows.push({ name: row.matched_hub_key, cat: hubItem.category, sell, avgBuy, margin, diff, suggSell, serves, glassWine, isSpirit: hubItem.isSpirit })
+                // Bottle entry for wine
+                if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
+                  const margin = (sellBottle - avgBuyPerBottle) / sellBottle * 100
+                  if (Math.abs(margin - TARGET) > BAND) {
+                    rows.push({
+                      name: row.matched_hub_key, cat: hubItem.category,
+                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, margin,
+                      diff: margin - TARGET,
+                      suggSell: mround(avgBuyPerBottle / (1 - TARGET/100), 0.50)
+                    })
+                  }
+                }
               }
 
               rows.sort((a,b) => a.diff - b.diff)
@@ -3920,65 +3939,80 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               return (
                 <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
                   onClick={() => setPriceReviewModal(false)}>
-                  <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:780, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}
+                  <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:820, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}
                     onClick={e => e.stopPropagation()}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:16 }}>
                       <div>
-                        <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>📊 Dan Murphy's Price Review</div>
-                        <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Items where current margin is outside {TARGET-BAND}%–{TARGET+BAND}% · based on 90-day avg buy price</div>
+                        <div style={{ fontSize:16, fontWeight:800, color: supColour[priceReviewModal] || '#0f172a' }}>
+                          📊 {priceReviewModal} — Price Review
+                        </div>
+                        <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
+                          Items where margin is outside {TARGET-BAND}%–{TARGET+BAND}% · 90-day avg buy price
+                        </div>
                       </div>
-                      <button onClick={() => setPriceReviewModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
+                      <div style={{ display:'flex', gap:8, alignItems:'center' }}>
+                        {["Dan Murphy's",'Coles Woolies','ACW'].filter(s => s !== priceReviewModal).map(s => (
+                          <button key={s} onClick={() => setPriceReviewModal(s)}
+                            style={{ padding:'4px 10px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                            {s}
+                          </button>
+                        ))}
+                        <button onClick={() => setPriceReviewModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
+                      </div>
                     </div>
 
                     {rows.length === 0 ? (
                       <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
-                        ✓ All Dan Murphy's items are within {BAND}% of the {TARGET}% target — no changes needed.<br/>
-                        <small>(Load the Average Prices report first if this looks empty)</small>
+                        ✓ All {priceReviewModal} items are within {BAND}% of the {TARGET}% target.<br/>
+                        <small style={{ color:'#94a3b8' }}>(Load Average Prices first if this looks empty)</small>
                       </div>
                     ) : (
                       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                         <thead>
-                          <tr style={{ background:'#1e3a5f', color:'#fff' }}>
-                            {['Item','Category','Unit','Avg Buy','Sell','Current Margin','vs Target','Sugg Sell (35%)'].map(h => (
-                              <th key={h} style={{ padding:'8px 10px', textAlign: ['Avg Buy','Sell','Current Margin','vs Target','Sugg Sell (35%)'].includes(h) ? 'right' : 'left', fontWeight:700, fontSize:11 }}>{h}</th>
+                          <tr style={{ background: supColour[priceReviewModal] || '#1e3a5f', color:'#fff' }}>
+                            {['Item','Category','Unit','Avg Buy (inc GST)','Current Sell','Margin','vs 35%','Sugg Sell (35%)','Change'].map(h => (
+                              <th key={h} style={{ padding:'8px 10px', textAlign:['Avg Buy (inc GST)','Current Sell','Margin','vs 35%','Sugg Sell (35%)','Change'].includes(h)?'right':'left', fontWeight:700, fontSize:11 }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
                         <tbody>
                           {rows.map((r, i) => (
                             <tr key={i} style={{ background: i%2===0?'#fff':'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
-                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a' }}>{r.name}</td>
+                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:180 }}>{r.name}</td>
                               <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
-                              <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.isSpirit ? 'nip' : r.glassWine ? 'glass' : 'bottle'}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
+                              <td style={{ padding:'7px 10px' }}>
+                                <span style={{ padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#e0f2fe', color:'#0369a1' }}>{r.unit}</span>
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace', color:'#374151' }}>${r.avgBuy.toFixed(3)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700,
-                                color: r.margin < TARGET-BAND ? '#dc2626' : '#16a34a' }}>
+                                color: r.margin < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
                                 {r.margin.toFixed(1)}%
                               </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700,
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600,
                                 color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
                                 {r.diff > 0 ? '+' : ''}{r.diff.toFixed(1)}%
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right' }}>
-                                <span style={{ fontWeight:800, fontSize:13, color: r.diff < 0 ? '#b91c1c' : '#0c4a6e',
-                                  background: r.diff < 0 ? '#fee2e2' : '#e0f2fe', padding:'2px 8px', borderRadius:4 }}>
+                                <span style={{ fontWeight:800, fontSize:13,
+                                  color: r.diff < 0 ? '#b91c1c' : '#0c4a6e',
+                                  background: r.diff < 0 ? '#fee2e2' : '#e0f2fe',
+                                  padding:'2px 8px', borderRadius:4 }}>
                                   ${r.suggSell.toFixed(2)}
                                 </span>
-                                {r.suggSell !== r.sell && (
-                                  <span style={{ fontSize:10, color:'#64748b', marginLeft:4 }}>
-                                    ({r.suggSell > r.sell ? '↑' : '↓'} ${Math.abs(r.suggSell - r.sell).toFixed(2)})
-                                  </span>
-                                )}
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontSize:11,
+                                fontWeight:700, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
+                                {r.suggSell > r.sell ? '↑' : r.suggSell < r.sell ? '↓' : '—'}
+                                {r.suggSell !== r.sell ? ` $${Math.abs(r.suggSell - r.sell).toFixed(2)}` : ''}
                               </td>
                             </tr>
                           ))}
                         </tbody>
                       </table>
                     )}
-
-                    <div style={{ marginTop:12, fontSize:11, color:'#94a3b8' }}>
-                      Suggested sell = avg buy ÷ 0.65, rounded to nearest $0.50 · Glass wine revenue = sell × 5 glasses/bottle
+                    <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
+                      Suggested sell = avg buy ÷ {(1-TARGET/100).toFixed(2)}, rounded to nearest $0.50 · Wine glass revenue = glass price × 5
                     </div>
                   </div>
                 </div>
@@ -4007,10 +4041,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
                     Active items only
                   </label>
-                  <button onClick={() => setPriceReviewModal(true)}
-                    style={{ padding:'6px 14px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                    📊 Dan Murphy's Price Review
-                  </button>
+                  {["Dan Murphy's",'Coles Woolies','ACW'].map(sup => (
+                    <button key={sup} onClick={() => setPriceReviewModal(sup)}
+                      style={{ padding:'6px 12px', background: sup==="Dan Murphy's"?'#1e3a5f':sup==='Coles Woolies'?'#166534':'#92400e',
+                        color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:11, cursor:'pointer' }}>
+                      📊 {sup}
+                    </button>
+                  ))}
                   <button onClick={async () => {
                     setPhLoading(true)
                     setPhAvgData(null)
