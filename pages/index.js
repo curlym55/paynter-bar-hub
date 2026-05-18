@@ -1854,21 +1854,37 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Pricing Analysis')
 
+    // Fetch 90-day avg buy prices from price history
+    let avgPriceMap = {}
+    try {
+      const ar = await fetch('/api/invoices/avg-prices?days=90')
+      if (ar.ok) {
+        const ad = await ar.json()
+        for (const row of ad.items || []) {
+          avgPriceMap[row.item_name] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, isSpirit: row.is_spirit, nipLabel: row.unit_label }
+        }
+      }
+    } catch(e) {}
+
     // Freeze row 1
     ws.views = [{ state: 'frozen', ySplit: 1 }]
 
     // Columns
     ws.columns = [
-      { header: 'Item',         key: 'name',      width: 40 },
-      { header: 'Category',     key: 'cat',       width: 16 },
-      { header: 'Supplier',     key: 'sup',       width: 14 },
-      { header: 'Unit',         key: 'unit',      width: 10 },
-      { header: 'Buy',          key: 'buy',       width: 10 },
-      { header: 'Sell',         key: 'sell',      width: 11 },
-      { header: 'Btl Sell',     key: 'btlSell',   width: 11 },
-      { header: 'Margin %',     key: 'margin',    width: 12 },
-      { header: 'Btl Margin %', key: 'btlMargin', width: 14 },
-      { header: 'On Hand',      key: 'onHand',    width: 10 },
+      { header: 'Item',              key: 'name',       width: 40 },
+      { header: 'Category',          key: 'cat',        width: 16 },
+      { header: 'Supplier',          key: 'sup',        width: 14 },
+      { header: 'Unit',              key: 'unit',       width: 10 },
+      { header: 'Hub Buy',           key: 'buy',        width: 10 },
+      { header: '90d Avg Buy ex GST',key: 'avgBuy',     width: 17 },
+      { header: 'Inv Count',         key: 'invCount',   width: 10 },
+      { header: 'Sell',              key: 'sell',       width: 11 },
+      { header: 'Btl Sell',          key: 'btlSell',    width: 11 },
+      { header: 'Hub Margin %',      key: 'margin',     width: 13 },
+      { header: 'Avg Margin %',      key: 'avgMargin',  width: 13 },
+      { header: 'Btl Hub Margin %',  key: 'btlMargin',  width: 15 },
+      { header: 'Btl Avg Margin %',  key: 'btlAvgMgn',  width: 15 },
+      { header: 'On Hand',           key: 'onHand',     width: 10 },
     ]
 
     // Header styling
@@ -1882,7 +1898,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     })
 
     // AutoFilter
-    ws.autoFilter = { from: 'A1', to: 'J1' }
+    ws.autoFilter = { from: 'A1', to: 'N1' }
 
     // Data
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
@@ -1893,7 +1909,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const mColor = (p) => p==null ? null : p < 20 ? { argb:'FFFEE2E2' } : p < 35 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
     const mFont  = (p) => p==null ? null : p < 20 ? { argb:'FF991B1B' } : p < 35 ? { argb:'FF92400E' } : { argb:'FF166534' }
-    const mpValues = [], bpValues = []
+    const mpValues = [], bpValues = [], ampValues = [], abpValues = []
 
     for (const item of allItems) {
       const isWine = WINE_C.includes(item.category)
@@ -1909,85 +1925,109 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         : glassVar?.price != null ? Number(glassVar.price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
       const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
       const sell = isWine && sellUnit === 'bottle' ? sellBottle : sellGlass
+
+      // Hub buy price (manually entered)
       const buy  = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+
+      // 90-day average buy price from price history
+      const avgEntry = avgPriceMap[item.name]
+      const avgBuy   = avgEntry?.avg ?? null
+      const invCount = avgEntry?.count ?? null
+
+      // Margin calculations — Hub buy price
       let mp = null, bp = null
       if (buy != null && sell != null && sell > 0) {
-        if (item.isSpirit) mp = (sell-buy)/sell*100
-        else if (isWine && sellUnit==='glass') { const rev=sell*servesPB; mp = rev>0?(rev-buy)/rev*100:null }
-        else mp = (sell-buy)/sell*100
+        if (item.isSpirit) mp = (sell - buy) / sell * 100
+        else if (isWine && sellUnit === 'glass') { const rev = sell * servesPB; mp = rev > 0 ? (rev - buy) / rev * 100 : null }
+        else mp = (sell - buy) / sell * 100
       }
-      if (isWine && sellBottle!=null && buy!=null && sellBottle>0) bp = (sellBottle-buy)/sellBottle*100
+      if (isWine && sellBottle != null && buy != null && sellBottle > 0) bp = (sellBottle - buy) / sellBottle * 100
+
+      // Margin calculations — 90d avg buy price
+      let amp = null, abp = null
+      if (avgBuy != null && sell != null && sell > 0) {
+        if (item.isSpirit) amp = (sell - avgBuy) / sell * 100
+        else if (isWine && sellUnit === 'glass') { const rev = sell * servesPB; amp = rev > 0 ? (rev - avgBuy) / rev * 100 : null }
+        else amp = (sell - avgBuy) / sell * 100
+      }
+      if (isWine && sellBottle != null && avgBuy != null && sellBottle > 0) abp = (sellBottle - avgBuy) / sellBottle * 100
 
       const row = ws.addRow({
-        name: item.name,
-        cat:  item.category,
-        sup:  item.supplier || '',
-        unit: sellUnit,
-        buy:  buy ?? '',
-        sell: sell ?? '',
+        name:      item.name,
+        cat:       item.category,
+        sup:       item.supplier || '',
+        unit:      sellUnit,
+        buy:       buy ?? '',
+        avgBuy:    avgBuy ?? '',
+        invCount:  invCount ?? '',
+        sell:      sell ?? '',
         btlSell:   isWine && sellBottle ? sellBottle : '',
-        margin:    mp != null ? mp/100 : '',
-        btlMargin: bp != null ? bp/100 : '',
+        margin:    mp  != null ? mp/100  : '',
+        avgMargin: amp != null ? amp/100 : '',
+        btlMargin: bp  != null ? bp/100  : '',
+        btlAvgMgn: abp != null ? abp/100 : '',
         onHand:    item.onHand ?? 0,
       })
 
       // Number formats
-      if (buy  != null) row.getCell('buy').numFmt    = '"$"#,##0.00'
-      if (sell != null) row.getCell('sell').numFmt   = '"$"#,##0.00'
+      if (buy    != null) row.getCell('buy').numFmt    = '"$"#,##0.000'
+      if (avgBuy != null) row.getCell('avgBuy').numFmt = '"$"#,##0.000'
+      if (sell   != null) row.getCell('sell').numFmt   = '"$"#,##0.00'
       if (isWine && sellBottle) row.getCell('btlSell').numFmt = '"$"#,##0.00'
-      if (mp != null) {
-        const mc = row.getCell('margin')
-        mc.numFmt = '0.0%'
-        mc.fill   = { type: 'pattern', pattern: 'solid', fgColor: mColor(mp) }
-        mc.font   = { bold: true, color: mFont(mp) }
-        mc.alignment = { horizontal: 'right' }
+
+      // Highlight avg buy cell if significantly different from hub buy (>10%)
+      if (buy != null && avgBuy != null && Math.abs(avgBuy - buy) / buy > 0.10) {
+        row.getCell('avgBuy').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFFF9C4' } }
+        row.getCell('avgBuy').font = { bold: true, color: { argb: 'FF92400E' } }
       }
-      if (bp != null) {
-        const bc = row.getCell('btlMargin')
-        bc.numFmt = '0.0%'
-        bc.fill   = { type: 'pattern', pattern: 'solid', fgColor: mColor(bp) }
-        bc.font   = { bold: true, color: mFont(bp) }
-        bc.alignment = { horizontal: 'right' }
+
+      for (const [key, val, vals] of [['margin',mp,mpValues],['avgMargin',amp,ampValues],['btlMargin',bp,bpValues],['btlAvgMgn',abp,abpValues]]) {
+        if (val != null) {
+          const c = row.getCell(key)
+          c.numFmt = '0.0%'
+          c.fill   = { type: 'pattern', pattern: 'solid', fgColor: mColor(val) }
+          c.font   = { bold: true, color: mFont(val) }
+          c.alignment = { horizontal: 'right' }
+          if (!rundownItems[item.name]) vals.push(val)
+        }
       }
+
       // Alternate row shading
       const bg = ws.rowCount % 2 === 0 ? { argb:'FFF8FAFC' } : { argb:'FFFFFFFF' }
-      ;['name','cat','sup','unit','buy','sell','btlSell','onHand'].forEach(k => {
+      ;['name','cat','sup','unit','buy','avgBuy','invCount','sell','btlSell','onHand'].forEach(k => {
         const c = row.getCell(k)
-        if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
+        if (!c.fill?.fgColor?.argb || c.fill.fgColor.argb === 'FF000000') c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
       })
-      if (mp != null && !rundownItems[item.name]) mpValues.push(mp)
-      if (bp != null && !rundownItems[item.name]) bpValues.push(bp)
     }
 
     // Summary row — overall average margins
     ws.addRow({})  // blank separator
-    const lastDataRow = ws.rowCount
-    const avgMp = mpValues.length ? mpValues.reduce((a,b)=>a+b,0)/mpValues.length : null
-    const avgBp = bpValues.length ? bpValues.reduce((a,b)=>a+b,0)/bpValues.length : null
+    const avgMp  = mpValues.length  ? mpValues.reduce((a,b)=>a+b,0)/mpValues.length   : null
+    const avgAmp = ampValues.length ? ampValues.reduce((a,b)=>a+b,0)/ampValues.length : null
+    const avgBp  = bpValues.length  ? bpValues.reduce((a,b)=>a+b,0)/bpValues.length   : null
+    const avgAbp = abpValues.length ? abpValues.reduce((a,b)=>a+b,0)/abpValues.length : null
     const summaryRow = ws.addRow({
       name: 'OVERALL AVERAGE MARGIN',
       cat:  `${mpValues.length} items (excl. rundown)`,
-      margin:    avgMp != null ? avgMp/100 : '',
-      btlMargin: avgBp != null ? avgBp/100 : '',
+      margin:    avgMp  != null ? avgMp/100  : '',
+      avgMargin: avgAmp != null ? avgAmp/100 : '',
+      btlMargin: avgBp  != null ? avgBp/100  : '',
+      btlAvgMgn: avgAbp != null ? avgAbp/100 : '',
     })
     summaryRow.getCell('name').font  = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } }
     summaryRow.getCell('cat').font   = { italic: true, color: { argb: 'FF64748B' }, size: 10 }
     summaryRow.getCell('name').fill  = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
     summaryRow.getCell('cat').fill   = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
-    ;['sup','unit','buy','sell','btlSell','onHand'].forEach(k => {
+    ;['sup','unit','buy','avgBuy','invCount','sell','btlSell','onHand'].forEach(k => {
       summaryRow.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
     })
-    if (avgMp != null) {
-      const mc = summaryRow.getCell('margin')
-      mc.numFmt = '0.0%'; mc.font = { bold: true, size: 12, color: mFont(avgMp) }
-      mc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(avgMp) }
-      mc.alignment = { horizontal: 'right' }
-    }
-    if (avgBp != null) {
-      const bc = summaryRow.getCell('btlMargin')
-      bc.numFmt = '0.0%'; bc.font = { bold: true, size: 12, color: mFont(avgBp) }
-      bc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(avgBp) }
-      bc.alignment = { horizontal: 'right' }
+    for (const [key, val] of [['margin',avgMp],['avgMargin',avgAmp],['btlMargin',avgBp],['btlAvgMgn',avgAbp]]) {
+      if (val != null) {
+        const c = summaryRow.getCell(key)
+        c.numFmt = '0.0%'; c.font = { bold: true, size: 12, color: mFont(val) }
+        c.fill = { type:'pattern', pattern:'solid', fgColor: mColor(val) }
+        c.alignment = { horizontal: 'right' }
+      }
     }
 
     // Export
