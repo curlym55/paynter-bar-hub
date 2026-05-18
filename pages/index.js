@@ -118,6 +118,7 @@ export default function Home() {
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
+  const [pricingMarginTarget, setPricingMarginTarget] = useState(35)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
@@ -1843,7 +1844,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     setTimeout(() => w.print(), 500)
   }
 
-  async function exportPricingExcel() {
+  async function exportPricingExcel(marginTarget = 35) {
     if (!window.ExcelJS) {
       const s = document.createElement('script')
       s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
@@ -1878,8 +1879,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Btl Sell',          key: 'btlSell',  width: 11 },
       { header: 'Margin %',          key: 'margin',   width: 12 },
       { header: 'Btl Margin %',      key: 'btlMgn',   width: 14 },
-      { header: 'Sugg Sell (35%)',     key: 'suggSell',    width: 15 },
-      { header: 'Sugg Btl Sell (35%)', key: 'suggBtlSell', width: 16 },
+      { header: `Sugg Sell (${marginTarget}%)`,     key: 'suggSell',    width: 15 },
+      { header: `Sugg Btl Sell (${marginTarget}%)`, key: 'suggBtlSell', width: 16 },
       { header: 'On Hand',           key: 'onHand',   width: 10 },
       { header: '90d Inv Count',     key: 'invCount', width: 13 },
     ]
@@ -1943,9 +1944,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         btlSell:  isWine && sellBottle ? sellBottle : '',
         margin:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",G${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/(G${rNum}*F${rNum}),"")`, result: 0 },
         btlMgn:   isWine ? { formula: `=IF(AND(E${rNum}<>"",H${rNum}<>"",H${rNum}>0),(H${rNum}-E${rNum})/H${rNum},"")`, result: 0 } : '',
-        // Suggested sell at 35% margin, rounded to nearest 50c
-        suggSell:    { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/(0.65*F${rNum}),0.5),"")`, result: 0 },
-        suggBtlSell: isWine && sellBottle ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/0.65,0.5),"")`, result: 0 } : '',
+        // Suggested sell at target margin, rounded to nearest 50c
+        ...(() => {
+          const div = (1 - marginTarget / 100)
+          const mround = (v, m) => Math.round(v / m) * m
+          const sv  = avgBuy != null ? mround(avgBuy / (div * serves), 0.5) : null
+          const sbv = isWine && sellBottle && avgBuy != null ? mround(avgBuy / div, 0.5) : null
+          return {
+            suggSell:    sv  != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/((1-${marginTarget}/100)*F${rNum}),0.5),"")`, result: sv  } : '',
+            suggBtlSell: sbv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/(1-${marginTarget}/100),0.5),"")`,            result: sbv } : '',
+          }
+        })(),
         onHand:   item.onHand ?? 0,
         invCount: avgEntry?.count ?? '',
       })
@@ -1958,11 +1967,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       row.getCell('suggSell').numFmt = '"$"#,##0.00'
       if (isWine && sellBottle) row.getCell('suggBtlSell').numFmt = '"$"#,##0.00'
 
-      // Highlight suggestion cells — amber if price needs to change, green if already at/near 35%
+      // Highlight suggestion cells — amber if price below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
         const mp = glassWine ? (sell*serves - avgBuy)/(sell*serves)*100 : (sell - avgBuy)/sell*100
         const sc = row.getCell('suggSell')
-        const diff = Math.abs(mp - 35)
+        const diff = Math.abs(mp - marginTarget)
         if (diff > 2) {
           sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 35 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
           sc.font = { bold: true, color: mp < 35 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
@@ -1970,7 +1979,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         if (isWine && sellBottle && sellBottle > 0) {
           const bp = (sellBottle - avgBuy) / sellBottle * 100
           const bc = row.getCell('suggBtlSell')
-          const bdiff = Math.abs(bp - 35)
+          const bdiff = Math.abs(bp - marginTarget)
           if (bdiff > 2) {
             bc.fill = { type:'pattern', pattern:'solid', fgColor: bp < 35 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
             bc.font = { bold: true, color: bp < 35 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
@@ -2784,7 +2793,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       🖨️ Print
                     </button>
-                    <button onClick={exportPricingExcel}
+                    <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
+                      <span style={{ color:'#475569' }}>Target:</span>
+                      <input type='number' value={pricingMarginTarget} min={10} max={90} step={5}
+                        onChange={e => setPricingMarginTarget(Number(e.target.value))}
+                        style={{ width:46, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
+                      <span style={{ color:'#475569' }}>%</span>
+                    </span>
+                    <button onClick={() => exportPricingExcel(pricingMarginTarget)}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
