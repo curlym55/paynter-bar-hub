@@ -118,6 +118,7 @@ export default function Home() {
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
+  const [priceReviewModal, setPriceReviewModal] = useState(false)
   const [pricingMarginTarget, setPricingMarginTarget] = useState(35)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
@@ -3866,6 +3867,124 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               </div>
             )}
 
+            {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
+            {priceReviewModal && (() => {
+              const TARGET = 35
+              const BAND   = 3   // ±3%
+              const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+              const mround = (v, m) => Math.round(v / m) * m
+
+              // Build analysis from loaded avg data + Hub items
+              const rows = []
+              for (const row of (phAvgData?.items || [])) {
+                if (!row.matched_hub_key) continue
+                if (row.supplier !== "Dan Murphy's") continue
+                const hubItem = items.find(i => i.name === row.matched_hub_key)
+                if (!hubItem) continue
+
+                const isWine   = WINE_C.includes(hubItem.category)
+                const glassWine = isWine && (hubItem.sellUnit || 'glass') === 'glass' && hubItem.category !== 'Sparkling' && !hubItem.bottleOnly
+                const serves   = glassWine ? 5 : 1
+                const vars     = hubItem.variations || []
+                const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
+                const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+                const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+                const sellGlass = hubItem.isSpirit
+                  ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                  : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : (hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null)
+                const sell = isWine && !glassWine ? sellBottle : sellGlass
+
+                // Per-nip/per-unit avg buy inc GST
+                const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
+                const effNipML  = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
+                const effBotML  = hubItem.bottleML || 700
+                const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
+                const avgExGst  = row.avg_unit_price_ex_gst != null
+                  ? (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst)
+                  : null
+                const avgBuy = avgExGst != null ? Math.round(avgExGst * 1.10 * 1000) / 1000 : null
+                if (avgBuy == null || sell == null || sell <= 0) continue
+
+                const rev    = sell * serves
+                const margin = (rev - avgBuy) / rev * 100
+                const diff   = margin - TARGET
+                if (Math.abs(diff) <= BAND) continue  // within band — skip
+
+                const suggSell = mround(avgBuy / (serves * (1 - TARGET/100)), 0.50)
+                rows.push({ name: row.matched_hub_key, cat: hubItem.category, sell, avgBuy, margin, diff, suggSell, serves, glassWine, isSpirit: hubItem.isSpirit })
+              }
+
+              rows.sort((a,b) => a.diff - b.diff)
+
+              return (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+                  onClick={() => setPriceReviewModal(false)}>
+                  <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:780, maxHeight:'85vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}
+                    onClick={e => e.stopPropagation()}>
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                      <div>
+                        <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>📊 Dan Murphy's Price Review</div>
+                        <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>Items where current margin is outside {TARGET-BAND}%–{TARGET+BAND}% · based on 90-day avg buy price</div>
+                      </div>
+                      <button onClick={() => setPriceReviewModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
+                    </div>
+
+                    {rows.length === 0 ? (
+                      <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
+                        ✓ All Dan Murphy's items are within {BAND}% of the {TARGET}% target — no changes needed.<br/>
+                        <small>(Load the Average Prices report first if this looks empty)</small>
+                      </div>
+                    ) : (
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:'#1e3a5f', color:'#fff' }}>
+                            {['Item','Category','Unit','Avg Buy','Sell','Current Margin','vs Target','Sugg Sell (35%)'].map(h => (
+                              <th key={h} style={{ padding:'8px 10px', textAlign: ['Avg Buy','Sell','Current Margin','vs Target','Sugg Sell (35%)'].includes(h) ? 'right' : 'left', fontWeight:700, fontSize:11 }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, i) => (
+                            <tr key={i} style={{ background: i%2===0?'#fff':'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
+                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a' }}>{r.name}</td>
+                              <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
+                              <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.isSpirit ? 'nip' : r.glassWine ? 'glass' : 'bottle'}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700,
+                                color: r.margin < TARGET-BAND ? '#dc2626' : '#16a34a' }}>
+                                {r.margin.toFixed(1)}%
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700,
+                                color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
+                                {r.diff > 0 ? '+' : ''}{r.diff.toFixed(1)}%
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                                <span style={{ fontWeight:800, fontSize:13, color: r.diff < 0 ? '#b91c1c' : '#0c4a6e',
+                                  background: r.diff < 0 ? '#fee2e2' : '#e0f2fe', padding:'2px 8px', borderRadius:4 }}>
+                                  ${r.suggSell.toFixed(2)}
+                                </span>
+                                {r.suggSell !== r.sell && (
+                                  <span style={{ fontSize:10, color:'#64748b', marginLeft:4 }}>
+                                    ({r.suggSell > r.sell ? '↑' : '↓'} ${Math.abs(r.suggSell - r.sell).toFixed(2)})
+                                  </span>
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+
+                    <div style={{ marginTop:12, fontSize:11, color:'#94a3b8' }}>
+                      Suggested sell = avg buy ÷ 0.65, rounded to nearest $0.50 · Glass wine revenue = sell × 5 glasses/bottle
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
             {/* ── REPORTS TAB ────────────────────────────────────── */}
             {phSubTab === 'reports' && (
               <div>
@@ -3888,6 +4007,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
                     Active items only
                   </label>
+                  <button onClick={() => setPriceReviewModal(true)}
+                    style={{ padding:'6px 14px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:12, cursor:'pointer' }}>
+                    📊 Dan Murphy's Price Review
+                  </button>
                   <button onClick={async () => {
                     setPhLoading(true)
                     setPhAvgData(null)
