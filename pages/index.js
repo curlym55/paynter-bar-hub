@@ -664,6 +664,22 @@ export default function Home() {
     }
   }
 
+  async function resavePO(supplier, ordered) {
+    const updatedItems = Object.entries(ordered)
+      .filter(([, info]) => info.supplier === supplier)
+      .map(([name, info]) => ({ name, sku: info.sku||'', orderQty: info.orderQty, bottlesToOrder: info.bottlesToOrder||null, isSpirit: info.isSpirit||false }))
+    if (!updatedItems.length) return
+    const sampleInfo = Object.values(ordered).find(i => i.supplier === supplier)
+    const poRef = sampleInfo?.ref || supplier
+    const orderDate = sampleInfo?.date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
+    fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
+      .then(r => r.json()).then(d => {
+        if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'update_urls', po_ref: poRef, po_onedrive_url: d.webUrl }) }).catch(()=>null)
+      }).catch(()=>null)
+  }
+
   async function loadNotes() {
     try {
       const r = await fetch('/api/notes')
@@ -2866,7 +2882,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
                                     body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty }) })
                                   const d = await r.json()
-                                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })) }
+                                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered) }
                                 }} />
                             ) : (
                               <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
@@ -2884,7 +2900,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   setOrderedItems(d.ordered)
                                   const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
                                   if (!remaining.length) setViewOrderModal(null)
-                                  else setViewOrderModal(prev => ({ ...prev, items: remaining }))
+                                  else { setViewOrderModal(prev => ({ ...prev, items: remaining })); resavePO(viewOrderModal.supplier, d.ordered) }
                                 }
                               }} style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                                 🗑 Remove
