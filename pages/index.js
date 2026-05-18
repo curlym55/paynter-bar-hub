@@ -1878,6 +1878,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Btl Sell',          key: 'btlSell',  width: 11 },
       { header: 'Margin %',          key: 'margin',   width: 12 },
       { header: 'Btl Margin %',      key: 'btlMgn',   width: 14 },
+      { header: 'Sugg Sell (30-40%)', key: 'suggSell', width: 16 },
       { header: 'On Hand',           key: 'onHand',   width: 10 },
       { header: '90d Inv Count',     key: 'invCount', width: 13 },
     ]
@@ -1891,7 +1892,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       cell.border    = { bottom: { style: 'thin', color: { argb: 'FF3B82F6' } } }
     })
     ws.getRow(1).getCell('buy').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0E7490' } }
-    ws.autoFilter = { from: 'A1', to: 'L1' }
+    ws.autoFilter = { from: 'A1', to: 'M1' }
 
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
     const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
@@ -1941,6 +1942,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         btlSell:  isWine && sellBottle ? sellBottle : '',
         margin:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",G${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/(G${rNum}*F${rNum}),"")`, result: 0 },
         btlMgn:   isWine ? { formula: `=IF(AND(E${rNum}<>"",H${rNum}<>"",H${rNum}>0),(H${rNum}-E${rNum})/H${rNum},"")`, result: 0 } : '',
+        // Suggested sell: CEILING to 50c for <30%, MROUND to 50c for >40%, blank if 30-40%
+        suggSell: { formula: `=IF(AND(E${rNum}<>"",I${rNum}<>""),IF(I${rNum}<0.3,CEILING(E${rNum}/(0.7*F${rNum}),0.5),IF(I${rNum}>0.4,MROUND(E${rNum}/(0.6*F${rNum}),0.5),"")),"")`, result: 0 },
         onHand:   item.onHand ?? 0,
         invCount: avgEntry?.count ?? '',
       })
@@ -1950,6 +1953,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (isWine && sellBottle) row.getCell('btlSell').numFmt = '"$"#,##0.00'
       row.getCell('margin').numFmt = '0.0%'
       if (isWine) row.getCell('btlMgn').numFmt = '0.0%'
+      row.getCell('suggSell').numFmt = '"$"#,##0.00'
+
+      // Highlight suggested sell cell — amber if below 30% (needs increase), blue if above 40% (could lower)
+      if (avgBuy != null && sell != null && sell > 0) {
+        const mp = glassWine ? (sell*serves - avgBuy)/(sell*serves)*100 : (sell - avgBuy)/sell*100
+        if (mp < 30) {
+          const sc = row.getCell('suggSell')
+          sc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFEF3C7' } }
+          sc.font = { bold: true, color:{ argb:'FF92400E' } }
+          sc.note = 'Below 30% — suggested minimum price for 30% margin'
+        } else if (mp > 40) {
+          const sc = row.getCell('suggSell')
+          sc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0F2FE' } }
+          sc.font = { bold: true, color:{ argb:'FF0369A1' } }
+          sc.note = 'Above 40% — suggested price to bring margin to ~40%'
+        }
+      }
 
       const buyCl = row.getCell('buy')
       buyCl.fill = { type:'pattern', pattern:'solid', fgColor:
@@ -1975,7 +1995,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       }
 
       const bg = ws.rowCount % 2 === 0 ? { argb:'FFF8FAFC' } : { argb:'FFFFFFFF' }
-      ;['name','cat','sup','unit','srv','sell','btlSell','onHand','invCount'].forEach(k => {
+      ;['name','cat','sup','unit','srv','sell','btlSell','suggSell','onHand','invCount'].forEach(k => {
         const c = row.getCell(k)
         if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
       })
