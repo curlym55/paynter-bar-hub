@@ -3994,7 +3994,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             )}
           </div>
         )}
-        {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} />}
+        {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} settings={priceListSettings} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
         {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to committee members.</div>}
         {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} daysBack={daysBack} />}
@@ -4655,13 +4655,20 @@ function WastageView({ items, log, readOnly, onRefresh }) {
 
 
 // === BARCODE SHEET VIEW =====================================================
-function BarcodeSheetView({ items }) {
+function BarcodeSheetView({ items, settings = {} }) {
   const [loaded, setLoaded] = useState(false)
   const allRef   = useRef(null)  // wrapper for all previews - used for SVG rasterisation
   const sheetRef = useRef(null)  // single-page 3-col
   const p1Ref    = useRef(null)  // 2-page: page 1 (Spirits + Fortified)
   const p2Ref      = useRef(null)  // 2-page: page 2 (White + Red/Rose)
   const p2NoHdrRef = useRef(null)  // 2-page: page 2 without column headers (for laminate)
+
+  const isPrintVisible = (item) => {
+    const pl = settings[item.name] || {}
+    if (pl.hidden) return false
+    if ((item.onHand || 0) <= 0 && !pl.showOnPrint) return false
+    return true
+  }
 
   const C = {
     spirits:   { hdr: '#2C3E50', rowA: '#B8D4E8', rowB: '#D6EAFF' },
@@ -4718,8 +4725,8 @@ function BarcodeSheetView({ items }) {
     return LABEL_OVERRIDES[item.name] || item.name.replace(/ \d+ml Nip$/i, '').replace(/ Nip$/i, '')
   }
 
-  const spiritsItems   = items.filter(i => i.category === 'Spirits' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
-  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs' && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name))
+  const spiritsItems   = items.filter(i => i.category === 'Spirits' && isPrintVisible(i)).sort((a,b) => a.name.localeCompare(b.name))
+  const fortifiedItems = items.filter(i => i.category === 'Fortified & Liqueurs' && isPrintVisible(i)).sort((a,b) => a.name.localeCompare(b.name))
   const RIGHT_SPIRITS  = ['canadian club','glenlivet','jack daniel','jameson']
   const spiritsLeft    = spiritsItems.filter(i => !RIGHT_SPIRITS.some(n => i.name.toLowerCase().includes(n)))
   const spiritsRight   = spiritsItems.filter(i =>  RIGHT_SPIRITS.some(n => i.name.toLowerCase().includes(n)))
@@ -4732,9 +4739,9 @@ function BarcodeSheetView({ items }) {
       ...fortifiedItems,
     ] : []),
   ]
-  const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
-  const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i) && (i.onHand || 0) > 0).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
-  const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && (i.onHand || 0) > 0 && !/minchinbury|curtis legion/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const whiteItems     = items.filter(i => i.category === 'White Wine' && getGlassSku(i) && isPrintVisible(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const roseItems      = items.filter(i => i.category === 'Rose' && getGlassSku(i) && isPrintVisible(i)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
+  const redItems       = items.filter(i => i.category === 'Red Wine' && getGlassSku(i) && isPrintVisible(i) && !/minchinbury|curtis legion/i.test(i.name)).sort((a,b) => a.name.localeCompare(b.name)).map(i => ({...i,_glass:true}))
 
   const col2single = [
     ...whiteItems,
