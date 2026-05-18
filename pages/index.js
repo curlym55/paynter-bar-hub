@@ -4064,6 +4064,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 {r.suggSell !== r.sell ? ` $${Math.abs(r.suggSell - r.sell).toFixed(2)}` : ''}
                               </td>
                             </tr>
+                            )
                           })}
                         </tbody>
                       </table>
