@@ -1872,7 +1872,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Category',          key: 'cat',      width: 18 },
       { header: 'Supplier',          key: 'sup',      width: 14 },
       { header: 'Unit',              key: 'unit',     width: 10 },
-      { header: 'Buy ex GST (edit)', key: 'buy',      width: 16 },
+      { header: 'Buy inc GST (edit)', key: 'buy',      width: 16 },
       { header: 'Serves/Btl',        key: 'srv',      width: 11 },
       { header: 'Sell',              key: 'sell',     width: 11 },
       { header: 'Btl Sell',          key: 'btlSell',  width: 11 },
@@ -1920,9 +1920,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       const avgEntry  = avgPriceMap[item.name]
       const avgBuyRaw = avgEntry?.avg ?? null
-      const avgBuy    = (item.isSpirit && item.bottleML && item.nipML && avgBuyRaw != null)
+      // Convert to inc-GST to match how Hub buy prices are entered (what you actually pay)
+      const avgBuyExGst = (item.isSpirit && item.bottleML && item.nipML && avgBuyRaw != null)
         ? Math.round(avgBuyRaw / (item.bottleML / item.nipML) * 10000) / 10000
         : avgBuyRaw
+      const avgBuy = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
 
       const rNum = ws.rowCount + 1
       const row = ws.addRow({
@@ -3859,13 +3861,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   ) : (
                     <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
                       <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
-                        Average Buy Prices — last {phAvgData.period_days} days (ex GST) · {phAvgData.items?.length} items
+                        Average Buy Prices — last {phAvgData.period_days} days (inc GST) · {phAvgData.items?.length} items
                       </div>
                       <div style={{ overflowX:'auto' }}>
                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                           <thead>
                             <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                              {['Item','Supplier','Avg Buy Price','# Invoices','Min','Max','Variance','Current Hub Price','Action'].map(h => (
+                              {['Item','Supplier','Avg Buy Price (inc GST)','# Invoices','Min (inc GST)','Max (inc GST)','Variance','Current Hub Price','Action'].map(h => (
                                 <th key={h} style={{ padding:'8px 10px', textAlign: h.includes('Price')||h.includes('Min')||h.includes('Max')||h.includes('Var') ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -3873,24 +3875,26 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <tbody>
                             {phAvgData.items?.filter(row => {
                               if (!phActiveOnly) return true
-                              // Hide if no matched Hub key or matched key not in current Square items
                               if (!row.matched_hub_key) return false
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
+                              const avgIncGst = row.avg_unit_price_ex_gst != null ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000 : null
+                              const minIncGst = row.min_price != null ? Math.round(row.min_price * 1.10 * 1000) / 1000 : null
+                              const maxIncGst = row.max_price != null ? Math.round(row.max_price * 1.10 * 1000) / 1000 : null
                               const currentBuy = row.current_buy_price
-                              const diff = currentBuy != null ? row.avg_unit_price_ex_gst - currentBuy : null
-                              const variance = row.max_price - row.min_price
+                              const diff = currentBuy != null && avgIncGst != null ? avgIncGst - currentBuy : null
+                              const variance = maxIncGst != null && minIncGst != null ? maxIncGst - minIncGst : 0
                               return (
                                 <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0?'#fff':'#f8fafc' }}>
                                   <td style={{ padding:'7px 10px', fontWeight:600 }}>{row.item_name}</td>
                                   <td style={{ padding:'7px 10px', color:'#64748b' }}>{row.supplier}</td>
                                   <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>
-                                    ${row.avg_unit_price_ex_gst?.toFixed(3)}
+                                    {avgIncGst != null ? `$${avgIncGst.toFixed(3)}` : '—'}
                                     {row.is_spirit && <div style={{ fontSize:9, color:'#94a3b8', fontWeight:400 }}>{row.unit_label}</div>}
                                   </td>
                                   <td style={{ padding:'7px 10px', textAlign:'center', color:'#64748b' }}>{row.invoice_count}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.min_price?.toFixed(3)}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>${row.max_price?.toFixed(3)}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{minIncGst != null ? `$${minIncGst.toFixed(3)}` : '—'}</td>
+                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{maxIncGst != null ? `$${maxIncGst.toFixed(3)}` : '—'}</td>
                                   <td style={{ padding:'7px 10px', textAlign:'right', color: variance > 0.5 ? '#d97706' : '#64748b' }}>${variance.toFixed(3)}</td>
                                   <td style={{ padding:'7px 10px', textAlign:'right' }}>
                                     {currentBuy != null ? (
@@ -3901,11 +3905,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     ) : <span style={{ color:'#94a3b8' }}>—</span>}
                                   </td>
                                   <td style={{ padding:'7px 10px' }}>
-                                    {row.avg_unit_price_ex_gst != null && (
+                                    {avgIncGst != null && (
                                       <button onClick={async () => {
-                                        if (!confirm(`Update buy price for "${row.item_name}" to $${row.avg_unit_price_ex_gst.toFixed(3)}?`)) return
+                                        if (!confirm(`Update buy price for "${row.item_name}" to $${avgIncGst.toFixed(3)} (inc GST)?`)) return
                                         await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                                          body: JSON.stringify({ itemName: row.item_name, field:'buyPrice', value: row.avg_unit_price_ex_gst }) })
+                                          body: JSON.stringify({ itemName: row.item_name, field:'buyPrice', value: avgIncGst }) })
                                         alert('✓ Buy price updated.')
                                       }} style={{ padding:'2px 8px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                                         ↑ Update
