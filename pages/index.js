@@ -917,7 +917,7 @@ export default function Home() {
     for (const item of items) {
       const pl  = settings[item.name] || {}
       if (pl.hidden) continue
-      if ((item.onHand || 0) <= 0) continue   // skip zero stock
+      if ((item.onHand || 0) <= 0 && !pl.showOnPrint) continue   // skip zero stock unless flagged
       const cat = item.category || 'Other'
       const label = pl.label || item.name
       const bottleOnly = pl.bottleOnly || item.bottleOnly || /minchinbury|curtis legion/i.test(item.name)
@@ -5622,11 +5622,12 @@ function isHidden(item) {
                   <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Alc%</th>
                   <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Std Drinks</th>
                   <th style={{ padding: '7px 14px', textAlign: 'right', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>Price</th>
+                  {!readOnly && <th style={{ padding: '7px 14px', textAlign: 'center', fontSize: 10, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>On Print</th>}
 
                 </tr>
               </thead>
               <tbody>
-                {grouped[cat].filter(item => showOutOfStock || (item.onHand || 0) > 0 || isHidden(item)).map((item, idx) => {
+                {grouped[cat].filter(item => showOutOfStock || (item.onHand || 0) > 0 || isHidden(item) || (settings[item.name]?.showOnPrint)).map((item, idx) => {
                   const hidden  = isHidden(item)
                   const price   = getPrice(item)
                   const rowBg   = idx % 2 === 0 ? '#fff' : '#f8fafc'
@@ -5708,6 +5709,29 @@ function isHidden(item) {
                         })()}
                       </td>
 
+                      {!readOnly && (
+                        <td style={{ padding: '7px 14px', textAlign: 'center' }}>
+                          {hidden ? (
+                            <button onClick={() => onSave(item.name, 'hidden', false)}
+                              style={{ fontSize: 10, padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, cursor: 'pointer', fontWeight: 700 }}>
+                              ✗ Hidden
+                            </button>
+                          ) : (item.onHand || 0) <= 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3 }}>
+                              <button onClick={() => onSave(item.name, 'showOnPrint', !(settings[item.name]?.showOnPrint))}
+                                style={{ fontSize: 10, padding: '2px 8px', background: (settings[item.name]?.showOnPrint) ? '#f0fdf4' : '#fff', color: (settings[item.name]?.showOnPrint) ? '#16a34a' : '#64748b', border: '1px solid #cbd5e1', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                                {(settings[item.name]?.showOnPrint) ? '✓ Include' : '+ Include'}
+                              </button>
+                              <span style={{ fontSize: 9, color: '#94a3b8' }}>zero stock</span>
+                            </div>
+                          ) : (
+                            <button onClick={() => onSave(item.name, 'hidden', true)}
+                              style={{ fontSize: 10, padding: '2px 8px', background: '#f8fafc', color: '#64748b', border: '1px solid #e2e8f0', borderRadius: 4, cursor: 'pointer', fontWeight: 600 }}>
+                              Hide
+                            </button>
+                          )}
+                        </td>
+                      )}
 
                     </tr>
                   )
