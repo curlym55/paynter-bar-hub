@@ -66,22 +66,21 @@ export default async function handler(req, res) {
 
       // For spirits: convert per-bottle invoice price to per-nip
       const bottleML = matched?.bottleML ? Number(matched.bottleML) : null
-      // Detect nip size from item name if not in settings (e.g. 'Baileys Irish Cream 60ml Nip')
+      // Detect nip size from name — takes priority so 60ml nips like Baileys/Galway work correctly
       const nipMLDetected = name.match(/(\d+)\s*ml\s*nip/i)
-      const nipML = matched?.nipML ? Number(matched.nipML) : (nipMLDetected ? Number(nipMLDetected[1]) : null)
+      const nipML = nipMLDetected ? Number(nipMLDetected[1])
+        : matched?.nipML ? Number(matched.nipML)
+        : null
       const isSpirit = matched?.isSpirit || (bottleML && nipML)
       const nipsPerBottle = (bottleML && nipML && nipML > 0) ? bottleML / nipML : null
-      const avgPerNip = (nipsPerBottle && avg) ? Math.round(avg / nipsPerBottle * 10000) / 10000 : null
-      const minPerNip = (nipsPerBottle) ? Math.round(Math.min(...d.prices) / nipsPerBottle * 10000) / 10000 : null
-      const maxPerNip = (nipsPerBottle) ? Math.round(Math.max(...d.prices) / nipsPerBottle * 10000) / 10000 : null
 
       return {
         item_name: name,
         supplier: d.sup,
-        avg_unit_price_ex_gst: avgPerNip ?? avg,
+        avg_unit_price_ex_gst: avg,          // always per-bottle — client converts to per-nip
         invoice_count: d.inv.size,
-        min_price: minPerNip ?? Math.round(Math.min(...d.prices) * 10000) / 10000,
-        max_price: maxPerNip ?? Math.round(Math.max(...d.prices) * 10000) / 10000,
+        min_price: Math.round(Math.min(...d.prices) * 10000) / 10000,
+        max_price: Math.round(Math.max(...d.prices) * 10000) / 10000,
         total_units: d.tu,
         current_buy_price: currentBuy,
         matched_hub_key: exactMatch ? name : fuzzyMatch?.originalKey || null,

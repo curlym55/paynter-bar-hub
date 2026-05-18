@@ -1923,15 +1923,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       const avgEntry  = avgPriceMap[item.name]
       const avgBuyRaw = avgEntry?.avg ?? null
-      // Detect nip size from item name if not explicitly set (handles 60ml nips like Baileys, Galway Pipe)
+      // Detect nip size from name — takes priority over Hub default (can't distinguish explicit 30ml from default 30ml)
+      // "Baileys Irish Cream 60ml Nip" → 60, "Bacardi Rum 30ml Nip" → 30, items with no "ml nip" → use Hub setting
       const nipMLDetected = item.name.match(/(\d+)\s*ml\s*nip/i)
-      const effectiveNipML = item.nipML || (nipMLDetected ? Number(nipMLDetected[1]) : 30)
-      // Convert to inc-GST to match how Hub buy prices are entered (what you actually pay)
+      const effectiveNipML = nipMLDetected ? Number(nipMLDetected[1]) : (item.nipML || 30)
+      // Convert to inc-GST to match how Hub buy prices are entered
       const avgBuyExGst = (item.isSpirit && item.bottleML && effectiveNipML && avgBuyRaw != null)
         ? Math.round(avgBuyRaw / (item.bottleML / effectiveNipML) * 10000) / 10000
         : avgBuyRaw
       const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
-      // Use 90d avg if available, otherwise fall back to manually entered Hub buy price
       const hubBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
       const avgBuy = avgBuyIncGst ?? hubBuy
 
@@ -3931,9 +3931,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               if (!row.matched_hub_key) return false
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
-                              const avgIncGst = row.avg_unit_price_ex_gst != null ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000 : null
-                              const minIncGst = row.min_price != null ? Math.round(row.min_price * 1.10 * 1000) / 1000 : null
-                              const maxIncGst = row.max_price != null ? Math.round(row.max_price * 1.10 * 1000) / 1000 : null
+                              const nipsPerBottle = row.nips_per_bottle ?? null
+                              // Convert per-bottle avg to per-nip for spirits display
+                              const avgIncGst = row.avg_unit_price_ex_gst != null
+                                ? Math.round((nipsPerBottle ? row.avg_unit_price_ex_gst / nipsPerBottle : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                                : null
+                              const minIncGst = row.min_price != null
+                                ? Math.round((nipsPerBottle ? row.min_price / nipsPerBottle : row.min_price) * 1.10 * 1000) / 1000
+                                : null
+                              const maxIncGst = row.max_price != null
+                                ? Math.round((nipsPerBottle ? row.max_price / nipsPerBottle : row.max_price) * 1.10 * 1000) / 1000
+                                : null
                               const currentBuy = row.current_buy_price
                               const diff = currentBuy != null && avgIncGst != null ? avgIncGst - currentBuy : null
                               const variance = maxIncGst != null && minIncGst != null ? maxIncGst - minIncGst : 0
