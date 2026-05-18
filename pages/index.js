@@ -3869,11 +3869,207 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
-              const TARGET = 35
+              const TARGET = pricingMarginTarget || 35
               const BAND   = 3
               const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
               const mround = (v, m) => Math.round(v / m) * m
               const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
+
+              const rows = []
+              for (const row of (phAvgData?.items || [])) {
+                if (!row.matched_hub_key) continue
+                if (row.supplier !== priceReviewModal) continue
+                const hubItem = items.find(i => i.name === row.matched_hub_key)
+                // Skip deleted, archived, or rundown items
+                if (!hubItem) continue
+                if (rundownItems[hubItem.name]) continue
+
+                const isWine     = WINE_C.includes(hubItem.category)
+                const bottleOnly = hubItem.bottleOnly === true || hubItem.bottleOnly === 'yes' || hubItem.category === 'Sparkling'
+                const glassWine  = isWine && !bottleOnly
+                const serves     = glassWine ? 5 : 1
+                const vars       = hubItem.variations || []
+                const glassVar   = vars.find(v => v.name?.toLowerCase().includes('glass'))
+                const bottleVar  = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+                const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+
+                // Sell prices
+                const sellGlass = hubItem.isSpirit
+                  ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                  : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
+                  : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
+                  : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
+
+                // Avg buy price — per nip for spirits, per bottle for wine/others
+                const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
+                const effNipML   = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
+                const effBotML   = hubItem.bottleML || 700
+                const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
+                const avgBuyPerUnit = row.avg_unit_price_ex_gst != null
+                  ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                  : null
+                const avgBuyPerBottle = row.avg_unit_price_ex_gst != null
+                  ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000
+                  : null
+
+                // Glass / nip entry — only for glass wine or spirits (NOT bottle-only wine)
+                if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
+                  const rev    = sellGlass * serves
+                  const margin = (rev - avgBuyPerUnit) / rev * 100
+                  if (Math.abs(margin - TARGET) > BAND) {
+                    rows.push({
+                      name: row.matched_hub_key, cat: hubItem.category,
+                      unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
+                      sell: sellGlass, avgBuy: avgBuyPerUnit, margin, diff: margin - TARGET,
+                      suggSell: mround(avgBuyPerUnit / (serves * (1 - TARGET/100)), 0.50)
+                    })
+                  }
+                }
+
+                // Bottle entry — wine only
+                if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
+                  const margin = (sellBottle - avgBuyPerBottle) / sellBottle * 100
+                  if (Math.abs(margin - TARGET) > BAND) {
+                    rows.push({
+                      name: row.matched_hub_key, cat: hubItem.category,
+                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, margin, diff: margin - TARGET,
+                      suggSell: mround(avgBuyPerBottle / (1 - TARGET/100), 0.50)
+                    })
+                  }
+                }
+              }
+
+              rows.sort((a,b) => a.diff - b.diff)
+              const tooLow  = rows.filter(r => r.diff < 0).length
+              const tooHigh = rows.filter(r => r.diff > 0).length
+
+              const tableId = 'price-review-table'
+
+              return (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
+                  onClick={() => setPriceReviewModal(false)}>
+                  <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:860, maxHeight:'88vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}
+                    onClick={e => e.stopPropagation()}>
+
+                    {/* Header */}
+                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
+                      <div>
+                        <div style={{ fontSize:16, fontWeight:800, color: supColour[priceReviewModal] || '#0f172a' }}>
+                          📊 {priceReviewModal} — Price Review
+                        </div>
+                        <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
+                          {tooLow} below · {tooHigh} above · ±{BAND}% of {TARGET}% target · 90-day avg buy (inc GST)
+                        </div>
+                      </div>
+                      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                        {/* Margin target */}
+                        <label style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
+                          <span style={{ color:'#64748b' }}>Target:</span>
+                          <select value={pricingMarginTarget} onChange={e => setPricingMarginTarget(Number(e.target.value))}
+                            style={{ padding:'2px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }}>
+                            {[30,31,32,33,34,35,36,37,38,39,40].map(v => <option key={v} value={v}>{v}%</option>)}
+                          </select>
+                        </label>
+                        {/* Switch supplier */}
+                        {["Dan Murphy's",'Coles Woolies','ACW'].filter(s => s !== priceReviewModal).map(s => (
+                          <button key={s} onClick={() => setPriceReviewModal(s)}
+                            style={{ padding:'3px 10px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                            {s}
+                          </button>
+                        ))}
+                        {/* Print */}
+                        <button onClick={() => {
+                          const tbl = document.getElementById(tableId)
+                          if (!tbl) return
+                          const w = window.open('', '_blank')
+                          w.document.write(`<html><head><title>${priceReviewModal} Price Review</title>
+                            <style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
+                            h2{color:#1e3a5f;margin-bottom:4px}p{color:#64748b;margin:0 0 12px}
+                            table{border-collapse:collapse;width:100%}th{background:#1e3a5f;color:#fff;padding:7px 10px;text-align:left}
+                            td{padding:6px 10px;border-bottom:1px solid #e2e8f0}
+                            tr:nth-child(even){background:#f8fafc}
+                            .red{color:#dc2626;font-weight:700}.blue{color:#0369a1;font-weight:700}
+                            .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px}
+                            .r{text-align:right}</style></head><body>
+                            <h2>📊 ${priceReviewModal} — Price Review</h2>
+                            <p>${tooLow} below · ${tooHigh} above · ±${BAND}% of ${TARGET}% target</p>
+                            ${tbl.outerHTML}</body></html>`)
+                          w.document.close(); w.print()
+                        }} style={{ padding:'3px 10px', background:'#f8fafc', color:'#374151', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                          🖨 Print
+                        </button>
+                        {/* Export CSV */}
+                        <button onClick={() => {
+                          const csv = ['Item,Category,Unit,Avg Buy (inc GST),Current Sell,Margin %,vs Target %,Sugg Sell']
+                            .concat(rows.map(r => `"${r.name}","${r.cat}","${r.unit}",${r.avgBuy.toFixed(3)},${r.sell.toFixed(2)},${r.margin.toFixed(1)},${r.diff.toFixed(1)},${r.suggSell.toFixed(2)}`))
+                            .join('\n')
+                          const blob = new Blob([csv], { type:'text/csv' })
+                          const a = document.createElement('a')
+                          a.href = URL.createObjectURL(blob)
+                          a.download = `PriceReview-${priceReviewModal.replace(/[^a-z]/gi,'')}-${TARGET}pct.csv`
+                          a.click()
+                        }} style={{ padding:'3px 10px', background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
+                          📥 CSV
+                        </button>
+                        <button onClick={() => setPriceReviewModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
+                      </div>
+                    </div>
+
+                    {rows.length === 0 ? (
+                      <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
+                        ✓ All {priceReviewModal} items are within {BAND}% of the {TARGET}% target.<br/>
+                        <small style={{ color:'#94a3b8' }}>(Load Average Prices first if this looks empty)</small>
+                      </div>
+                    ) : (
+                      <table id={tableId} style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background: supColour[priceReviewModal] || '#1e3a5f', color:'#fff' }}>
+                            {['Item','Category','Unit','Avg Buy (inc GST)','Current Sell','Margin','vs Target','Sugg Sell','Change'].map(h => (
+                              <th key={h} style={{ padding:'8px 10px', textAlign:['Avg Buy (inc GST)','Current Sell','Margin','vs Target','Sugg Sell','Change'].includes(h)?'right':'left', fontWeight:700, fontSize:11 }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((r, i) => (
+                            <tr key={i} style={{ background: i%2===0?'#fff':'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
+                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>{r.name}</td>
+                              <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
+                              <td style={{ padding:'7px 10px' }}>
+                                <span style={{ padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#e0f2fe', color:'#0369a1' }}>{r.unit}</span>
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.margin < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
+                                {r.margin.toFixed(1)}%
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
+                                {r.diff > 0 ? '+' : ''}{r.diff.toFixed(1)}%
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right' }}>
+                                <span style={{ fontWeight:800, fontSize:13,
+                                  color: r.diff < 0 ? '#b91c1c' : '#0c4a6e',
+                                  background: r.diff < 0 ? '#fee2e2' : '#e0f2fe',
+                                  padding:'2px 8px', borderRadius:4 }}>
+                                  ${r.suggSell.toFixed(2)}
+                                </span>
+                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontSize:12, fontWeight:700, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
+                                {r.suggSell > r.sell ? '↑' : r.suggSell < r.sell ? '↓' : '—'}
+                                {r.suggSell !== r.sell ? ` $${Math.abs(r.suggSell - r.sell).toFixed(2)}` : ''}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                    <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
+                      Sugg sell = avg buy ÷ {(1 - TARGET/100).toFixed(2)}, rounded to nearest $0.50 · Glass wine = sell × 5/btl
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
 
               const rows = []
               for (const row of (phAvgData?.items || [])) {
