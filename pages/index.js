@@ -3875,72 +3875,66 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const mround = (v, m) => Math.round(v / m) * m
               const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
 
-              const rows = []
-              for (const row of (phAvgData?.items || [])) {
-                if (!row.matched_hub_key) continue
-                if (row.supplier !== priceReviewModal) continue
-                const hubItem = items.find(i => i.name === row.matched_hub_key)
-                // Skip deleted, archived, or rundown items
-                if (!hubItem) continue
-                if (rundownItems[hubItem.name]) continue
+              const rows = (phAvgData?.items || [])
+                .filter(row => row.matched_hub_key && row.supplier === priceReviewModal)
+                .flatMap(row => {
+                  const hubItem = items.find(i => i.name === row.matched_hub_key)
+                  if (!hubItem || rundownItems[hubItem.name]) return []
 
-                const isWine     = WINE_C.includes(hubItem.category)
-                const bottleOnly = hubItem.bottleOnly === true || hubItem.bottleOnly === 'yes' || hubItem.category === 'Sparkling'
-                const glassWine  = isWine && !bottleOnly
-                const serves     = glassWine ? 5 : 1
-                const vars       = hubItem.variations || []
-                const glassVar   = vars.find(v => v.name?.toLowerCase().includes('glass'))
-                const bottleVar  = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-                const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+                  const isWine     = WINE_C.includes(hubItem.category)
+                  const bottleOnly = hubItem.bottleOnly === true || hubItem.bottleOnly === 'yes' || hubItem.category === 'Sparkling'
+                  const glassWine  = isWine && !bottleOnly
+                  const serves     = glassWine ? 5 : 1
+                  const vars       = hubItem.variations || []
+                  const glassVar   = vars.find(v => v.name?.toLowerCase().includes('glass'))
+                  const bottleVar  = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+                  const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
 
-                // Sell prices
-                const sellGlass = hubItem.isSpirit
-                  ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
-                  : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
-                const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
-                  : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
-                  : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
+                  const sellGlass = hubItem.isSpirit
+                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                    : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                  const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
+                    : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
+                    : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
 
-                // Avg buy price — per nip for spirits, per bottle for wine/others
-                const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
-                const effNipML   = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
-                const effBotML   = hubItem.bottleML || 700
-                const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
-                const avgBuyPerUnit = row.avg_unit_price_ex_gst != null
-                  ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                  : null
-                const avgBuyPerBottle = row.avg_unit_price_ex_gst != null
-                  ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000
-                  : null
+                  const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
+                  const effNipML   = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
+                  const effBotML   = hubItem.bottleML || 700
+                  const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
+                  const avgBuyPerUnit = row.avg_unit_price_ex_gst != null
+                    ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                    : null
+                  const avgBuyPerBottle = row.avg_unit_price_ex_gst != null
+                    ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000
+                    : null
 
-                // Glass / nip entry — only for glass wine or spirits (NOT bottle-only wine)
-                if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
-                  const rev    = sellGlass * serves
-                  const margin = (rev - avgBuyPerUnit) / rev * 100
-                  if (Math.abs(margin - TARGET) > BAND) {
-                    rows.push({
+                  const out = []
+
+                  if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
+                    const rev    = sellGlass * serves
+                    const margin = (rev - avgBuyPerUnit) / rev * 100
+                    const diff   = margin - TARGET
+                    if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
-                      sell: sellGlass, avgBuy: avgBuyPerUnit, margin, diff: margin - TARGET,
+                      sell: sellGlass, avgBuy: avgBuyPerUnit, margin, diff,
                       suggSell: mround(avgBuyPerUnit / (serves * (1 - TARGET/100)), 0.50)
                     })
                   }
-                }
 
-                // Bottle entry — wine only
-                if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
-                  const margin = (sellBottle - avgBuyPerBottle) / sellBottle * 100
-                  if (Math.abs(margin - TARGET) > BAND) {
-                    rows.push({
+                  if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
+                    const margin = (sellBottle - avgBuyPerBottle) / sellBottle * 100
+                    const diff   = margin - TARGET
+                    if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
-                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, margin, diff: margin - TARGET,
+                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, margin, diff,
                       suggSell: mround(avgBuyPerBottle / (1 - TARGET/100), 0.50)
                     })
                   }
-                }
-              }
 
-              rows.sort((a,b) => a.diff - b.diff)
+                  return out
+                })
+                .sort((a,b) => a.diff - b.diff)
               const tooLow  = rows.filter(r => r.diff < 0).length
               const tooHigh = rows.filter(r => r.diff > 0).length
 
