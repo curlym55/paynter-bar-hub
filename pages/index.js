@@ -1924,7 +1924,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const avgBuyExGst = (item.isSpirit && item.bottleML && item.nipML && avgBuyRaw != null)
         ? Math.round(avgBuyRaw / (item.bottleML / item.nipML) * 10000) / 10000
         : avgBuyRaw
-      const avgBuy = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
+      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
+      // Use 90d avg if available, otherwise fall back to manually entered Hub buy price
+      const hubBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+      const avgBuy = avgBuyIncGst ?? hubBuy
 
       const rNum = ws.rowCount + 1
       const row = ws.addRow({
@@ -1949,8 +1952,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (isWine) row.getCell('btlMgn').numFmt = '0.0%'
 
       const buyCl = row.getCell('buy')
-      buyCl.fill = { type:'pattern', pattern:'solid', fgColor: avgBuy != null ? { argb:'FFE0F2FE' } : { argb:'FFFEF9C3' } }
-      if (avgBuy == null) buyCl.note = 'Not purchased in last 90 days — enter buy price manually'
+      buyCl.fill = { type:'pattern', pattern:'solid', fgColor:
+        avgBuyIncGst != null ? { argb:'FFE0F2FE' } :   // light blue = 90d avg
+        hubBuy       != null ? { argb:'FFFFE4B5' } :   // light orange = Hub manual fallback
+                               { argb:'FFFEF9C3' } }   // yellow = no price at all
+      if (avgBuyIncGst == null && hubBuy != null) buyCl.note = 'No purchases in last 90 days — using manually entered Hub buy price'
+      if (avgBuyIncGst == null && hubBuy == null) buyCl.note = 'No buy price available — enter manually'
 
       if (avgBuy != null && sell != null && sell > 0) {
         const mp = glassWine ? (sell*serves - avgBuy) / (sell*serves) * 100 : (sell - avgBuy) / sell * 100
