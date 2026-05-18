@@ -118,6 +118,34 @@ export default async function handler(req, res) {
       return res.json({ ok: true, ordered })
     }
 
+    if (action === 'deleteItem') {
+      const { itemName } = req.body
+      const ordered = (await get('orderedItems', {}))
+      delete ordered[itemName]
+      await set('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
+    }
+
+    if (action === 'deleteOrder') {
+      const { supplier } = req.body
+      const ordered = (await get('orderedItems', {}))
+      for (const name of Object.keys(ordered)) {
+        if (ordered[name].supplier === supplier) delete ordered[name]
+      }
+      await set('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
+    }
+
+    if (action === 'updateItem') {
+      const { itemName, orderQty } = req.body
+      const ordered = (await get('orderedItems', {}))
+      if (ordered[itemName]) {
+        ordered[itemName] = { ...ordered[itemName], orderQty: Number(orderQty) }
+      }
+      await set('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
+    }
+
     return res.status(400).json({ error: 'Unknown action' })
   }
 

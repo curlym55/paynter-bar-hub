@@ -170,6 +170,7 @@ export default function Home() {
   const [sellersLoading, setSellersLoading] = useState(false)
   const [sellersError, setSellersError] = useState(null)
   const [orderedItems, setOrderedItems]   = useState({})
+  const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
@@ -2088,7 +2089,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => !filterOrder || (item.orderQty > 0 && !dontOrder(item)) || !!orderedItems[item.name] || (orderQtyOverrides[item.name] > 0))
+    .filter(item => {
+    if (!filterOrder) return true
+    const onOrder = !!orderedItems[item.name]
+    const orderAgain = orderAgainItems.has(item.name)
+    // If on order and not flagged to order again — suppress from order filter
+    if (onOrder && !orderAgain) return false
+    return (item.orderQty > 0 && !dontOrder(item)) || onOrder || (orderQtyOverrides[item.name] > 0)
+  })
 
 
   const onOrderCount = Object.keys(orderedItems).length
@@ -2832,35 +2840,81 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {viewOrderModal && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
                 onClick={() => setViewOrderModal(null)}>
-                <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 540, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
+                <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
                   onClick={e => e.stopPropagation()}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
                     <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>🛒 {viewOrderModal.supplier} — Current Order</div>
-                    <button onClick={() => setViewOrderModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>x</button>
+                    <button onClick={() => setViewOrderModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>×</button>
                   </div>
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
                     <thead><tr style={{ background: '#1e3a5f', color: '#fff' }}>
                       <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
                       <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qty Ordered</th>
+                      {!readOnly && <th style={{ padding: '8px 12px', textAlign: 'center', width: 100 }}>Actions</th>}
                     </tr></thead>
                     <tbody>
                       {viewOrderModal.items.map((item, i) => (
                         <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
                           <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
-                          <td style={{ padding: '7px 12px', textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>
-                            {item.isSpirit ? item.orderQty + ' nips' : item.orderQty + ' units'}
+                          <td style={{ padding: '7px 12px', textAlign: 'right' }}>
+                            {!readOnly ? (
+                              <input type="number" defaultValue={item.orderQty} min={1}
+                                style={{ width: 70, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 4, textAlign: 'right', fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}
+                                onBlur={async e => {
+                                  const newQty = Number(e.target.value)
+                                  if (!newQty || newQty === item.orderQty) return
+                                  const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                                    body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty }) })
+                                  const d = await r.json()
+                                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })) }
+                                }} />
+                            ) : (
+                              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
+                            )}
+                            <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
                           </td>
+                          {!readOnly && (
+                            <td style={{ padding: '7px 12px', textAlign: 'center' }}>
+                              <button onClick={async () => {
+                                if (!confirm(`Remove ${item.name} from this order?`)) return
+                                const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'deleteItem', itemName: item.name }) })
+                                const d = await r.json()
+                                if (d.ok) {
+                                  setOrderedItems(d.ordered)
+                                  const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
+                                  if (!remaining.length) setViewOrderModal(null)
+                                  else setViewOrderModal(prev => ({ ...prev, items: remaining }))
+                                }
+                              }} style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                                🗑 Remove
+                              </button>
+                            </td>
+                          )}
                         </tr>
                       ))}
                     </tbody>
                   </table>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'flex-end' }}>
-                    <button onClick={() => setViewOrderModal(null)}
-                      style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                  <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
                     {!readOnly && (
-                      <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
-                        style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
+                      <button onClick={async () => {
+                        if (!confirm(`Delete the entire ${viewOrderModal.supplier} order? This cannot be undone.`)) return
+                        const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier }) })
+                        const d = await r.json()
+                        if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(null) }
+                      }} style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                        🗑 Delete Whole Order
+                      </button>
                     )}
+                    <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                      <button onClick={() => setViewOrderModal(null)}
+                        style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                      {!readOnly && (
+                        <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
+                          style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -3050,7 +3104,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ ...styles.td, textAlign: 'center' }}>
                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
                             {orderedItems[item.name]
-                              ? <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: '#0e7490', color: '#fff' }}>ON ORDER</span>
+                              ? <>
+                                  <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: '#0e7490', color: '#fff' }}>ON ORDER</span>
+                                  {!readOnly && (
+                                    <button onClick={() => setOrderAgainItems(prev => {
+                                      const n = new Set(prev)
+                                      if (n.has(item.name)) n.delete(item.name)
+                                      else n.add(item.name)
+                                      return n
+                                    })} style={{ fontSize: 10, padding: '1px 7px', borderRadius: 4, border: '1px solid #cbd5e1', background: orderAgainItems.has(item.name) ? '#fef9c3' : '#f8fafc', color: orderAgainItems.has(item.name) ? '#854d0e' : '#64748b', cursor: 'pointer', fontWeight: 600 }}>
+                                      {orderAgainItems.has(item.name) ? '✓ Order Again' : '+ Order Again'}
+                                    </button>
+                                  )}
+                                </>
                               : <span style={{ display: 'inline-block', padding: '2px 10px', borderRadius: 99, fontSize: 11, fontWeight: 700, letterSpacing: '0.05em', background: dontOrder(item) ? '#94a3b8' : p.badge, color: '#fff' }}>{dontOrder(item) ? 'RUNDOWN' : item.priority}</span>
                             }
                             {!readOnly && (
