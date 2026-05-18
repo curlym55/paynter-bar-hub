@@ -1923,9 +1923,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       const avgEntry  = avgPriceMap[item.name]
       const avgBuyRaw = avgEntry?.avg ?? null
+      // Detect nip size from item name if not explicitly set (handles 60ml nips like Baileys, Galway Pipe)
+      const nipMLDetected = item.name.match(/(\d+)\s*ml\s*nip/i)
+      const effectiveNipML = item.nipML || (nipMLDetected ? Number(nipMLDetected[1]) : 30)
       // Convert to inc-GST to match how Hub buy prices are entered (what you actually pay)
-      const avgBuyExGst = (item.isSpirit && item.bottleML && item.nipML && avgBuyRaw != null)
-        ? Math.round(avgBuyRaw / (item.bottleML / item.nipML) * 10000) / 10000
+      const avgBuyExGst = (item.isSpirit && item.bottleML && effectiveNipML && avgBuyRaw != null)
+        ? Math.round(avgBuyRaw / (item.bottleML / effectiveNipML) * 10000) / 10000
         : avgBuyRaw
       const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
       // Use 90d avg if available, otherwise fall back to manually entered Hub buy price

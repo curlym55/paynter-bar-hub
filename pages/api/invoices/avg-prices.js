@@ -66,7 +66,9 @@ export default async function handler(req, res) {
 
       // For spirits: convert per-bottle invoice price to per-nip
       const bottleML = matched?.bottleML ? Number(matched.bottleML) : null
-      const nipML = matched?.nipML ? Number(matched.nipML) : null
+      // Detect nip size from item name if not in settings (e.g. 'Baileys Irish Cream 60ml Nip')
+      const nipMLDetected = name.match(/(\d+)\s*ml\s*nip/i)
+      const nipML = matched?.nipML ? Number(matched.nipML) : (nipMLDetected ? Number(nipMLDetected[1]) : null)
       const isSpirit = matched?.isSpirit || (bottleML && nipML)
       const nipsPerBottle = (bottleML && nipML && nipML > 0) ? bottleML / nipML : null
       const avgPerNip = (nipsPerBottle && avg) ? Math.round(avg / nipsPerBottle * 10000) / 10000 : null
