@@ -3934,7 +3934,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
                   return out
                 })
-                .sort((a,b) => a.diff - b.diff)
+                .sort((a,b) => {
+                  if (a.name !== b.name) return a.name.localeCompare(b.name)
+                  const uOrder = { glass: 0, bottle: 1 }
+                  return (uOrder[a.unit] ?? 2) - (uOrder[b.unit] ?? 2)
+                })
               const tooLow  = rows.filter(r => r.diff < 0).length
               const tooHigh = rows.filter(r => r.diff > 0).length
 
@@ -4025,8 +4029,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </tr>
                         </thead>
                         <tbody>
-                          {rows.map((r, i) => (
-                            <tr key={i} style={{ background: i%2===0?'#fff':'#f8fafc', borderBottom:'1px solid #f1f5f9' }}>
+                          {rows.map((r, i) => {
+                            const isNewItem = i === 0 || rows[i-1].name !== r.name
+                            const hasPair   = rows.some((r2, j) => j !== i && r2.name === r.name)
+                            return (
+                            <tr key={i} style={{
+                              background: isNewItem && hasPair ? '#f0f9ff' : i%2===0?'#fff':'#f8fafc',
+                              borderBottom: hasPair && !isNewItem ? '2px solid #bae6fd' : '1px solid #f1f5f9',
+                              borderTop: isNewItem && hasPair ? '2px solid #bae6fd' : undefined
+                            }}>
                               <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>{r.name}</td>
                               <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
                               <td style={{ padding:'7px 10px' }}>
@@ -4053,7 +4064,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 {r.suggSell !== r.sell ? ` $${Math.abs(r.suggSell - r.sell).toFixed(2)}` : ''}
                               </td>
                             </tr>
-                          ))}
+                          })}
                         </tbody>
                       </table>
                     )}
