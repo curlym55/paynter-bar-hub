@@ -1894,7 +1894,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     ws.autoFilter = { from: 'A1', to: 'L1' }
 
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
-    const allItems = [...items].sort((a,b) => {
+    const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
       const ca = CATEGORY_ORDER_LIST.indexOf(a.category), cb = CATEGORY_ORDER_LIST.indexOf(b.category)
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
