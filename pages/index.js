@@ -2223,7 +2223,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           const SC = sidebarCollapsed
           const navItems = [
             // Help at top
-            { icon: '❓', label: 'Help & Guide',       tab: 'help',        section: null,      action: () => setMainTab(t => t==='help'?'reorder':'help') },
+            { icon: '❓', label: 'Help & Guide', topLevel: true, tab: 'help',        section: null,      action: () => setMainTab(t => t==='help'?'reorder':'help') },
             { divider: true },
             // Core — always visible
             { icon: '🏠', label: 'Dashboard',           tab: 'home',        section: null,      action: () => { setMainTab('home'); setMenuOpen(false) } },
@@ -2231,29 +2231,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { icon: '🗑️', label: 'Wastage Log',         tab: 'wastage',     section: null,      action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
             { divider: true },
             // Stock
-            { section: '📦 Stock' },
-            { icon: '📋', label: 'Stocktake',            tab: 'stocktake',   section: 'stock',   action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
-            { icon: '📊', label: 'SOH Report',           tab: 'soh',         section: 'stock',   action: () => setSohModal(true) },
-            { icon: '🗓️', label: 'SOH History',          tab: 'sohhistory',  section: 'stock',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+            { sectionHeader: '📦 Stock' },
+            { icon: '📋', label: 'Stocktake',            tab: 'stocktake',   action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+            { icon: '📊', label: 'SOH Report',           tab: 'soh',   action: () => setSohModal(true) },
+            { icon: '🗓️', label: 'SOH History',          tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
             { divider: true },
             // Analytics
-            { section: '📈 Analytics' },
-            { icon: '📊', label: 'Sales Report',         tab: 'sales',       section: 'analytics', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-            { icon: '📈', label: 'Quarterly Trends',     tab: 'trends',      section: 'analytics', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
-            { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', section: 'analytics', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
+            { sectionHeader: '📈 Analytics' },
+            { icon: '📊', label: 'Sales Report',         tab: 'sales', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+            { icon: '📈', label: 'Quarterly Trends',     tab: 'trends', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
+            { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
             { divider: true },
             // Manage (was Bar)
-            { section: '🍺 Manage' },
-            { icon: '⭐', label: 'Specials',              tab: 'specials',    section: 'manage',  action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-            { icon: '🏷️', label: 'Price List',           tab: 'pricelist',   section: 'manage',  action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-            ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', section: 'manage', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
+            { sectionHeader: '🍺 Manage' },
+            { icon: '⭐', label: 'Specials',              tab: 'specials',  action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+            { icon: '🏷️', label: 'Price List',           tab: 'pricelist',  action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+            ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
             { divider: true },
             // Records (was Administration)
-            { section: '📁 Records' },
-            { icon: '📁', label: 'Documents',            tab: 'documents',   section: 'records', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
-            { icon: '📄', label: 'Price History',        tab: 'pricehistory',section: 'records', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
-            { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet',section: 'records', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-            { icon: '👥', label: 'Roster',               tab: 'roster',      section: 'records', action: () => window.open('/roster','_blank') },
+            { sectionHeader: '📁 Records' },
+            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
+            { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+            { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
             ...(!readOnly ? [{ divider: true }, { icon: '⚙️', label: 'Settings', tab: 'settings', section: null, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } }] : []),
           ]
 
@@ -2276,20 +2276,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
                 {navItems.map((item, idx) => {
                   if (item.divider) return <div key={idx} style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: '#1e293b' }} />
-                  if (item.section) return !SC ? (
+                  if (item.sectionHeader) return !SC ? (
                     <div key={idx} style={{ padding: '8px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
-                      {item.section}
+                      {item.sectionHeader}
                     </div>
                   ) : null
                   const isActive = mainTab === item.tab
                   return (
                     <button key={item.tab + idx} onClick={() => { item.action(); setMenuOpen(false) }}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9,
-                        padding: SC ? '8px 0' : item.section === null ? '8px 12px' : '6px 12px 6px 22px',
+                        padding: SC ? '8px 0' : item.topLevel ? '8px 12px' : '6px 12px 6px 22px',
                         background: isActive ? '#1e3a5f' : 'none', border: 'none',
                         borderLeft: isActive && !SC ? '3px solid #0e7490' : '3px solid transparent',
-                        cursor: 'pointer', color: isActive ? '#e2e8f0' : item.section === null ? '#f1f5f9' : '#94a3b8',
-                        fontSize: 12, fontWeight: isActive ? 700 : item.section === null ? 600 : 400,
+                        cursor: 'pointer', color: isActive ? '#e2e8f0' : item.topLevel ? '#f1f5f9' : '#94a3b8',
+                        fontSize: 12, fontWeight: isActive ? 700 : item.topLevel ? 600 : 400,
                         justifyContent: SC ? 'center' : 'flex-start', transition: 'background 0.1s' }}>
                       <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
                       {!SC && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
