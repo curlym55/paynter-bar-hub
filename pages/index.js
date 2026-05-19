@@ -4113,7 +4113,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       const d = await r.json()
                       if (!r.ok) throw new Error(d.error || 'Load failed')
                       setPhAvgData(d)
-                      // Extract distinct suppliers from results
                       const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
                       setPhDbSuppliers(sups)
                     } catch (e) {
@@ -4123,6 +4122,33 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   }} style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
+
+                  {phAvgData?.items?.length > 0 && !readOnly && (
+                    <button onClick={async () => {
+                      const updatable = phAvgData.items.filter(row => {
+                        const nipsPerBtl = row.nips_per_bottle ?? null
+                        const avgIncGst = row.avg_unit_price_ex_gst != null
+                          ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                          : null
+                        return avgIncGst != null && row.matched_hub_key
+                      })
+                      if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
+                      let updated = 0, failed = 0
+                      for (const row of updatable) {
+                        const nipsPerBtl = row.nips_per_bottle ?? null
+                        const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                        try {
+                          const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ itemName: row.matched_hub_key, field:'buyPrice', value: avgIncGst }) })
+                          if (r.ok) updated++; else failed++
+                        } catch { failed++ }
+                      }
+                      alert(`✓ Updated ${updated} buy prices.${failed ? ` ${failed} failed.` : ''}`)
+                    }} style={{ padding:'5px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                      ↑ Update All Buy Prices
+                    </button>
+                  )}
                 </div>
 
                 {phAvgData && (
