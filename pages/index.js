@@ -174,6 +174,7 @@ export default function Home() {
   const [orderedItems, setOrderedItems]   = useState({})
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
+  const [wizQtys, setWizQtys] = useState({})
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
@@ -2911,7 +2912,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {orderWizard && (() => {
               const wiz = orderWizard
               const allSuppliers = suppliers.filter(sup =>
-                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name] && !orderAgainItems.has(i.name) === false || (i.orderQty > 0 && !orderedItems[i.name]))
+                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name])
               )
               // Build order items per supplier
               const orderBySup = {}
@@ -2926,11 +2927,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const suppliersToOrder = Object.keys(orderBySup)
               const activeSup = wiz.supplier || suppliersToOrder[0]
               const supItems  = orderBySup[activeSup] || []
-              const [wizQtys, setWizQtys] = React.useState(() => {
-                const q = {}
-                for (const i of items) q[i.name] = i.orderQty
-                return q
-              })
 
               const STEPS = ['Review Quantities', 'Place Order', 'Record Confirmation', 'Done']
 
@@ -3601,7 +3597,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             lastUpdated={lastUpdated}
             fromCache={fromCache}
             orderedItems={orderedItems}
-            onStartOrder={() => setOrderWizard({ step: 1, supplier: null, poRef: '', saving: false })}
+            onStartOrder={() => {
+              const q = {}
+              for (const i of items) q[i.name] = i.orderQty
+              setWizQtys(q)
+              setOrderWizard({ step: 1, supplier: null, poRef: '', saving: false })
+            }}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
