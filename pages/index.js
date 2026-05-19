@@ -173,6 +173,7 @@ export default function Home() {
   const [sellersError, setSellersError] = useState(null)
   const [orderedItems, setOrderedItems]   = useState({})
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
+  const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
@@ -2906,6 +2907,243 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             })()}
 
             {/* View Order Modal */}
+            {/* ── ORDER WIZARD ──────────────────────────────────────────── */}
+            {orderWizard && (() => {
+              const wiz = orderWizard
+              const allSuppliers = suppliers.filter(sup =>
+                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name] && !orderAgainItems.has(i.name) === false || (i.orderQty > 0 && !orderedItems[i.name]))
+              )
+              // Build order items per supplier
+              const orderBySup = {}
+              for (const sup of suppliers) {
+                const supItems = items.filter(i =>
+                  i.supplier === sup && i.orderQty > 0 &&
+                  !orderedItems[i.name] &&
+                  !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
+                )
+                if (supItems.length > 0) orderBySup[sup] = supItems
+              }
+              const suppliersToOrder = Object.keys(orderBySup)
+              const activeSup = wiz.supplier || suppliersToOrder[0]
+              const supItems  = orderBySup[activeSup] || []
+              const [wizQtys, setWizQtys] = React.useState(() => {
+                const q = {}
+                for (const i of items) q[i.name] = i.orderQty
+                return q
+              })
+
+              const STEPS = ['Review Quantities', 'Place Order', 'Record Confirmation', 'Done']
+
+              return (
+                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
+                  <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:640, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.4)' }}>
+
+                    {/* Header */}
+                    <div style={{ background:'linear-gradient(135deg,#1e3a5f,#0e7490)', borderRadius:'16px 16px 0 0', padding:'20px 24px' }}>
+                      <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
+                        <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>📋 Weekly Order</div>
+                        <button onClick={() => setOrderWizard(null)} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12 }}>✕ Exit</button>
+                      </div>
+                      {/* Progress bar */}
+                      <div style={{ display:'flex', gap:4 }}>
+                        {STEPS.map((s, i) => (
+                          <div key={i} style={{ flex:1 }}>
+                            <div style={{ height:4, borderRadius:2, background: i < wiz.step ? '#fff' : 'rgba(255,255,255,0.3)' }} />
+                            <div style={{ color: i < wiz.step ? '#fff' : 'rgba(255,255,255,0.5)', fontSize:10, marginTop:4, textAlign:'center', fontWeight: i === wiz.step-1 ? 700 : 400 }}>
+                              {i+1}. {s}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div style={{ padding:'24px' }}>
+
+                    {/* STEP 1: Review Quantities */}
+                    {wiz.step === 1 && (
+                      <div>
+                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Review quantities to order</div>
+                        <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>Check the suggested quantities — adjust if needed. Tap a supplier tab to switch.</div>
+
+                        {/* Supplier tabs */}
+                        <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
+                          {suppliersToOrder.map(sup => (
+                            <button key={sup} onClick={() => setOrderWizard(prev => ({ ...prev, supplier: sup }))}
+                              style={{ padding:'6px 16px', border:'none', borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
+                                background: sup === activeSup ? '#1e3a5f' : '#f1f5f9',
+                                color: sup === activeSup ? '#fff' : '#374151' }}>
+                              {sup} ({orderBySup[sup].length})
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Items table */}
+                        <div style={{ border:'1px solid #e2e8f0', borderRadius:8, overflow:'hidden', marginBottom:20 }}>
+                          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                            <thead>
+                              <tr style={{ background:'#f1f5f9' }}>
+                                <th style={{ padding:'10px 14px', textAlign:'left', fontWeight:700, color:'#374151' }}>Item</th>
+                                <th style={{ padding:'10px 14px', textAlign:'center', fontWeight:700, color:'#374151', width:80 }}>On Hand</th>
+                                <th style={{ padding:'10px 14px', textAlign:'center', fontWeight:700, color:'#374151', width:100 }}>Order Qty</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {supItems.map((item, i) => (
+                                <tr key={item.name} style={{ background: i%2===0?'#fff':'#f8fafc', borderTop:'1px solid #f1f5f9' }}>
+                                  <td style={{ padding:'10px 14px' }}>
+                                    <div style={{ fontWeight:600, color:'#0f172a' }}>{item.name}</div>
+                                    {item.priority === 'CRITICAL' && <span style={{ fontSize:10, color:'#dc2626', fontWeight:700 }}>● CRITICAL</span>}
+                                  </td>
+                                  <td style={{ padding:'10px 14px', textAlign:'center', color:'#64748b' }}>{item.onHand}</td>
+                                  <td style={{ padding:'10px 14px', textAlign:'center' }}>
+                                    <input type="number" min={1} value={wizQtys[item.name] ?? item.orderQty}
+                                      onChange={e => setWizQtys(prev => ({ ...prev, [item.name]: Number(e.target.value) }))}
+                                      style={{ width:70, padding:'5px 8px', border:'2px solid #0e7490', borderRadius:6, textAlign:'center', fontWeight:700, fontSize:13 }} />
+                                    <div style={{ fontSize:10, color:'#94a3b8' }}>{item.isSpirit ? 'nips' : 'units'}</div>
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+
+                        <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                          <div style={{ fontSize:12, color:'#64748b' }}>{suppliersToOrder.length} supplier{suppliersToOrder.length!==1?'s':''} to order from</div>
+                          <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 2 }))}
+                            style={{ background:'#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                            Quantities look good →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 2: Place Order */}
+                    {wiz.step === 2 && (
+                      <div>
+                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Place your order</div>
+                        <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Use the order sheet below as a reference when placing the order on the supplier's website.</div>
+
+                        {/* Supplier tabs */}
+                        <div style={{ display:'flex', gap:6, marginBottom:16 }}>
+                          {suppliersToOrder.map(sup => (
+                            <button key={sup} onClick={() => setOrderWizard(prev => ({ ...prev, supplier: sup }))}
+                              style={{ padding:'6px 16px', border:'none', borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
+                                background: sup === activeSup ? '#1e3a5f' : '#f1f5f9',
+                                color: sup === activeSup ? '#fff' : '#374151' }}>
+                              {sup}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Order summary */}
+                        <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
+                          <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.length} items</div>
+                          {supItems.map(item => (
+                            <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
+                              <span style={{ color:'#374151' }}>{item.name}</span>
+                              <span style={{ fontWeight:700, color:'#1e3a5f' }}>{wizQtys[item.name] ?? item.orderQty} {item.isSpirit ? 'nips' : 'units'}</span>
+                            </div>
+                          ))}
+                        </div>
+
+                        <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:20, fontSize:13 }}>
+                          💡 <strong>Tip:</strong> Open the supplier's website in another tab and use this list as your guide.
+                          {activeSup === "Dan Murphy's" && ' Dan Murphy\'s: danmurphys.com.au → My Account → Order History'}
+                          {activeSup === 'Coles Woolies' && ' Coles: coles.com.au — Woolworths: woolworths.com.au'}
+                          {activeSup === 'ACW' && ' ACW: phone or email your order to ACW directly.'}
+                        </div>
+
+                        <div style={{ display:'flex', justifyContent:'space-between' }}>
+                          <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 1 }))}
+                            style={{ background:'#f1f5f9', color:'#374151', border:'none', borderRadius:8, padding:'12px 20px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                            ← Back
+                          </button>
+                          <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 3 }))}
+                            style={{ background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                            ✓ I've placed the order →
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 3: Record PO Reference */}
+                    {wiz.step === 3 && (
+                      <div>
+                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Record the order number</div>
+                        <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Enter the order or confirmation number from the supplier. This links the order to its invoice and delivery receipt.</div>
+
+                        <div style={{ marginBottom:20 }}>
+                          <label style={{ display:'block', fontWeight:600, color:'#374151', marginBottom:6, fontSize:13 }}>
+                            {activeSup} order / confirmation number
+                          </label>
+                          <input type="text" placeholder="e.g. 166162320"
+                            value={wiz.poRef}
+                            onChange={e => setOrderWizard(prev => ({ ...prev, poRef: e.target.value }))}
+                            style={{ width:'100%', padding:'12px 16px', border:'2px solid #0e7490', borderRadius:8, fontSize:16, fontWeight:600, boxSizing:'border-box' }}
+                            autoFocus />
+                          <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>Found in the order confirmation email or supplier website</div>
+                        </div>
+
+                        <div style={{ display:'flex', justifyContent:'space-between' }}>
+                          <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 2 }))}
+                            style={{ background:'#f1f5f9', color:'#374151', border:'none', borderRadius:8, padding:'12px 20px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
+                            ← Back
+                          </button>
+                          <button disabled={wiz.saving} onClick={async () => {
+                            setOrderWizard(prev => ({ ...prev, saving: true }))
+                            const poRef = wiz.poRef.trim() || `${activeSup.replace(/\s/g,'')}-${Date.now()}`
+                            const orderItems = {}
+                            for (const item of supItems) {
+                              orderItems[item.name] = { supplier: activeSup, date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}), ref: poRef, orderQty: wizQtys[item.name] ?? item.orderQty, isSpirit: item.isSpirit, sku: item.sku }
+                            }
+                            const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ action:'place', supplier: activeSup, poRef, items: orderItems }) }).catch(()=>null)
+                            const d = r ? await r.json().catch(()=>({})) : {}
+                            if (d.ok) setOrderedItems(d.ordered)
+                            // Move to next supplier or done
+                            const remaining = suppliersToOrder.filter(s => s !== activeSup && orderBySup[s]?.length > 0)
+                            if (remaining.length > 0) {
+                              setOrderWizard({ step: 1, supplier: remaining[0], poRef: '', saving: false })
+                            } else {
+                              setOrderWizard(prev => ({ ...prev, step: 4, saving: false }))
+                            }
+                          }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                            {wiz.saving ? '⏳ Saving…' : '✓ Mark as Ordered →'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* STEP 4: Done */}
+                    {wiz.step === 4 && (
+                      <div style={{ textAlign:'center', padding:'16px 0' }}>
+                        <div style={{ fontSize:48, marginBottom:12 }}>✅</div>
+                        <div style={{ fontSize:20, fontWeight:800, color:'#0f172a', marginBottom:8 }}>All done!</div>
+                        <div style={{ fontSize:14, color:'#64748b', marginBottom:24, lineHeight:1.6 }}>
+                          Your orders have been recorded. When deliveries arrive, tap the <strong>Receive Delivery</strong> banner that appears on the Dashboard.
+                        </div>
+                        <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:14, marginBottom:24, fontSize:13, textAlign:'left' }}>
+                          <strong style={{ color:'#166534' }}>What happens next:</strong>
+                          <ul style={{ margin:'8px 0 0', paddingLeft:20, color:'#374151', lineHeight:1.8 }}>
+                            <li>A delivery banner will appear on the Dashboard when stock arrives</li>
+                            <li>Tap it to record what was received and attach the invoice</li>
+                            <li>Square inventory updates automatically</li>
+                          </ul>
+                        </div>
+                        <button onClick={() => setOrderWizard(null)}
+                          style={{ background:'#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'14px 40px', fontSize:15, fontWeight:700, cursor:'pointer' }}>
+                          Return to Dashboard
+                        </button>
+                      </div>
+                    )}
+
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+
+            {/* ── VIEW ORDER MODAL ───────────────────────────────────────── */}
             {viewOrderModal && (
               <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
                 onClick={() => setViewOrderModal(null)}>
@@ -3363,6 +3601,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             lastUpdated={lastUpdated}
             fromCache={fromCache}
             orderedItems={orderedItems}
+            onStartOrder={() => setOrderWizard({ step: 1, supplier: null, poRef: '', saving: false })}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
@@ -5315,7 +5554,7 @@ function BarcodeSheetView({ items, settings = {} }) {
 }
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache = false }) {
+function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, fromCache = false }) {
   const [dashTab, setDashTab]   = useState('overview')
   const [fyData,  setFyData]    = useState(null)
   const [fyLoading, setFyLoading] = useState(false)
@@ -5434,6 +5673,21 @@ function DashboardView({ items, lastUpdated, onNav, orderedItems = {}, fromCache
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      {/* Weekly Order CTA — prominent for new users */}
+      {onStartOrder && orderCount > 0 && (
+        <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📦 {orderCount} item{orderCount !== 1 ? 's' : ''} need ordering</div>
+            <div style={{ color: '#bae6fd', fontSize: 12, marginTop: 2 }}>
+              {critCount > 0 ? `${critCount} critical · ` : ''}{onOrderCount > 0 ? `${onOrderCount} already on order` : 'No pending orders'}
+            </div>
+          </div>
+          <button onClick={onStartOrder}
+            style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+            📋 Start Weekly Order
+          </button>
+        </div>
+      )}
       {/* Dashboard sub-tabs */}
       <div style={{ display: 'flex', gap: 4, padding: '10px 32px 0', background: '#f8fafc', borderBottom: '2px solid #e2e8f0' }}>
         {dashTabs.map(t => (
