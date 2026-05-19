@@ -2221,43 +2221,42 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {/* ── SIDEBAR ─────────────────────────────────────────── */}
         {(() => {
           const SC = sidebarCollapsed
-          const groups = [
-            { label: 'Inventory', icon: '📦', items: [
-              { icon: '📦', label: 'Reorder Planner',  tab: 'reorder',    action: () => setMainTab('reorder') },
-              { icon: '📋', label: 'Stocktake',        tab: 'stocktake',  action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
-              { icon: '📊', label: 'SOH Report',       tab: 'soh',        action: () => setSohModal(true) },
-              { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory', action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
-            ]},
-            { label: 'Analytics', icon: '📈', items: [
-              { icon: '📊', label: 'Sales Report',        tab: 'sales',       action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-              { icon: '📈', label: 'Quarterly Trends',    tab: 'trends',      action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
-              { icon: '🏆', label: 'Best & Worst Sellers',tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
-            ]},
-            { label: 'Bar', icon: '🍺', items: [
-              { icon: '⭐', label: 'Specials',     tab: 'specials',    action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-              { icon: '🏷️', label: 'Price List',  tab: 'pricelist',   action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-              { icon: '🗑️', label: 'Wastage Log', tab: 'wastage',     action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
-              ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
-            ]},
-            { label: 'Administration', icon: '📁', items: [
-              { icon: '📁', label: 'Documents',    tab: 'documents',   action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
-              { icon: '📄', label: 'Price History', tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
-              { icon: '🖨️', label: 'Barcode Sheet',tab: 'barcodesheet',action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-              { icon: '👥', label: 'Roster',       tab: 'roster',      action: () => window.open('/roster','_blank') },
-            ]},
-            ...(!readOnly ? [{ label: 'Settings', icon: '⚙️', items: [
-              { icon: '⚙️', label: 'Settings', tab: 'settings', action: () => {
-                setMainTab(t => t==='settings'?'reorder':'settings')
-                fetch('/api/settings').then(r=>r.json()).then(d => {
-                  setSettingsRevTarget(d.revenueTarget ?? '')
-                })
-                fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {}))
-              }},
-            ]}] : []),
-            { label: 'Help', icon: '❓', items: [
-              { icon: '❓', label: 'Help', tab: 'help', action: () => setMainTab(t => t==='help'?'reorder':'help') },
-            ]},
+          const navItems = [
+            // Help at top
+            { icon: '❓', label: 'Help & Guide',       tab: 'help',        section: null,      action: () => setMainTab(t => t==='help'?'reorder':'help') },
+            { divider: true },
+            // Core — always visible
+            { icon: '🏠', label: 'Dashboard',           tab: 'home',        section: null,      action: () => { setMainTab('home'); setMenuOpen(false) } },
+            { icon: '📦', label: 'Reorder & Orders',    tab: 'reorder',     section: null,      action: () => setMainTab('reorder') },
+            { icon: '🗑️', label: 'Wastage Log',         tab: 'wastage',     section: null,      action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
+            { divider: true },
+            // Stock
+            { section: '📦 Stock' },
+            { icon: '📋', label: 'Stocktake',            tab: 'stocktake',   section: 'stock',   action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+            { icon: '📊', label: 'SOH Report',           tab: 'soh',         section: 'stock',   action: () => setSohModal(true) },
+            { icon: '🗓️', label: 'SOH History',          tab: 'sohhistory',  section: 'stock',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+            { divider: true },
+            // Analytics
+            { section: '📈 Analytics' },
+            { icon: '📊', label: 'Sales Report',         tab: 'sales',       section: 'analytics', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+            { icon: '📈', label: 'Quarterly Trends',     tab: 'trends',      section: 'analytics', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
+            { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', section: 'analytics', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
+            { divider: true },
+            // Manage (was Bar)
+            { section: '🍺 Manage' },
+            { icon: '⭐', label: 'Specials',              tab: 'specials',    section: 'manage',  action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+            { icon: '🏷️', label: 'Price List',           tab: 'pricelist',   section: 'manage',  action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+            ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', section: 'manage', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
+            { divider: true },
+            // Records (was Administration)
+            { section: '📁 Records' },
+            { icon: '📁', label: 'Documents',            tab: 'documents',   section: 'records', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📄', label: 'Price History',        tab: 'pricehistory',section: 'records', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
+            { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet',section: 'records', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+            { icon: '👥', label: 'Roster',               tab: 'roster',      section: 'records', action: () => window.open('/roster','_blank') },
+            ...(!readOnly ? [{ divider: true }, { icon: '⚙️', label: 'Settings', tab: 'settings', section: null, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } }] : []),
           ]
+
           return (
             <aside className="sidebar" style={{
               width: SC ? 52 : 210, minWidth: SC ? 52 : 210,
@@ -2273,37 +2272,30 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>GemLife Palmwoods</div>
                 </div>}
               </div>
-              {/* Nav groups */}
+              {/* Flat nav */}
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
-                {/* Dashboard — always visible at top */}
-                <button onClick={() => { setMainTab('home'); setMenuOpen(false) }}
-                  style={{ width:'100%', display:'flex', alignItems:'center', gap:9, padding: SC ? '9px 0' : '8px 12px', background: mainTab==='home' ? '#1e3a5f' : 'none', border:'none', borderLeft: mainTab==='home' && !SC ? '3px solid #0e7490' : '3px solid transparent', cursor:'pointer', color: mainTab==='home' ? '#e2e8f0' : '#f1f5f9', fontSize:12, fontWeight: mainTab==='home' ? 700 : 600, justifyContent: SC ? 'center' : 'flex-start', marginBottom:4 }}>
-                  <span style={{ fontSize:15, width:18, textAlign:'center', flexShrink:0 }}>🏠</span>
-                  {!SC && <span>Dashboard</span>}
-                </button>
-                <div style={{ margin: SC ? '4px 6px' : '4px 12px', height:1, background:'#1e293b' }} />
-                {groups.map(group => (
-                  <div key={group.label}>
-                    <button onClick={() => !SC && group.items.length > 1 && setSidebarOpenGroups(g => ({ ...g, [group.label]: !g[group.label] }))}
-                      style={{ width: '100%', display: group.items.length === 1 && !SC ? 'none' : 'flex', alignItems: 'center', gap: 8, padding: SC ? '7px 0' : '6px 12px', background: 'none', border: 'none', cursor: 'pointer', justifyContent: SC ? 'center' : 'space-between', color: '#94a3b8' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                        <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{group.icon}</span>
-                        {!SC && <span style={{ fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#64748b', whiteSpace: 'nowrap' }}>{group.label}</span>}
-                      </div>
-                      {!SC && <span style={{ fontSize: 9, color: '#475569', transition: 'transform 0.15s', transform: sidebarOpenGroups[group.label] ? 'rotate(90deg)' : 'rotate(0deg)', display: 'inline-block' }}>▶</span>}
+                {navItems.map((item, idx) => {
+                  if (item.divider) return <div key={idx} style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: '#1e293b' }} />
+                  if (item.section) return !SC ? (
+                    <div key={idx} style={{ padding: '8px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
+                      {item.section}
+                    </div>
+                  ) : null
+                  const isActive = mainTab === item.tab
+                  return (
+                    <button key={item.tab + idx} onClick={() => { item.action(); setMenuOpen(false) }}
+                      style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9,
+                        padding: SC ? '8px 0' : item.section === null ? '8px 12px' : '6px 12px 6px 22px',
+                        background: isActive ? '#1e3a5f' : 'none', border: 'none',
+                        borderLeft: isActive && !SC ? '3px solid #0e7490' : '3px solid transparent',
+                        cursor: 'pointer', color: isActive ? '#e2e8f0' : item.section === null ? '#f1f5f9' : '#94a3b8',
+                        fontSize: 12, fontWeight: isActive ? 700 : item.section === null ? 600 : 400,
+                        justifyContent: SC ? 'center' : 'flex-start', transition: 'background 0.1s' }}>
+                      <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
+                      {!SC && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
                     </button>
-                    {(SC || sidebarOpenGroups[group.label] || group.items.length === 1) && group.items.map(item => {
-                      const isActive = mainTab === item.tab || (item.tab === 'reorder' && mainTab === 'reorder')
-                      return (
-                        <button key={item.tab} onClick={() => { item.action(); setMenuOpen(false) }}
-                          style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '8px 0' : '7px 12px 7px 20px', background: isActive ? '#1e3a5f' : 'none', border: 'none', borderLeft: isActive && !SC ? '3px solid #0e7490' : '3px solid transparent', cursor: 'pointer', color: isActive ? '#e2e8f0' : '#94a3b8', fontSize: 12, fontWeight: isActive ? 600 : 400, justifyContent: SC ? 'center' : 'flex-start', transition: 'background 0.1s' }}>
-                          <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
-                          {!SC && <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{item.label}</span>}
-                        </button>
-                      )
-                    })}
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               {/* Collapse toggle */}
               <div style={{ borderTop: '1px solid #1e293b', flexShrink: 0 }}>
@@ -5725,26 +5717,9 @@ function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems =
             ))}
           </div>
 
-          {/* Overview tab — feature grid + FY chart + weather */}
+          {/* Overview tab — FY chart + weather */}
           {dashTab === 'overview' && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-
-              {/* Feature grid */}
-              <div className="dash-features" style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 10 }}>
-                {features.map(f => (
-                  <div key={f.tab}
-                    onClick={() => f.external ? window.open('/roster', '_blank') : onNav(f.tab)}
-                    style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '12px 14px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 12, transition: 'border-color 0.15s, box-shadow 0.15s' }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = f.color; e.currentTarget.style.boxShadow = '0 2px 10px rgba(0,0,0,0.07)' }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.boxShadow = 'none' }}>
-                    <div style={{ width: 36, height: 36, borderRadius: 8, background: f.color, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 18, flexShrink: 0 }}>{f.icon}</div>
-                    <div style={{ minWidth: 0 }}>
-                      <div style={{ fontSize: 12, fontWeight: 700, color: '#0f172a', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{f.label}{f.external ? ' ↗' : ''}</div>
-                      <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1, lineHeight: 1.4 }}>{f.desc}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
 
               {/* FY Sales chart + revenue target */}
               <div style={{ background: '#fff', borderRadius: 8, border: '1px solid #e2e8f0', padding: '16px 20px' }}>
