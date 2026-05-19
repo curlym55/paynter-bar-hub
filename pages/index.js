@@ -167,6 +167,10 @@ export default function Home() {
   const [fromCache, setFromCache]       = useState(false)
   const [menuOpen, setMenuOpen]         = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [hubTheme, setHubTheme] = useState(() => {
+    try { return localStorage.getItem('hubTheme') || 'navy' } catch { return 'navy' }
+  })
+  useEffect(() => { try { localStorage.setItem('hubTheme', hubTheme) } catch {} }, [hubTheme])
   const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': false, 'Sales & Analytics': false, 'Operations': false, 'Reports': false, 'Help': false })
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [sellersLoading, setSellersLoading] = useState(false)
@@ -2257,27 +2261,40 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             ...(!readOnly ? [{ divider: true }, { icon: '⚙️', label: 'Settings', tab: 'settings', section: null, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } }] : []),
           ]
 
+          const THEMES = {
+            navy:     { name:'Navy',     sbBg:'#0f172a', sbBorder:'#1e293b', sbActive:'#1e3a5f', accent:'#0e7490', navText:'#f1f5f9', navMuted:'#64748b', navItem:'#94a3b8', brandBg:'#0e7490' },
+            midnight: { name:'Midnight', sbBg:'#09090b', sbBorder:'#27272a', sbActive:'#3b0764', accent:'#7c3aed', navText:'#fafafa',  navMuted:'#71717a', navItem:'#a1a1aa',  brandBg:'#7c3aed' },
+            forest:   { name:'Forest',   sbBg:'#0f1f16', sbBorder:'#1c3326', sbActive:'#1a3828', accent:'#16a34a', navText:'#f0fdf4',  navMuted:'#4d7c60', navItem:'#86efac',  brandBg:'#16a34a' },
+            slate:    { name:'Slate',    sbBg:'#1e2a3a', sbBorder:'#2d3f55', sbActive:'#2d4a6e', accent:'#3b82f6', navText:'#f1f5f9',  navMuted:'#64748b', navItem:'#93c5fd',  brandBg:'#3b82f6' },
+            light:    { name:'Light',    sbBg:'#f8fafc', sbBorder:'#e2e8f0', sbActive:'#dbeafe', accent:'#1e3a5f', navText:'#0f172a',  navMuted:'#94a3b8', navItem:'#475569',  brandBg:'#1e3a5f' },
+          }
+          const T = THEMES[hubTheme] || THEMES.navy
+
           return (
+            <>
+            <style>{`
+              :root { --sb-accent: ${T.accent}; }
+            `}</style>
             <aside className="sidebar" style={{
               width: SC ? 52 : 210, minWidth: SC ? 52 : 210,
-              background: '#0f172a', display: 'flex', flexDirection: 'column',
+              background: T.sbBg, display: 'flex', flexDirection: 'column',
               transition: 'width 0.2s ease, min-width 0.2s ease',
               boxShadow: '2px 0 10px rgba(0,0,0,0.2)', zIndex: 200, overflowX: 'hidden',
             }}>
               {/* Brand */}
-              <div style={{ padding: SC ? '14px 0' : '16px 14px 12px', borderBottom: '1px solid #1e293b', display: 'flex', alignItems: 'center', gap: 9, justifyContent: SC ? 'center' : 'flex-start', flexShrink: 0 }}>
-                <div style={{ width: 30, height: 30, background: '#0e7490', borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🍺</div>
+              <div style={{ padding: SC ? '14px 0' : '16px 14px 12px', borderBottom: `1px solid ${T.sbBorder}`, display: 'flex', alignItems: 'center', gap: 9, justifyContent: SC ? 'center' : 'flex-start', flexShrink: 0 }}>
+                <div style={{ width: 30, height: 30, background: T.brandBg, borderRadius: 7, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 15, flexShrink: 0 }}>🍺</div>
                 {!SC && <div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#f1f5f9', lineHeight: 1.2, whiteSpace: 'nowrap' }}>Paynter Bar</div>
-                  <div style={{ fontSize: 10, color: '#64748b', whiteSpace: 'nowrap' }}>GemLife Palmwoods</div>
+                  <div style={{ fontSize: 12, fontWeight: 700, color: T.navText, lineHeight: 1.2, whiteSpace: 'nowrap' }}>Paynter Bar</div>
+                  <div style={{ fontSize: 10, color: T.navMuted, whiteSpace: 'nowrap' }}>GemLife Palmwoods</div>
                 </div>}
               </div>
               {/* Flat nav */}
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
                 {navItems.map((item, idx) => {
-                  if (item.divider) return <div key={idx} style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: '#1e293b' }} />
+                  if (item.divider) return <div key={idx} style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: T.sbBorder }} />
                   if (item.sectionHeader) return !SC ? (
-                    <div key={idx} style={{ padding: '8px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: '#475569' }}>
+                    <div key={idx} style={{ padding: '8px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.navMuted }}>
                       {item.sectionHeader}
                     </div>
                   ) : null
@@ -2286,9 +2303,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <button key={item.tab + idx} onClick={() => { item.action(); setMenuOpen(false) }}
                       style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9,
                         padding: SC ? '8px 0' : item.topLevel ? '8px 12px' : '6px 12px 6px 22px',
-                        background: isActive ? '#1e3a5f' : 'none', border: 'none',
-                        borderLeft: isActive && !SC ? '3px solid #0e7490' : '3px solid transparent',
-                        cursor: 'pointer', color: isActive ? '#e2e8f0' : item.topLevel ? '#f1f5f9' : '#94a3b8',
+                        background: isActive ? T.sbActive : 'none', border: 'none',
+                        borderLeft: isActive && !SC ? `3px solid ${T.accent}` : '3px solid transparent',
+                        cursor: 'pointer',
+                        color: isActive ? T.navText : item.topLevel ? T.navText : T.navItem,
                         fontSize: 12, fontWeight: isActive ? 700 : item.topLevel ? 600 : 400,
                         justifyContent: SC ? 'center' : 'flex-start', transition: 'background 0.1s' }}>
                       <span style={{ fontSize: 14, width: 18, textAlign: 'center', flexShrink: 0 }}>{item.icon}</span>
@@ -2297,16 +2315,30 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   )
                 })}
               </div>
-              {/* Collapse toggle */}
-              <div style={{ borderTop: '1px solid #1e293b', flexShrink: 0 }}>
+              {/* Theme picker + Collapse */}
+              <div style={{ borderTop: `1px solid ${T.sbBorder}`, flexShrink: 0 }}>
+                {!SC && (
+                  <div style={{ padding: '8px 12px 4px', display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <span style={{ fontSize: 9, color: T.navMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 2 }}>Theme</span>
+                    {Object.entries(THEMES).map(([key, th]) => (
+                      <button key={key} title={th.name}
+                        onClick={() => setHubTheme(key)}
+                        style={{ width: 16, height: 16, borderRadius: '50%', background: th.brandBg,
+                          border: hubTheme === key ? `2px solid ${T.navText}` : '2px solid transparent',
+                          cursor: 'pointer', padding: 0, flexShrink: 0,
+                          boxShadow: hubTheme === key ? '0 0 0 1px rgba(255,255,255,0.3)' : 'none' }} />
+                    ))}
+                  </div>
+                )}
                 <button onClick={() => setSidebarCollapsed(c => !c)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '10px 0' : '10px 14px', background: 'none', border: 'none', cursor: 'pointer', color: '#475569', justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '10px 0' : '6px 14px 10px', background: 'none', border: 'none', cursor: 'pointer', color: T.navMuted, justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
                   <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{SC ? '»' : '«'}</span>
                   {!SC && <span>Collapse</span>}
                 </button>
-                {readOnly && !SC && <div style={{ padding: '6px 14px 10px', fontSize: 10, color: '#64748b', textAlign: 'center' }}>👁 Read only</div>}
+                {readOnly && !SC && <div style={{ padding: '0 14px 10px', fontSize: 10, color: T.navMuted, textAlign: 'center' }}>👁 Read only</div>}
               </div>
             </aside>
+            </>
           )
         })()}
 
