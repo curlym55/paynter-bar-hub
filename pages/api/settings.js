@@ -132,7 +132,7 @@ export default async function handler(req, res) {
       } else {
         audit[auditKey] = {
           ts: new Date().toISOString(),
-          who: req.body.who || 'committee',
+          who: req.body.who || 'BMT',
           oldValue: oldVal,
           newValue: value
         }

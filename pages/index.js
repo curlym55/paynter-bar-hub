@@ -732,7 +732,7 @@ export default function Home() {
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, field, value, who: readOnly ? 'volunteer' : 'committee' })
+        body: JSON.stringify({ itemName, field, value, who: readOnly ? 'volunteer' : 'BMT' })
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
@@ -765,7 +765,7 @@ export default function Home() {
       if (value === null || value === '' || value === false) {
         setSettingsAudit(prev => { const n = { ...prev }; delete n[auditKey]; return n })
       } else {
-        setSettingsAudit(prev => ({ ...prev, [auditKey]: { ts: new Date().toISOString(), who: readOnly ? 'volunteer' : 'committee' } }))
+        setSettingsAudit(prev => ({ ...prev, [auditKey]: { ts: new Date().toISOString(), who: readOnly ? 'volunteer' : 'BMT' } }))
       }
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
@@ -3770,7 +3770,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </td>
                               <td style={{ padding:'5px 8px', color:'#94a3b8', fontStyle: e.oldValue == null ? 'italic' : 'normal' }}>{e.oldValue != null ? String(e.oldValue) : '—'}</td>
                               <td style={{ padding:'5px 8px', fontWeight:600, color:'#0f172a' }}>{e.newValue != null ? String(e.newValue) : '—'}</td>
-                              <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'committee'}</td>
+                              <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'BMT'}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -4554,7 +4554,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
         {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} settings={priceListSettings} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
-        {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to committee members.</div>}
+        {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to BMT members.</div>}
         {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} daysBack={daysBack} />}
         {mainTab === 'pricelist' && (
           <PriceListView
@@ -5599,7 +5599,7 @@ function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems =
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName: '__revenueTarget', field: 'revenueTarget', value: v, who: 'committee' })
+        body: JSON.stringify({ itemName: '__revenueTarget', field: 'revenueTarget', value: v, who: 'BMT' })
       })
     }
     setEditingTarget(false)
@@ -6762,7 +6762,7 @@ function HelpTab() {
       icon: '🔐',
       title: 'Getting Started',
       items: [
-        { q: 'Logging in', a: 'Enter your PIN on the login screen. Committee PIN gives full access. The read-only PIN gives view-only access. Your session stays active until you close the browser tab.' },
+        { q: 'Logging in', a: 'Enter your PIN on the login screen. BMT PIN gives full access. The read-only PIN gives view-only access. Your session stays active until you close the browser tab.' },
         { q: 'Navigation', a: 'The sidebar on the left organises features into groups: Inventory, Analytics, Bar, Administration, Settings and Help. Click any group to expand it. 🏠 Dashboard is always pinned at the top.' },
         { q: 'Sales period', a: 'The 30d / 60d / 90d buttons set how many days of sales history are used to calculate weekly averages. 90 days gives the most stable average; 30 days is more responsive to recent trends.' },
         { q: 'Refreshing data', a: 'Click Refresh in the top-right to pull the latest stock levels and sales from Square POS. Always reflects current Square data.' },
@@ -6780,7 +6780,7 @@ function HelpTab() {
         { q: 'Order Sheet', a: 'Select a supplier tab then click 📋 Order Sheet to open a formatted printable order sheet for that supplier. Use the Print this sheet button on the page.' },
         { q: 'Mark as Ordered', a: 'Select a supplier tab then click ✓ Mark as Ordered to record that an order has been placed. Enter a PO reference number — this links the order to its receive report and invoice in Documents.' },
         { q: 'Receiving an order', a: 'When stock arrives, click the banner that appears for the pending order and select Receive. Enter the quantities received and optionally attach the supplier invoice PDF. Square inventory updates automatically on confirm.' },
-        { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all committee members.' },
+        { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all BMT members.' },
         { q: 'Adding notes', a: 'Click the Notes column for any item to add a note (e.g. "Discontinued", "Check price"). Notes are saved and visible to all.' },
         { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average margin in the pricing export.' },
         { q: 'Missing buy prices', a: 'A red ⚠️ warning appears in the toolbar if any items are missing a buy price. Click it to jump to Pricing view. Buy prices affect margin calculations and stock value reports.' },
@@ -6801,7 +6801,7 @@ function HelpTab() {
       icon: '💲',
       title: 'Pricing Mode',
       items: [
-        { q: 'Enabling pricing', a: 'Click $ Pricing in the controls bar to reveal Buy Price, Sell Price and Margin % columns. This view is only available to committee members.' },
+        { q: 'Enabling pricing', a: 'Click $ Pricing in the controls bar to reveal Buy Price, Sell Price and Margin % columns. This view is only available to BMT members.' },
         { q: 'Sell prices from Square', a: 'Sell prices are imported automatically from your Square catalogue. All price changes must be made in Square — this keeps Square as the single source of truth.' },
         { q: 'Margin calculation', a: 'Margin % = (Sell − Buy) ÷ Sell × 100. Green = 40%+, amber = 20–40%, red = below 20%. Requires both buy and sell price to be set.' },
         { q: 'Buy prices', a: 'Click the Buy Price cell for any item and type the cost price. Saved to the cloud and shared across all management team sessions.' },
@@ -6903,7 +6903,7 @@ function HelpTab() {
       icon: '⚙️',
       title: 'Settings & Administration',
       items: [
-        { q: 'Settings panel', a: 'Click ⚙️ Settings in the sidebar (committee access only). Manage suppliers, Square vendor name mappings, default target weeks, revenue target, and trigger a manual data backup.' },
+        { q: 'Settings panel', a: 'Click ⚙️ Settings in the sidebar (BMT access only). Manage suppliers, Square vendor name mappings, default target weeks, revenue target, and trigger a manual data backup.' },
         { q: 'Suppliers', a: 'Add or remove suppliers in the Settings panel. Assign items to suppliers by clicking the Supplier column inline in the Reorder Planner.' },
         { q: 'Square vendor names', a: 'Map each Hub supplier name to its Square vendor name — used to match invoices in Price History and filter Square reports.' },
         { q: 'Recent Changes audit', a: 'The Settings panel shows the last 30 setting changes — item name, field changed, old value, new value and date. Useful for tracking who changed what.' },
@@ -6916,10 +6916,10 @@ function HelpTab() {
       icon: '👁',
       title: 'Access Levels',
       items: [
-        { q: 'Committee PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
+        { q: 'BMT PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
         { q: 'Read-only PIN (homeowners)', a: 'View-only access. All data is visible — stock levels, order quantities, sales reports, trends, price list, SOH and sales exports — but nothing can be edited. A READ ONLY badge appears in the header.' },
-        { q: 'Pricing visibility', a: 'Buy prices and the $ Pricing view are only visible to committee members — hidden entirely for read-only users to keep cost prices confidential.' },
-        { q: 'Settings', a: 'The ⚙️ Settings panel is only visible to committee members — hidden in read-only mode.' },
+        { q: 'Pricing visibility', a: 'Buy prices and the $ Pricing view are only visible to BMT members — hidden entirely for read-only users to keep cost prices confidential.' },
+        { q: 'Settings', a: 'The ⚙️ Settings panel is only visible to BMT members — hidden in read-only mode.' },
       ]
     },
   ]
@@ -6978,7 +6978,7 @@ function HelpTab() {
 
       <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 20px', textAlign: 'center' }}>
         <p style={{ fontSize: 11, color: '#94a3b8', margin: 0, lineHeight: 1.8 }}>
-          Paynter Bar Hub — Built for Paynter Bar Committee, GemLife Palmwoods<br />
+          Paynter Bar Hub — Built for Paynter Bar Management Team, GemLife Palmwoods<br />
           Data source: Square POS · Settings stored in Vercel KV · Deployed on Vercel
         </p>
       </div>
