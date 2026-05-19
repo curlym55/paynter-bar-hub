@@ -3599,6 +3599,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             lastUpdated={lastUpdated}
             fromCache={fromCache}
             orderedItems={orderedItems}
+            orderCount={orderCount}
+            critCount={critCount}
+            onOrderCount={onOrderCount}
             onStartOrder={() => {
               const q = {}
               for (const i of items) q[i.name] = i.orderQty
@@ -5557,7 +5560,7 @@ function BarcodeSheetView({ items, settings = {} }) {
 }
 
 // ─── DASHBOARD VIEW ───────────────────────────────────────────────────────────
-function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, fromCache = false }) {
+function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp }) {
   const [dashTab, setDashTab]   = useState('overview')
   const [fyData,  setFyData]    = useState(null)
   const [fyLoading, setFyLoading] = useState(false)
@@ -5568,11 +5571,11 @@ function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems =
   const [editingTarget, setEditingTarget] = useState(false)
   const [targetInput, setTargetInput] = useState('')
 
-  const onOrderCount = Object.keys(orderedItems).length
+  const onOrderCount = onOrderCountProp ?? Object.keys(orderedItems).length
   const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
-  const critCount    = items.filter(i => i.priority === 'CRITICAL' && !dontOrderRe.test(i.notes || '')).length
-  const lowCount     = items.filter(i => i.priority === 'LOW'      && !dontOrderRe.test(i.notes || '')).length
-  const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')).length
+  const critCount    = critCountProp ?? items.filter(i => i.priority === 'CRITICAL' && !dontOrderRe.test(i.notes || '')).length
+  const lowCount     = items.filter(i => i.priority === 'LOW' && !dontOrderRe.test(i.notes || '')).length
+  const orderCount   = orderCountProp ?? items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrderRe.test(i.notes || '')).length
   const totalItems   = items.length
 
   const now = new Date()
