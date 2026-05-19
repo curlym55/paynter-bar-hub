@@ -5680,7 +5680,7 @@ function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems =
       {onStartOrder && orderCount > 0 && (
         <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', padding: '14px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
-            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📦 {orderCount} item{orderCount !== 1 ? 's' : ''} need ordering</div>
+            <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📦 {orderCount} item{orderCount !== 1 ? 's' : ''} need{orderCount === 1 ? 's' : ''} ordering</div>
             <div style={{ color: '#bae6fd', fontSize: 12, marginTop: 2 }}>
               {critCount > 0 ? `${critCount} critical · ` : ''}{onOrderCount > 0 ? `${onOrderCount} already on order` : 'No pending orders'}
             </div>
