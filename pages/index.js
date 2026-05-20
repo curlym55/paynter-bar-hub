@@ -1958,11 +1958,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         ...(() => {
           const mult = (1 + markupTarget / 100)
           const mround = (v, m) => Math.round(v / m) * m
-          const sv  = avgBuy != null ? mround(avgBuy * mult / serves, 0.5) : null
-          const sbv = isWine && sellBottle && avgBuy != null ? mround(avgBuy * mult, 0.5) : null
+          const sv  = avgBuy != null ? mround(avgBuy * mult / serves, 0.25) : null
+          const sbv = isWine && sellBottle && avgBuy != null ? mround(avgBuy * mult, 0.25) : null
           return {
-            suggSell:    sv  != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.5),"")`, result: sv  } : '',
-            suggBtlSell: sbv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100),0.5),"")`,            result: sbv } : '',
+            suggSell:    sv  != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.25),"")`, result: sv  } : '',
+            suggBtlSell: sbv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100),0.25),"")`,            result: sbv } : '',
           }
         })(),
         onHand:   item.onHand ?? 0,
@@ -4201,7 +4201,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
                       sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
-                      suggSell: mround(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.50)
+                      suggSell: mround(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
                     })
                   }
 
@@ -4211,7 +4211,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
-                      suggSell: mround(avgBuyPerBottle * (1 + TARGET/100), 0.50)
+                      suggSell: mround(avgBuyPerBottle * (1 + TARGET/100), 0.25)
                     })
                   }
 
