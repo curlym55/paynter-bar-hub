@@ -113,7 +113,7 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
-  const [phDays, setPhDays] = useState('180')
+  const [phDays, setPhDays] = useState('all')
   const [phSupFilter, setPhSupFilter] = useState('all')
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
@@ -1962,7 +1962,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         avgBuyIncGst != null ? { argb:'FFE0F2FE' } :
         (item.buyPrice != null && item.buyPrice !== '') ? { argb:'FFFFE4B5' } :
                                { argb:'FFFEF9C3' } }
-      if (avgBuyIncGst == null && hubBuy != null) buyCl.note = 'No purchases in last 90 days — using manually entered Hub buy price'
+      if (avgBuyIncGst == null && hubBuy != null) buyCl.note = 'No invoice data found — using manually entered Hub buy price'
       if (avgBuyIncGst == null && hubBuy == null) buyCl.note = 'No buy price available — enter manually'
 
       // Markup cell colour
@@ -4388,11 +4388,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
                   <div style={{ display:'flex', gap:4 }}>
-                    {['30','60','90','180'].map(d => (
+                    {['30','60','90','180','all'].map(d => (
                       <button key={d} onClick={() => setPhDays(d)}
                         style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
                           background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
-                        {d} days
+                        {d === 'all' ? 'All' : `${d} days`}
                       </button>
                     ))}
                   </div>
@@ -4416,7 +4416,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     setPhLoading(true)
                     setPhAvgData(null)
                     try {
-                      const r = await fetch(`/api/invoices/avg-prices?days=${phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
+                      const r = await fetch(`/api/invoices/avg-prices?days=${phDays === 'all' ? 730 : phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
                       const d = await r.json()
                       if (!r.ok) throw new Error(d.error || 'Load failed')
                       setPhAvgData(d)
@@ -4440,7 +4440,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
