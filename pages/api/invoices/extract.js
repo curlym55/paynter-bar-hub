@@ -14,7 +14,7 @@ export default async function handler(req, res) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-opus-4-5',
+        model: 'claude-opus-4-20250514',
         max_tokens: 3000,
         messages: [{
           role: 'user',
@@ -40,13 +40,16 @@ Return ONLY valid JSON with no markdown or explanation:
 
 Rules for units_per_pack:
 - Single spirit/wine bottle: 1
+- Beer/cider/premix 375ml cans: 24
+- Beer/cider/premix 330ml bottles: 24
+- Beer/cider 440ml cans (e.g. Guinness, Kilkenny): 24
+- Beer/cider 470-500ml cans: 24
 - Beer 30-block cans: 30
-- Beer/cider/premix 375ml case: 24
-- Beer/cider 470-500ml case: 24
-- Wine 750ml case: 6 (premium) or 12 (value/bulk)
-- Piccolo/200ml case: 24
-- Individual snack bags: 1
 - 10-pack cans: 10
+- Wine 750ml case: ALWAYS 6
+- Piccolo 200ml (e.g. Henkell, Yellowglen): ALWAYS 24
+- Single spirit/wine bottle purchased individually: 1
+- Individual snack bags: 1
 - If unsure: 1
 
 Exclude: service fees, handling, delivery, freight, GST summary lines.` }

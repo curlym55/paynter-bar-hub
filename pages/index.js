@@ -1869,7 +1869,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const ar = await fetch('/api/invoices/avg-prices?days=90')
       if (ar.ok) {
         const ad = await ar.json()
-        for (const row of ad.items || []) avgPriceMap[row.item_name] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count }
+        for (const row of ad.items || []) avgPriceMap[row.item_name] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price }
       }
     } catch(e) {}
 
@@ -1887,6 +1887,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: `Sugg Sell (${markupTarget}%)`, key: 'suggSell', width: 15 },
       { header: 'On Hand',                      key: 'onHand',   width: 10 },
       { header: '90d Inv Count',                key: 'invCount', width: 13 },
+      { header: 'Min Buy (inc GST)',             key: 'minBuy',   width: 15 },
+      { header: 'Max Buy (inc GST)',             key: 'maxBuy',   width: 15 },
       { header: 'Notes',                        key: 'notes',    width: 38 },
     ]
 
@@ -1899,7 +1901,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       cell.border    = { bottom: { style: 'thin', color: { argb: 'FF3B82F6' } } }
     })
     ws.getRow(1).getCell('buy').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0E7490' } }
-    ws.autoFilter = { from: 'A1', to: 'L1' }
+    ws.autoFilter = { from: 'A1', to: 'N1' }
 
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
     const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
@@ -1933,12 +1935,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         suggSell: sv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.25),"")`, result: sv } : '',
         onHand:   !isBottleOfPair ? (item.onHand ?? 0) : '',
         invCount: !isBottleOfPair ? (avgEntry?.count ?? '') : '',
+        minBuy:   !isBottleOfPair && avgEntry?.min != null ? (() => { const mult = (1 + markupTarget / 100); const minEx = (item.isSpirit && item.bottleML && effectiveNipML) ? avgEntry.min / (item.bottleML / effectiveNipML) : avgEntry.min; return Math.round(minEx * 1.10 * 1000) / 1000 })() : '',
+        maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const mult = (1 + markupTarget / 100); const maxEx = (item.isSpirit && item.bottleML && effectiveNipML) ? avgEntry.max / (item.bottleML / effectiveNipML) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
       })
 
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
       if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
       row.getCell('markup').numFmt  = '0.0%'
       row.getCell('suggSell').numFmt = '"$"#,##0.00'
+      if (!isBottleOfPair && avgEntry?.min != null) row.getCell('minBuy').numFmt = '"$"#,##0.000'
+      if (!isBottleOfPair && avgEntry?.max != null) row.getCell('maxBuy').numFmt = '"$"#,##0.000'
 
       // Sugg sell highlight — amber if below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
@@ -1970,10 +1976,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       // Row background + purple left-border accent on paired rows
       const bg = pairBg ?? (ws.rowCount % 2 === 0 ? { argb:'FFF8FAFC' } : { argb:'FFFFFFFF' })
-      ;['name','cat','sup','unit','srv','sell','suggSell','onHand','invCount','notes'].forEach(k => {
+      ;['name','cat','sup','unit','srv','sell','suggSell','onHand','invCount','minBuy','maxBuy','notes'].forEach(k => {
         const c = row.getCell(k)
         if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
       })
+      // Flag wide min/max spread — could indicate a bad invoice extraction
+      if (!isBottleOfPair && avgEntry?.min != null && avgEntry?.max != null && avgEntry.avg > 0) {
+        const spread = (avgEntry.max - avgEntry.min) / avgEntry.avg
+        if (spread > 0.20) {
+          ;['minBuy','maxBuy'].forEach(k => {
+            row.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFEE2E2' } }
+            row.getCell(k).font = { bold:true, color:{ argb:'FF991B1B' } }
+          })
+          row.getCell('maxBuy').note = `Wide price spread (${(spread*100).toFixed(0)}%) — check invoice extractions for this item`
+        }
+      }
       if (pairBg) {
         row.getCell('name').border = { left: { style:'medium', color:{ argb:'FF7C3AED' } } }
       }
@@ -2042,7 +2059,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       markup: { formula: `=IFERROR(AVERAGEIF(A2:A${lastData},"<>",H2:H${lastData}),"")`, result: 0 },
     })
     summaryRow.getCell('name').font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } }
-    ;['name','cat','sup','unit','buy','srv','sell','onHand','invCount','notes'].forEach(k =>
+    ;['name','cat','sup','unit','buy','srv','sell','onHand','invCount','minBuy','maxBuy','notes'].forEach(k =>
       summaryRow.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } })
     const mc = summaryRow.getCell('markup')
     mc.numFmt = '0.0%'; mc.font = { bold: true, size: 12, color: { argb: 'FF1E3A5F' } }
