@@ -1866,7 +1866,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     // Fetch 90-day avg buy prices
     let avgPriceMap = {}
     try {
-      const ar = await fetch('/api/invoices/avg-prices?days=90')
+      const ar = await fetch('/api/invoices/avg-prices?days=730')
       if (ar.ok) {
         const ad = await ar.json()
         for (const row of ad.items || []) avgPriceMap[row.item_name] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price }
@@ -1886,7 +1886,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Markup %',                     key: 'markup',   width: 12 },
       { header: `Sugg Sell (${markupTarget}%)`, key: 'suggSell', width: 15 },
       { header: 'On Hand',                      key: 'onHand',   width: 10 },
-      { header: '90d Inv Count',                key: 'invCount', width: 13 },
+      { header: 'Invoice Count',                 key: 'invCount', width: 13 },
       { header: 'Min Buy (inc GST)',             key: 'minBuy',   width: 15 },
       { header: 'Max Buy (inc GST)',             key: 'maxBuy',   width: 15 },
       { header: 'Notes',                        key: 'notes',    width: 38 },
