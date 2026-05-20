@@ -138,6 +138,7 @@ export default function Home() {
   const [pricingMarkupTarget, setPricingMarkupTarget] = useState(40)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
+  const [phMatching, setPhMatching] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
   const [phSaveResult, setPhSaveResult] = useState(null)
   const [phHubNames, setPhHubNames] = useState([])
@@ -4110,6 +4111,34 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   }} style={{ padding:'6px 16px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                     {phManageLoading ? '⏳ Loading…' : '🔄 Load Items'}
                   </button>
+                  {phManageData && (
+                    <button onClick={async () => {
+                      const unmatched = phManageData.filter(r => !r._hub || r._hub === r.item_name_raw)
+                      if (!unmatched.length) { alert('All items already have Hub name mappings.'); return }
+                      const hubNames = items.length > 0 ? items.map(i => i.name) : phHubNames
+                      if (!hubNames.length) { alert('Hub items not loaded yet — try again in a moment.'); return }
+                      setPhMatching(true)
+                      try {
+                        const r = await fetch('/api/invoices/match-names', {
+                          method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ raw_names: unmatched.map(r => r.item_name_raw), hub_names: hubNames })
+                        })
+                        const d = await r.json()
+                        if (!r.ok) throw new Error(d.error)
+                        const matchMap = {}
+                        for (const m of d.matches || []) matchMap[m.raw] = m
+                        setPhManageData(prev => prev.map(row => {
+                          const m = matchMap[row.item_name_raw]
+                          if (!m || !m.hub) return row
+                          return { ...row, _hub: m.hub, _confidence: m.confidence, _dirty: true }
+                        }))
+                      } catch(e) { alert('Auto-match failed: ' + e.message) }
+                      setPhMatching(false)
+                    }} style={{ padding:'5px 12px', background: phMatching ? '#94a3b8' : '#7c3aed', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor: phMatching ? 'default' : 'pointer' }}
+                    disabled={phMatching}>
+                      {phMatching ? '⏳ Matching…' : '🤖 Auto-match'}
+                    </button>
+                  )}
                   {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
                 </div>
 
@@ -4138,6 +4167,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: row._dirty ? '#fffbeb' : (i%2===0?'#fff':'#f8fafc') }}>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, maxWidth:200 }}>{row.item_name_raw}</td>
                                 <td style={{ padding:'5px 8px', minWidth:180 }}>
+                                  {row._confidence && (
+                                    <span style={{ display:'inline-block', marginBottom:3, padding:'1px 6px', borderRadius:3, fontSize:10, fontWeight:700,
+                                      background: row._confidence==='high'?'#dcfce7':row._confidence==='medium'?'#fef9c3':'#fee2e2',
+                                      color: row._confidence==='high'?'#166534':row._confidence==='medium'?'#92400e':'#991b1b' }}>
+                                      {row._confidence==='high'?'✓ high':row._confidence==='medium'?'~ medium':'? low'}
+                                    </span>
+                                  )}
                                   <select value={row._hub}
                                     onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
