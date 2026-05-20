@@ -2666,6 +2666,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>📦 Receive from {receiveModal.supplier}</div>
                 <button onClick={() => setReceiveModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
               </div>
+              {/* PO Reference — visible and editable */}
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, padding:'7px 12px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:7 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:'#64748b', whiteSpace:'nowrap' }}>PO Ref:</span>
+                <input
+                  type="text"
+                  value={receiveModal.ref || ''}
+                  onChange={e => setReceiveModal(prev => ({ ...prev, ref: e.target.value }))}
+                  placeholder="e.g. CW-PO-001-25Jun (used in invoice filename)"
+                  style={{ flex:1, fontSize:12, fontFamily:'monospace', fontWeight:600, color:'#0f172a', border:'1px solid #cbd5e1', borderRadius:5, padding:'4px 8px', background: receiveModal.ref ? '#f0fdf4' : '#fffbeb' }}
+                />
+                {!receiveModal.ref && (
+                  <span style={{ fontSize:10, color:'#d97706', fontWeight:700, whiteSpace:'nowrap' }}>⚠ No ref set</span>
+                )}
+              </div>
               <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
                 Enter quantities received. Untick items not in this delivery — they stay on order.
               </p>
