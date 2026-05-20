@@ -119,7 +119,7 @@ export default function Home() {
   const [phLoading, setPhLoading] = useState(false)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
   const [priceReviewModal, setPriceReviewModal] = useState(false)
-  const [pricingMarginTarget, setPricingMarginTarget] = useState(35)
+  const [pricingMarkupTarget, setPricingMarkupTarget] = useState(40)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phManageSaving, setPhManageSaving] = useState({})
@@ -1851,7 +1851,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     setTimeout(() => w.print(), 500)
   }
 
-  async function exportPricingExcel(marginTarget = 35) {
+  async function exportPricingExcel(markupTarget = 40) {
     if (!window.ExcelJS) {
       const s = document.createElement('script')
       s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
@@ -1884,10 +1884,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Serves/Btl',        key: 'srv',      width: 11 },
       { header: 'Sell',              key: 'sell',     width: 11 },
       { header: 'Btl Sell',          key: 'btlSell',  width: 11 },
-      { header: 'Margin %',          key: 'margin',   width: 12 },
-      { header: 'Btl Margin %',      key: 'btlMgn',   width: 14 },
-      { header: `Sugg Sell (${marginTarget}%)`,     key: 'suggSell',    width: 15 },
-      { header: `Sugg Btl Sell (${marginTarget}%)`, key: 'suggBtlSell', width: 16 },
+      { header: 'Markup %',          key: 'markup',   width: 12 },
+      { header: 'Btl Markup %',      key: 'btlMkup',  width: 14 },
+      { header: `Sugg Sell (${markupTarget}%)`,     key: 'suggSell',    width: 15 },
+      { header: `Sugg Btl Sell (${markupTarget}%)`, key: 'suggBtlSell', width: 16 },
       { header: 'On Hand',           key: 'onHand',   width: 10 },
       { header: '90d Inv Count',     key: 'invCount', width: 13 },
     ]
@@ -1909,8 +1909,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
-    const mColor = (p) => p < 20 ? { argb:'FFFEE2E2' } : p < 35 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
-    const mFont  = (p) => p < 20 ? { argb:'FF991B1B' } : p < 35 ? { argb:'FF92400E' } : { argb:'FF166534' }
+    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
+    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
     for (const item of allItems) {
       const isWine     = WINE_C.includes(item.category)
@@ -1952,17 +1952,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         srv:      serves,
         sell:     sell ?? '',
         btlSell:  isWine && sellBottle ? sellBottle : '',
-        margin:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",G${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/(G${rNum}*F${rNum}),"")`, result: 0 },
-        btlMgn:   isWine ? { formula: `=IF(AND(E${rNum}<>"",H${rNum}<>"",H${rNum}>0),(H${rNum}-E${rNum})/H${rNum},"")`, result: 0 } : '',
+        markup:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",E${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/E${rNum},"")`, result: 0 },
+        btlMkup:  isWine ? { formula: `=IF(AND(E${rNum}<>"",H${rNum}<>"",E${rNum}>0),(H${rNum}-E${rNum})/E${rNum},"")`, result: 0 } : '',
         // Suggested sell at target margin, rounded to nearest 50c
         ...(() => {
-          const div = (1 - marginTarget / 100)
+          const mult = (1 + markupTarget / 100)
           const mround = (v, m) => Math.round(v / m) * m
-          const sv  = avgBuy != null ? mround(avgBuy / (div * serves), 0.5) : null
-          const sbv = isWine && sellBottle && avgBuy != null ? mround(avgBuy / div, 0.5) : null
+          const sv  = avgBuy != null ? mround(avgBuy * mult / serves, 0.5) : null
+          const sbv = isWine && sellBottle && avgBuy != null ? mround(avgBuy * mult, 0.5) : null
           return {
-            suggSell:    sv  != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/((1-${marginTarget}/100)*F${rNum}),0.5),"")`, result: sv  } : '',
-            suggBtlSell: sbv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}/(1-${marginTarget}/100),0.5),"")`,            result: sbv } : '',
+            suggSell:    sv  != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.5),"")`, result: sv  } : '',
+            suggBtlSell: sbv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100),0.5),"")`,            result: sbv } : '',
           }
         })(),
         onHand:   item.onHand ?? 0,
@@ -1972,27 +1972,27 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
       if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
       if (isWine && sellBottle) row.getCell('btlSell').numFmt = '"$"#,##0.00'
-      row.getCell('margin').numFmt = '0.0%'
-      if (isWine) row.getCell('btlMgn').numFmt = '0.0%'
+      row.getCell('markup').numFmt = '0.0%'
+      if (isWine) row.getCell('btlMkup').numFmt = '0.0%'
       row.getCell('suggSell').numFmt = '"$"#,##0.00'
       if (isWine && sellBottle) row.getCell('suggBtlSell').numFmt = '"$"#,##0.00'
 
       // Highlight suggestion cells — amber if price below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
-        const mp = glassWine ? (sell*serves - avgBuy)/(sell*serves)*100 : (sell - avgBuy)/sell*100
+        const mp = glassWine ? (sell*serves - avgBuy)/avgBuy*100 : (sell - avgBuy)/avgBuy*100
         const sc = row.getCell('suggSell')
-        const diff = Math.abs(mp - marginTarget)
+        const diff = Math.abs(mp - markupTarget)
         if (diff > 2) {
-          sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 35 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
-          sc.font = { bold: true, color: mp < 35 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
+          sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
+          sc.font = { bold: true, color: mp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
         }
         if (isWine && sellBottle && sellBottle > 0) {
-          const bp = (sellBottle - avgBuy) / sellBottle * 100
+          const bp = (sellBottle - avgBuy) / avgBuy * 100
           const bc = row.getCell('suggBtlSell')
-          const bdiff = Math.abs(bp - marginTarget)
+          const bdiff = Math.abs(bp - markupTarget)
           if (bdiff > 2) {
-            bc.fill = { type:'pattern', pattern:'solid', fgColor: bp < 35 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
-            bc.font = { bold: true, color: bp < 35 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
+            bc.fill = { type:'pattern', pattern:'solid', fgColor: bp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
+            bc.font = { bold: true, color: bp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
           }
         }
       }
@@ -2006,14 +2006,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (avgBuyIncGst == null && hubBuy == null) buyCl.note = 'No buy price available — enter manually'
 
       if (avgBuy != null && sell != null && sell > 0) {
-        const mp = glassWine ? (sell*serves - avgBuy) / (sell*serves) * 100 : (sell - avgBuy) / sell * 100
-        const mc = row.getCell('margin')
+        const mp = glassWine ? (sell*serves - avgBuy) / avgBuy * 100 : (sell - avgBuy) / avgBuy * 100
+        const mc = row.getCell('markup')
         mc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(mp) }
         mc.font = { bold: true, color: mFont(mp) }
         mc.alignment = { horizontal: 'right' }
         if (isWine && sellBottle && sellBottle > 0) {
-          const bp = (sellBottle - avgBuy) / sellBottle * 100
-          const bc = row.getCell('btlMgn')
+          const bp = (sellBottle - avgBuy) / avgBuy * 100
+          const bc = row.getCell('btlMkup')
           bc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(bp) }
           bc.font = { bold: true, color: mFont(bp) }
           bc.alignment = { horizontal: 'right' }
@@ -2030,17 +2030,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     ws.addRow({})
     const lastData = ws.rowCount - 1
     const summaryRow = ws.addRow({
-      name:   'OVERALL AVERAGE MARGIN (excl. rundown)',
-      margin: { formula: `=IFERROR(AVERAGEIF(A2:A${lastData},"<>",I2:I${lastData}),"")`, result: 0 },
+      name:   'OVERALL AVERAGE MARKUP (excl. rundown)',
+      markup: { formula: `=IFERROR(AVERAGEIF(A2:A${lastData},"<>",I2:I${lastData}),"")`, result: 0 },
     })
     summaryRow.getCell('name').font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } }
     ;['name','cat','sup','unit','buy','srv','sell','btlSell','onHand','invCount'].forEach(k =>
       summaryRow.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } })
-    const mc = summaryRow.getCell('margin')
+    const mc = summaryRow.getCell('markup')
     mc.numFmt = '0.0%'; mc.font = { bold: true, size: 12, color: { argb: 'FF1E3A5F' } }
     mc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
     mc.alignment = { horizontal: 'right' }
-    summaryRow.getCell('btlMgn').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
+    summaryRow.getCell('btlMkup').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
 
     const date = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'}).replace(/\//g,'-')
     const buf  = await wb.xlsx.writeBuffer()
@@ -2073,16 +2073,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
       const sell = isWine && sellUnit === 'bottle' ? sellBottle : sellGlass
       const buy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-      let marginPct = null, btlMarginPct = null
-      if (buy != null && sell != null && sell > 0) {
-        if (item.isSpirit) marginPct = (sell-buy)/sell*100
-        else if (isWine && sellUnit==='glass') { const rev=sell*servesPB; marginPct=rev>0?(rev-buy)/rev*100:null }
-        else marginPct = (sell-buy)/sell*100
+      let markupPct = null, btlMarkupPct = null
+      if (buy != null && sell != null && buy > 0) {
+        if (item.isSpirit) markupPct = (sell-buy)/buy*100
+        else if (isWine && sellUnit==='glass') { const rev=sell*servesPB; markupPct=buy>0?(rev-buy)/buy*100:null }
+        else markupPct = (sell-buy)/buy*100
       }
-      if (isWine && sellBottle!=null && buy!=null && sellBottle>0) btlMarginPct=(sellBottle-buy)/sellBottle*100
+      if (isWine && sellBottle!=null && buy!=null && buy>0) btlMarkupPct=(sellBottle-buy)/buy*100
       const fmt = (n) => n!=null ? '$'+Number(n).toFixed(2) : '—'
       const fmtPct = (p) => p!=null ? p.toFixed(1)+'%' : '—'
-      const mColor = (p) => p==null?'#94a3b8':p<20?'#991b1b':p<35?'#d97706':'#16a34a'
+      const mColor = (p) => p==null?'#94a3b8':p<25?'#991b1b':p<40?'#d97706':'#16a34a'
       return `<tr>
         <td>${item.name}</td>
         <td>${item.category}</td>
@@ -2090,8 +2090,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         <td style='text-align:right;font-family:monospace'>${fmt(buy)}</td>
         <td style='text-align:right;font-family:monospace'>${fmt(sell)}</td>
         <td style='text-align:right;font-family:monospace'>${isWine ? fmt(sellBottle) : ''}</td>
-        <td style='text-align:right;font-weight:700;color:${mColor(marginPct)}'>${fmtPct(marginPct)}</td>
-        <td style='text-align:right;font-weight:700;color:${mColor(btlMarginPct)}'>${isWine ? fmtPct(btlMarginPct) : ''}</td>
+        <td style='text-align:right;font-weight:700;color:${mColor(markupPct)}'>${fmtPct(markupPct)}</td>
+        <td style='text-align:right;font-weight:700;color:${mColor(btlMarkupPct)}'>${isWine ? fmtPct(btlMarkupPct) : ''}</td>
         <td style='text-align:right;color:#64748b'>${item.onHand??0}</td>
       </tr>`
     }).join('')
@@ -2099,8 +2099,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 <style>body{font-family:Arial,sans-serif;font-size:11px;margin:15px}h2{color:#1e3a5f;margin-bottom:4px}table{width:100%;border-collapse:collapse}th{background:#1e3a5f;color:#fff;padding:6px 8px;text-align:left;font-size:10px;text-transform:uppercase}td{padding:5px 8px;border-bottom:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}.footer{margin-top:16px;font-size:9px;color:#94a3b8}@media print{body{margin:8px}}</style>
 </head><body>
 <h2>Pricing Analysis \u2014 Paynter Bar</h2>
-<p style='color:#64748b;font-size:10px;margin-bottom:10px'>${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})} \u00b7 ${allItems.length} items \u00b7 Margin shown on primary sell unit</p>
-<table><thead><tr><th>Item</th><th>Category</th><th>Unit</th><th style='text-align:right'>Buy</th><th style='text-align:right'>Sell</th><th style='text-align:right'>Btl Sell</th><th style='text-align:right'>Margin</th><th style='text-align:right'>Btl Margin</th><th style='text-align:right'>Stock</th></tr></thead><tbody>${rows}</tbody></table>
+<p style='color:#64748b;font-size:10px;margin-bottom:10px'>${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})} \u00b7 ${allItems.length} items \u00b7 Markup shown on primary sell unit</p>
+<table><thead><tr><th>Item</th><th>Category</th><th>Unit</th><th style='text-align:right'>Buy</th><th style='text-align:right'>Sell</th><th style='text-align:right'>Btl Sell</th><th style='text-align:right'>Markup</th><th style='text-align:right'>Btl Markup</th><th style='text-align:right'>Stock</th></tr></thead><tbody>${rows}</tbody></table>
 <div class='footer'>Paynter Bar Hub \u00b7 GemLife Palmwoods \u00b7 All items including zero stock</div></body></html>`
     const w = window.open('','_blank')
     w.document.write(html)
@@ -3057,12 +3057,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                     <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
                       <span style={{ color:'#475569' }}>Target:</span>
-                      <input type='number' value={pricingMarginTarget} min={10} max={90} step={5}
-                        onChange={e => setPricingMarginTarget(Number(e.target.value))}
+                      <input type='number' value={pricingMarkupTarget} min={10} max={90} step={5}
+                        onChange={e => setPricingMarkupTarget(Number(e.target.value))}
                         style={{ width:46, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
                       <span style={{ color:'#475569' }}>%</span>
                     </span>
-                    <button onClick={() => exportPricingExcel(pricingMarginTarget)}
+                    <button onClick={() => exportPricingExcel(pricingMarkupTarget)}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
@@ -3297,7 +3297,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sell/Serve</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Margin</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Markup</th>
                     </>}
                   </tr>
                 </thead>
@@ -3316,7 +3316,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ ...styles.td, fontWeight: 500, fontSize: 13 }}>
                           {item.name}
                           {item.buyPrice == null && !item.isSpirit && (
-                            <span title="No buy price set — affects margin and stock value calculations"
+                            <span title="No buy price set — affects markup and stock value calculations"
                               style={{ marginLeft:5, background:'#fef2f2', color:'#dc2626', fontSize:9, fontWeight:700, padding:'1px 4px', borderRadius:3, border:'1px solid #fca5a5', whiteSpace:'nowrap' }}>$ missing</span>
                           )}
                         </td>
@@ -3509,29 +3509,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           // Active sell price for this item/mode
                           const sell = (isWine && sellUnit === 'bottle') ? sellBottle : sellGlass
 
-                          // Margin logic:
-                          //   spirits:     buy=per nip, sell=per nip  → (sell−buy)/sell
-                          //   wine glass:  buy=per bottle, sell=per glass → (sell×serves−buy)/(sell×serves)
-                          //   wine bottle: buy=per bottle, sell=per bottle → (sell−buy)/sell
-                          //   beer/other:  buy=per unit, sell=per unit → (sell−buy)/sell
-                          let marginPct = null
-                          if (buy != null && buy >= 0 && sell != null && sell > 0) {
+                          // Markup logic:
+                          //   spirits:     buy=per nip, sell=per nip  → (sell−buy)/buy
+                          //   wine glass:  buy=per bottle, sell=per glass → (sell×serves−buy)/buy
+                          //   wine bottle: buy=per bottle, sell=per bottle → (sell−buy)/buy
+                          //   beer/other:  buy=per unit, sell=per unit → (sell−buy)/buy
+                          let markupPct = null
+                          if (buy != null && buy > 0 && sell != null && sell > 0) {
                             if (item.isSpirit) {
                               // both per nip
-                              marginPct = ((sell - buy) / sell) * 100
+                              markupPct = ((sell - buy) / buy) * 100
                             } else if (isWine && sellUnit === 'glass' && servesPerBottle) {
                               // buy per bottle, sell per glass
                               const rev = sell * servesPerBottle
-                              marginPct = rev > 0 ? ((rev - buy) / rev) * 100 : null
+                              markupPct = (rev - buy) / buy * 100
                             } else {
                               // wine bottle, beer, other — both same unit
-                              marginPct = ((sell - buy) / sell) * 100
+                              markupPct = ((sell - buy) / buy) * 100
                             }
                           }
                           const revenuePerBottle = (isWine && sellUnit === 'glass' && sell != null && servesPerBottle)
                             ? +(sell * servesPerBottle).toFixed(2) : null
-                          const marginStr   = marginPct != null ? marginPct.toFixed(1) + '%' : '—'
-                          const marginColor = marginPct == null ? '#94a3b8' : marginPct >= 40 ? '#16a34a' : marginPct >= 20 ? '#d97706' : '#dc2626'
+                          const markupStr   = markupPct != null ? markupPct.toFixed(1) + '%' : '—'
+                          const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -3600,8 +3600,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#64748b' }}>
                               {(item.isSpirit || isWine) ? (servesPerBottle ?? '—') : <span style={{ color: '#94a3b8' }}>—</span>}
                             </td>
-                            <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: marginColor }}>
-                              {marginStr}
+                            <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: markupColor }}>
+                              {markupStr}
                               {servesPerBottle != null && servesPerBottle > 1 && revenuePerBottle != null && (
                                 <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 400 }}>${revenuePerBottle.toFixed(2)}/btl rev</div>
                               )}
@@ -4138,7 +4138,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
-              const TARGET = pricingMarginTarget || 35
+              const TARGET = pricingMarkupTarget || 40
               const BAND   = 3
               const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
               const mround = (v, m) => Math.round(v / m) * m
@@ -4181,23 +4181,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
                   if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
                     const rev    = sellGlass * serves
-                    const margin = (rev - avgBuyPerUnit) / rev * 100
-                    const diff   = margin - TARGET
+                    const markup = avgBuyPerUnit > 0 ? (rev - avgBuyPerUnit) / avgBuyPerUnit * 100 : 0
+                    const diff   = markup - TARGET
                     if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
-                      sell: sellGlass, avgBuy: avgBuyPerUnit, margin, diff,
-                      suggSell: mround(avgBuyPerUnit / (serves * (1 - TARGET/100)), 0.50)
+                      sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
+                      suggSell: mround(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.50)
                     })
                   }
 
                   if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
-                    const margin = (sellBottle - avgBuyPerBottle) / sellBottle * 100
-                    const diff   = margin - TARGET
+                    const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
+                    const diff   = markup - TARGET
                     if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
-                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, margin, diff,
-                      suggSell: mround(avgBuyPerBottle / (1 - TARGET/100), 0.50)
+                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
+                      suggSell: mround(avgBuyPerBottle * (1 + TARGET/100), 0.50)
                     })
                   }
 
@@ -4233,9 +4233,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         {/* Margin target */}
                         <label style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
                           <span style={{ color:'#64748b' }}>Target:</span>
-                          <select value={pricingMarginTarget} onChange={e => setPricingMarginTarget(Number(e.target.value))}
+                          <select value={pricingMarkupTarget} onChange={e => setPricingMarkupTarget(Number(e.target.value))}
                             style={{ padding:'2px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }}>
-                            {[30,31,32,33,34,35,36,37,38,39,40].map(v => <option key={v} value={v}>{v}%</option>)}
+                            {[20,25,30,35,40,45,50,55,60].map(v => <option key={v} value={v}>{v}%</option>)}
                           </select>
                         </label>
                         {/* Switch supplier */}
@@ -4268,8 +4268,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </button>
                         {/* Export CSV */}
                         <button onClick={() => {
-                          const csv = ['Item,Category,Unit,Avg Buy (inc GST),Current Sell,Margin %,vs Target %,Sugg Sell']
-                            .concat(rows.map(r => `"${r.name}","${r.cat}","${r.unit}",${r.avgBuy.toFixed(3)},${r.sell.toFixed(2)},${r.margin.toFixed(1)},${r.diff.toFixed(1)},${r.suggSell.toFixed(2)}`))
+                          const csv = ['Item,Category,Unit,Avg Buy (inc GST),Current Sell,Markup %,vs Target %,Sugg Sell']
+                            .concat(rows.map(r => `"${r.name}","${r.cat}","${r.unit}",${r.avgBuy.toFixed(3)},${r.sell.toFixed(2)},${r.markup.toFixed(1)},${r.diff.toFixed(1)},${r.suggSell.toFixed(2)}`))
                             .join('\n')
                           const blob = new Blob([csv], { type:'text/csv' })
                           const a = document.createElement('a')
@@ -4292,8 +4292,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <table id={tableId} style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                         <thead>
                           <tr style={{ background: supColour[priceReviewModal] || '#1e3a5f', color:'#fff' }}>
-                            {['Item','Category','Unit','Avg Buy (inc GST)','Current Sell','Margin','vs Target','Sugg Sell','Change'].map(h => (
-                              <th key={h} style={{ padding:'8px 10px', textAlign:['Avg Buy (inc GST)','Current Sell','Margin','vs Target','Sugg Sell','Change'].includes(h)?'right':'left', fontWeight:700, fontSize:11 }}>{h}</th>
+                            {['Item','Category','Unit','Avg Buy (inc GST)','Current Sell','Markup','vs Target','Sugg Sell','Change'].map(h => (
+                              <th key={h} style={{ padding:'8px 10px', textAlign:['Avg Buy (inc GST)','Current Sell','Markup','vs Target','Sugg Sell','Change'].includes(h)?'right':'left', fontWeight:700, fontSize:11 }}>{h}</th>
                             ))}
                           </tr>
                         </thead>
@@ -4314,8 +4314,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.margin < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
-                                {r.margin.toFixed(1)}%
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
+                                {r.markup.toFixed(1)}%
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
                                 {r.diff > 0 ? '+' : ''}{r.diff.toFixed(1)}%
@@ -6814,8 +6814,8 @@ function HelpTab() {
         { q: 'Receiving an order', a: 'When stock arrives, click the banner that appears for the pending order and select Receive. Enter the quantities received and optionally attach the supplier invoice PDF. Square inventory updates automatically on confirm.' },
         { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all BMT members.' },
         { q: 'Adding notes', a: 'Click the Notes column for any item to add a note (e.g. "Discontinued", "Check price"). Notes are saved and visible to all.' },
-        { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average margin in the pricing export.' },
-        { q: 'Missing buy prices', a: 'A red ⚠️ warning appears in the toolbar if any items are missing a buy price. Click it to jump to Pricing view. Buy prices affect margin calculations and stock value reports.' },
+        { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average markup in the pricing export.' },
+        { q: 'Missing buy prices', a: 'A red ⚠️ warning appears in the toolbar if any items are missing a buy price. Click it to jump to Pricing view. Buy prices affect markup calculations and stock value reports.' },
         { q: 'Adding or removing suppliers', a: 'Suppliers are managed in ⚙️ Settings in the sidebar. Add or remove suppliers there, and assign items to suppliers by clicking the Supplier column inline.' },
       ]
     },
@@ -6833,9 +6833,9 @@ function HelpTab() {
       icon: '💲',
       title: 'Pricing Mode',
       items: [
-        { q: 'Enabling pricing', a: 'Click $ Pricing in the controls bar to reveal Buy Price, Sell Price and Margin % columns. This view is only available to BMT members.' },
+        { q: 'Enabling pricing', a: 'Click $ Pricing in the controls bar to reveal Buy Price, Sell Price and Markup % columns. This view is only available to BMT members.' },
         { q: 'Sell prices from Square', a: 'Sell prices are imported automatically from your Square catalogue. All price changes must be made in Square — this keeps Square as the single source of truth.' },
-        { q: 'Margin calculation', a: 'Margin % = (Sell − Buy) ÷ Sell × 100. Green = 40%+, amber = 20–40%, red = below 20%. Requires both buy and sell price to be set.' },
+        { q: 'Markup calculation', a: 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. Requires both buy and sell price to be set.' },
         { q: 'Buy prices', a: 'Click the Buy Price cell for any item and type the cost price. Saved to the cloud and shared across all management team sessions.' },
       ]
     },
