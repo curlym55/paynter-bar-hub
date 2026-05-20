@@ -114,6 +114,22 @@ export default function Home() {
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
   const [phDays, setPhDays] = useState('all')
+
+  const loadPhReport = async (days, sup) => {
+    setPhLoading(true)
+    setPhAvgData(null)
+    try {
+      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
+      const d = await r.json()
+      if (!r.ok) throw new Error(d.error || 'Load failed')
+      setPhAvgData(d)
+      const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
+      setPhDbSuppliers(sups)
+    } catch (e) {
+      alert('Failed to load report: ' + e.message)
+    }
+    setPhLoading(false)
+  }
   const [phSupFilter, setPhSupFilter] = useState('all')
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
@@ -4389,14 +4405,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
                   <div style={{ display:'flex', gap:4 }}>
                     {['30','60','90','180','all'].map(d => (
-                      <button key={d} onClick={() => setPhDays(d)}
+                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
                         style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
                           background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
                         {d === 'all' ? 'All' : `${d} days`}
                       </button>
                     ))}
                   </div>
-                  <select value={phSupFilter} onChange={e => setPhSupFilter(e.target.value)}
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4412,21 +4428,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={async () => {
-                    setPhLoading(true)
-                    setPhAvgData(null)
-                    try {
-                      const r = await fetch(`/api/invoices/avg-prices?days=${phDays === 'all' ? 730 : phDays}&supplier=${encodeURIComponent(phSupFilter)}`)
-                      const d = await r.json()
-                      if (!r.ok) throw new Error(d.error || 'Load failed')
-                      setPhAvgData(d)
-                      const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
-                      setPhDbSuppliers(sups)
-                    } catch (e) {
-                      alert('Failed to load report: ' + e.message)
-                    }
-                    setPhLoading(false)
-                  }} style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
+                    style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
 
