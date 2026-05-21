@@ -1,5 +1,5 @@
 // WastageView.jsx — extracted from pages/index.js
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import { styles } from '../../../lib/barStyles'
 
 export default function WastageView({ items, log, readOnly, onRefresh }) {
