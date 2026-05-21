@@ -1,8 +1,8 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES } from '../lib/calculations'
 import { styles } from '../lib/barStyles'
-import WastageView from '../../../components/bar/views/WastageView'
+import WastageView from '../components/bar/views/WastageView'
 
 const DEFAULT_SUPPLIERS = ['Dan Murphy', 'Coles Woolies', 'ACW']
 
