@@ -1,6 +1,7 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES } from '../lib/calculations'
+import { styles } from '../lib/barStyles'
 
 const DEFAULT_SUPPLIERS = ['Dan Murphy', 'Coles Woolies', 'ACW']
 
@@ -7353,44 +7354,6 @@ function EditText({ value, onChange, saving, placeholder, readOnly }) {
 }
 
 // ─── STYLES ───────────────────────────────────────────────────────────────────
-const styles = {
-  page:          { minHeight: '100vh', background: '#f1f5f9', fontFamily: "'IBM Plex Sans', sans-serif", overflowX: 'hidden', display: 'flex', flexDirection: 'row' },
-  loadWrap:      { display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', background: '#f1f5f9' },
-  loadBox:       { textAlign: 'center' },
-  spinner:       { width: 40, height: 40, border: '3px solid #e2e8f0', borderTop: '3px solid #1f4e79', borderRadius: '50%', animation: 'spin 1s linear infinite', margin: '0 auto' },
-  header:        { background: '#0f172a', color: '#fff' },
-  headerInner:   { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 24px 12px', flexWrap: 'wrap', gap: 12 },
-  headerTop:     { display: 'flex', alignItems: 'center', gap: 12, marginBottom: 4 },
-  logo:          { fontSize: 11, fontWeight: 700, letterSpacing: '0.2em', color: '#cbd5e1', textTransform: 'uppercase', fontFamily: "'IBM Plex Mono', monospace" },
-  logoSub:       { fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" },
-  title:         { fontSize: 22, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.02em' },
-  headerRight:   { display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 8 },
-  lastUpdated:   { fontSize: 12, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" },
-  btn:           { background: '#2563eb', color: '#fff', border: 'none', borderRadius: 6, padding: '8px 18px', fontSize: 13, fontWeight: 600, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" },
-  btnDisabled:   { background: '#334155', cursor: 'not-allowed' },
-  statsBar:      { display: 'flex', borderTop: '1px solid #334155', padding: '0 32px', overflowX: 'auto', WebkitOverflowScrolling: 'touch' },
-  stat:          { display: 'flex', flexDirection: 'column', alignItems: 'center', padding: '12px 24px', borderRight: '1px solid #334155', gap: 2, borderTopWidth: 3, borderTopStyle: 'solid', borderTopColor: 'transparent' },
-  statNum:       { fontSize: 22, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", color: '#f8fafc' },
-  statLabel:     { fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em' },
-  targetInput:   { width: 50, fontSize: 20, fontWeight: 700, fontFamily: "'IBM Plex Mono', monospace", background: '#1e293b', color: '#f8fafc', border: '1px solid #475569', borderRadius: 4, textAlign: 'center', padding: '2px 4px' },
-  errorBox:      { background: '#fee2e2', border: '1px solid #fca5a5', color: '#991b1b', margin: '16px 32px', padding: '12px 16px', borderRadius: 6, fontSize: 13 },
-  controls:      { display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '16px 32px', background: '#fff', borderBottom: '1px solid #e2e8f0', flexWrap: 'wrap', gap: 12 },
-  viewTabs:      { display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' },
-  tab:           { padding: '6px 14px', borderRadius: 6, border: '1px solid #cbd5e1', background: '#f8fafc', color: '#374151', fontSize: 13, fontWeight: 500, cursor: 'pointer', fontFamily: "'IBM Plex Sans', sans-serif" },
-  tabActive:     { background: '#0f172a', color: '#fff', borderColor: '#0f172a' },
-  filterCheck:   { display: 'flex', alignItems: 'center', fontSize: 13, color: '#374151', cursor: 'pointer' },
-  supplierInput: { fontSize: 13, border: '1px solid #3b82f6', borderRadius: 6, padding: '6px 10px', fontFamily: "'IBM Plex Sans', sans-serif", width: 160 },
-  dropdown:      { position: 'absolute', top: '100%', right: 0, marginTop: 4, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, boxShadow: '0 4px 12px rgba(0,0,0,0.1)', zIndex: 100, minWidth: 200 },
-  dropItem:      { display: 'block', width: '100%', padding: '10px 16px', background: 'none', border: 'none', textAlign: 'left', cursor: 'pointer', fontSize: 13, color: '#374151', fontFamily: "'IBM Plex Sans', sans-serif" },
-  tableWrap:     { overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 180px)' },
-  table:         { width: '100%', borderCollapse: 'collapse', fontSize: 13, background: '#fff' },
-  thead:         { background: '#f8fafc', position: 'sticky', top: 0, zIndex: 10 },
-  th:            { padding: '10px 14px', textAlign: 'left', fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.08em', borderBottom: '2px solid #e2e8f0', whiteSpace: 'nowrap' },
-  td:            { padding: '9px 14px', borderBottom: '1px solid #f1f5f9', verticalAlign: 'middle' },
-  inlineSelect:  { fontSize: 12, border: '1px solid #3b82f6', borderRadius: 4, padding: '2px 4px', background: '#eff6ff', color: '#1d4ed8', fontFamily: "'IBM Plex Sans', sans-serif" },
-  inlineInput:   { width: 70, fontSize: 13, border: '1px solid #3b82f6', borderRadius: 4, padding: '2px 6px', background: '#eff6ff', color: '#1d4ed8', textAlign: 'center', fontFamily: "'IBM Plex Mono', monospace" },
-  footer:        { textAlign: 'center', padding: '24px', fontSize: 12, color: '#94a3b8', borderTop: '1px solid #e2e8f0', background: '#fff' },
-}
 
 
 // ─── STOCKTAKE VIEW ────────────────────────────────────────────────────────────
