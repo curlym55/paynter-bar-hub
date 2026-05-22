@@ -1893,8 +1893,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         suggSell: sv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.25),"")`, result: sv } : '',
         onHand:   !isBottleOfPair ? (item.onHand ?? 0) : '',
         invCount: !isBottleOfPair ? (avgEntry?.count ?? '') : '',
-        minBuy:   !isBottleOfPair && avgEntry?.min != null ? (() => { const mult = (1 + markupTarget / 100); const minEx = (item.isSpirit && item.bottleML && effectiveNipML) ? avgEntry.min / (item.bottleML / effectiveNipML) : avgEntry.min; return Math.round(minEx * 1.10 * 1000) / 1000 })() : '',
-        maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const mult = (1 + markupTarget / 100); const maxEx = (item.isSpirit && item.bottleML && effectiveNipML) ? avgEntry.max / (item.bottleML / effectiveNipML) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
+        minBuy:   !isBottleOfPair && avgEntry?.min != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const minEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.min / (item.bottleML / _nip) : avgEntry.min; return Math.round(minEx * 1.10 * 1000) / 1000 })() : '',
+        maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const maxEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.max / (item.bottleML / _nip) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
       })
 
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
