@@ -1,29 +1,14 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES } from '../lib/calculations'
 import { styles } from '../lib/barStyles'
+import { DEFAULT_SUPPLIERS, PRIORITY_COLORS, SUPPLIER_COLORS, CATEGORY_ORDER_LIST } from '../lib/constants'
 import WastageView from '../components/bar/views/WastageView'
 import NotesView from '../components/bar/views/NotesView'
 import SpecialsView from '../components/bar/views/SpecialsView'
 
-const DEFAULT_SUPPLIERS = ['Dan Murphy', 'Coles Woolies', 'ACW']
 
-const PRIORITY_COLORS = {
-  CRITICAL: { bg: '#fee2e2', text: '#991b1b', badge: '#dc2626' },
-  LOW:      { bg: '#fef9c3', text: '#854d0e', badge: '#ca8a04' },
-  OK:       { bg: '#f0fdf4', text: '#166534', badge: '#16a34a' },
-}
 
-const SUPPLIER_COLORS = {
-  'Dan Murphy':   '#1f4e79',
-  'Coles Woolies': '#c2410c',
-  'ACW':           '#166534',
-}
-
-const CATEGORY_ORDER_LIST = [
-  'Beer','Cider','PreMix','White Wine','Red Wine','Rose',
-  'Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks'
-]
 
 // ── ExcelJS helpers — module-level so available to all components ─────────
 async function loadExcelJS() {
