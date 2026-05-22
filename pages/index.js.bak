@@ -12,6 +12,9 @@ import DashboardView from '../components/bar/views/DashboardView'
 import BarcodeSheetView from '../components/bar/views/BarcodeSheetView'
 import BestSellersView from '../components/bar/views/BestSellersView'
 import PriceListView from '../components/bar/views/PriceListView'
+import TrendsView from '../components/bar/views/TrendsView'
+import { xlsAOAtoWS } from '../lib/excel/xlsAOAtoWS'
+import { xlsDownload } from '../lib/excel/xlsDownload'
 
 
 
@@ -27,56 +30,7 @@ async function loadExcelJS() {
   return window.ExcelJS
 }
 
-function xlsAOAtoWS(wb, aoa, sheetName, { cols, rowHeights, merges, freeze, autoFilter } = {}) {
-  const ws = wb.addWorksheet(sheetName)
-  if (cols) ws.columns = cols.map(c => ({ width: c.wch || 12 }))
-  if (freeze) ws.views = [{ state: 'frozen', ySplit: freeze }]
-  aoa.forEach((rowData, ri) => {
-    if (!rowData || rowData.length === 0) { ws.addRow([]); return }
-    const values = rowData.map(c => {
-      if (!c || typeof c !== 'object') return c ?? ''
-      if (c.f) return { formula: c.f, result: 0 }
-      return c.v ?? ''
-    })
-    const row = ws.addRow(values)
-    if (rowHeights?.[ri]) row.height = rowHeights[ri].hpt
-    rowData.forEach((c, ci) => {
-      if (!c || typeof c !== 'object') return
-      const xc = row.getCell(ci + 1)
-      const s = c.s || {}
-      if (s.font) {
-        const f = {}
-        if (s.font.bold !== undefined) f.bold = s.font.bold
-        if (s.font.italic) f.italic = true
-        if (s.font.sz) f.size = s.font.sz
-        if (s.font.color?.rgb) f.color = { argb: 'FF' + s.font.color.rgb }
-        xc.font = f
-      }
-      if (s.fill?.fgColor?.rgb) xc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+s.fill.fgColor.rgb } }
-      if (s.alignment) xc.alignment = { horizontal:s.alignment.horizontal, vertical:s.alignment.vertical, wrapText:s.alignment.wrapText }
-      if (s.numFmt) xc.numFmt = s.numFmt
-      if (s.border) {
-        const b = {}
-        for (const side of ['top','bottom','left','right']) {
-          if (s.border[side]) b[side] = { style:s.border[side].style, color:{ argb:'FF'+s.border[side].color.rgb } }
-        }
-        xc.border = b
-      }
-    })
-  })
-  if (merges) merges.forEach(m => ws.mergeCells(m.s.r+1, m.s.c+1, m.e.r+1, m.e.c+1))
-  if (autoFilter) ws.autoFilter = autoFilter
-  return ws
-}
 
-async function xlsDownload(wb, filename) {
-  wb.calcProperties = { fullCalcOnLoad: true }
-  const buf = await wb.xlsx.writeBuffer()
-  const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a'); a.href = url; a.download = filename; a.click()
-  URL.revokeObjectURL(url)
-}
 
 export default function Home() {
   const [authed, setAuthed]             = useState(false)
@@ -4779,66 +4733,6 @@ function CategoryChart({ cat, data, hasRev }) {
   )
 }
 
-function TrendsView({ data, loading, error }) {
-  const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
-
-  if (loading) return (
-    <div style={{ padding: 60, textAlign: 'center', color: '#64748b' }}>
-      <div style={{ fontSize: 32, marginBottom: 12 }}>📊</div>
-      <div style={{ fontSize: 14 }}>Loading quarterly data from Square...</div>
-      <div style={{ fontSize: 11, marginTop: 8, color: '#94a3b8' }}>This may take a few seconds</div>
-    </div>
-  )
-  if (error) return (
-    <div style={{ padding: 40, textAlign: 'center', color: '#dc2626' }}>
-      <div style={{ fontSize: 14 }}>Could not load trend data: {error}</div>
-    </div>
-  )
-  if (!data) return null
-
-  const allCats    = CATEGORY_ORDER.filter(c => data.some(q => q.categories[c]))
-  const hasRev     = data.some(q => q.totals.revenue > 0)
-  const qLabels    = data.map(q => q.label)
-  const grandTotals = data.map(q => q.totals.unitsSold)
-  const maxGrand   = Math.max(...grandTotals, 1)
-
-  return (
-    <div style={{ padding: '28px 32px', maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 10, padding: '18px 24px', marginBottom: 24 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: '#0f172a' }}>Quarterly Sales Trends</div>
-            <div style={{ fontSize: 11, color: '#64748b', marginTop: 3 }}>Last 4 quarters — units sold by category</div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
-            {qLabels.map((q, i) => (
-              <div key={i} style={{ fontSize: 10, background: '#f1f5f9', borderRadius: 4, padding: '3px 8px', color: '#475569' }}>
-                {q}: <strong>{grandTotals[i].toLocaleString()}</strong>
-              </div>
-            ))}
-          </div>
-        </div>
-        <svg width="100%" viewBox="0 0 680 60" style={{ overflow: 'visible' }}>
-          {data.map((q, i) => {
-            const bh = Math.round((grandTotals[i] / maxGrand) * 40)
-            const x  = 10 + i * 165
-            const y  = 50 - bh
-            return (
-              <g key={i}>
-                <rect x={x} y={y} width={150} height={bh} fill="#0f172a" rx={3} opacity={0.15}/>
-                <rect x={x} y={y} width={150} height={bh} fill="#2563eb" rx={3} opacity={0.6}/>
-                <text x={x + 75} y={y - 4} textAnchor="middle" fontSize={10} fill="#0f172a" fontWeight="700">{grandTotals[i].toLocaleString()}</text>
-                <text x={x + 75} y={58} textAnchor="middle" fontSize={9} fill="#64748b">{q.label}</text>
-              </g>
-            )
-          })}
-        </svg>
-      </div>
-
-      {allCats.map(cat => <CategoryChart key={cat} cat={cat} data={data} hasRev={hasRev} />)}
-    </div>
-  )
-}
 
 
 // ─── NOTES VIEW ────────────────────────────────────────────────────────────────
