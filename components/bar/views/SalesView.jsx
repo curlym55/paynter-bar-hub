@@ -1,6 +1,7 @@
 // SalesView.jsx — extracted from pages/index.js
 import React from 'react'
 import { styles } from '../../../lib/barStyles'
+import { CATEGORY_ORDER_LIST } from '../../../lib/constants'
 
 export default function SalesView({ period, setPeriod, custom, setCustom, report, loading, error, category, setCategory, sort, setSort, onLoad, onExportPdf, onExportXlsx, exportLoading, showDetails }) {
   const fmt = n => n == null ? '-' : `$${Number(n).toFixed(2)}`
