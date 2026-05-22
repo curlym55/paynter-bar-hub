@@ -1,5 +1,8 @@
 // SohHistoryView.jsx — extracted from pages/index.js
 import React, { useState, useEffect } from 'react'
+import { loadExcelJS } from '../../../lib/excel/loadExcelJS'
+import { xlsDownload } from '../../../lib/excel/xlsDownload'
+import { xlsAOAtoWS } from '../../../lib/excel/xlsAOAtoWS'
 
 export default function SohHistoryView() {
   const [reports, setReports] = useState([])
