@@ -58,7 +58,7 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
     setWeatherLoading(true)
     try {
       // Palmwoods QLD: lat -26.70, lon 152.76
-      const url = 'https://api.open-meteo.com/v1/forecast?latitude=-26.70&longitude=152.76&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Australia%2FBrisbane&forecast_days=7'
+      const url = '/api/weather'
       const r = await fetch(url)
       const d = await r.json()
       // Wed=3, Fri=5, Sun=0

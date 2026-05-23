@@ -121,7 +121,7 @@ export default async function handler(req, res) {
       .filter(i => i.endAprilStock > 0)
       .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.name.localeCompare(b.name))
 
-    return res.status(200).json({ report, asAt: '30 April 2026', generatedAt: new Date().toISOString() })
+    return res.status(200).json({ report, asAt: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'long', year: 'numeric' }), generatedAt: new Date().toISOString() })
   } catch (err) {
     console.error('SOH audit error:', err)
     return res.status(500).json({ error: err.message })

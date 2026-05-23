@@ -35,7 +35,7 @@ export default async function handler(req, res) {
     if (action === 'order') {
       await upsertDoc(client, po_ref, {
         supplier,
-        order_date: order_date || new Date().toISOString().split('T')[0],
+        order_date: order_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
         status: 'ordered',
         item_count,
         ...(po_onedrive_url ? { po_onedrive_url } : {}),
@@ -52,7 +52,7 @@ export default async function handler(req, res) {
       }
       await upsertDoc(client, po_ref, {
         supplier,
-        receive_date: receive_date || new Date().toISOString().split('T')[0],
+        receive_date: receive_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
         status: 'received',
         item_count,
         ...(receive_report_path ? { receive_report_path } : {}),
