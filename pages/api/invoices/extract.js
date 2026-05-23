@@ -45,6 +45,7 @@ Rules for units_per_pack:
 - Beer/cider 440ml cans (e.g. Guinness, Kilkenny): 24
 - Beer/cider 470-500ml cans: 24
 - Beer 30-block cans: 30
+- Schweppes/Kirks/Bundaberg mixer bottles in 4-packs (Soda Water, Tonic Water, Lemon Lime & Bitters, Ginger Ale, Ginger Beer): 4
 - 10-pack cans: 10
 - Wine 750ml case: ALWAYS 6
 - Piccolo 200ml (e.g. Henkell, Yellowglen): ALWAYS 24

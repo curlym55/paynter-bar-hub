@@ -1,4 +1,4 @@
-// HelpTab.jsx — extracted from pages/index.js
+// HelpTab.jsx -- extracted from pages/index.js
 import React from 'react'
 
 export default function HelpTab() {

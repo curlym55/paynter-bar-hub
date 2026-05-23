@@ -1,4 +1,4 @@
-// SalesView.jsx — extracted from pages/index.js
+// SalesView.jsx -- extracted from pages/index.js
 import React from 'react'
 import { styles } from '../../../lib/barStyles'
 import { CATEGORY_ORDER_LIST } from '../../../lib/constants'
