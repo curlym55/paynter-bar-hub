@@ -18,7 +18,6 @@ import { xlsDownload } from '../lib/excel/xlsDownload'
 import { loadExcelJS } from '../lib/excel/loadExcelJS'
 import HelpTab from '../components/bar/views/HelpTab'
 import SalesView from '../components/bar/views/SalesView'
-import CategoryChart from '../components/bar/views/CategoryChart'
 import EditSelect from '../components/bar/EditSelect'
 import EditNumber from '../components/bar/EditNumber'
 import EditText from '../components/bar/EditText'
@@ -2352,7 +2351,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastUpdated && <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" }}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
-              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true); fetch('/api/fy-chart?refresh=true').catch(()=>{}) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
+              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
             </div>
           </div>
 
