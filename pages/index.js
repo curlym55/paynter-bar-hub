@@ -2145,6 +2145,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
+    .filter(item => !dontOrder(item))
     .filter(item => {
     if (!filterOrder) return true
     const onOrder = !!orderedItems[item.name]
