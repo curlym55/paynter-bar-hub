@@ -2158,7 +2158,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const onOrderCount = Object.keys(orderedItems).length
   const orderCount   = items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrder(i)).length
-  const critCount    = items.filter(i => i.priority === 'CRITICAL').length
+  const critCount    = items.filter(i => i.priority === 'CRITICAL' && !dontOrder(i)).length
 
   if (!authed) return (
     <div style={styles.loadWrap}>
@@ -3626,6 +3626,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             lastUpdated={lastUpdated}
             fromCache={fromCache}
             orderedItems={orderedItems}
+            rundownItems={rundownItems}
             orderCount={orderCount}
             critCount={critCount}
             onOrderCount={onOrderCount}

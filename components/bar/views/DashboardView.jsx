@@ -1,12 +1,13 @@
 // DashboardView.jsx — extracted from pages/index.js
 import React from 'react'
 
-export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp }) {
+export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp }) {
   const onOrderCount = onOrderCountProp ?? Object.keys(orderedItems).length
   const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
-  const critCount    = critCountProp ?? items.filter(i => i.priority === 'CRITICAL' && !dontOrderRe.test(i.notes || '')).length
-  const lowCount     = items.filter(i => i.priority === 'LOW' && !dontOrderRe.test(i.notes || '')).length
-  const orderCount   = orderCountProp ?? items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !dontOrderRe.test(i.notes || '')).length
+  const isRundown    = item => !!rundownItems[item.name]
+  const critCount    = critCountProp ?? items.filter(i => i.priority === 'CRITICAL' && !isRundown(i) && !dontOrderRe.test(i.notes || '')).length
+  const lowCount     = items.filter(i => i.priority === 'LOW' && !isRundown(i) && !dontOrderRe.test(i.notes || '')).length
+  const orderCount   = orderCountProp ?? items.filter(i => i.orderQty > 0 && !orderedItems[i.name] && !isRundown(i) && !dontOrderRe.test(i.notes || '')).length
   const totalItems   = items.length
 
   const now = new Date()
@@ -26,7 +27,7 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
   ]
 
   const alertItems = items
-    .filter(i => (i.priority === 'CRITICAL' || i.priority === 'LOW') && !dontOrderRe.test(i.notes || ''))
+    .filter(i => (i.priority === 'CRITICAL' || i.priority === 'LOW') && !isRundown(i) && !dontOrderRe.test(i.notes || ''))
     .sort((a, b) => (a.priority === 'CRITICAL' ? 0 : 1) - (b.priority === 'CRITICAL' ? 0 : 1) || (a.onHand ?? 999) - (b.onHand ?? 999))
 
   return (
