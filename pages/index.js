@@ -1071,9 +1071,9 @@ export default function Home() {
     const sortedCats = [...CATEGORY_ORDER.filter(c => byCategory[c]), ...Object.keys(byCategory).filter(c => !CATEGORY_ORDER.includes(c))]
 
     const totalValue = items.reduce((sum, i) => sum + (i.buyPrice != null && i.onHand > 0 ? Number(i.buyPrice) * Number(i.onHand) : 0), 0)
-    const critItems  = items.filter(i => i.priority === 'CRITICAL')
-    const lowItems   = items.filter(i => i.priority === 'LOW')
-    const orderItems = items.filter(i => i.orderQty > 0 && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || ''))
+    const critItems  = items.filter(i => i.priority === 'CRITICAL' && !rundownItems[i.name])
+    const lowItems   = items.filter(i => i.priority === 'LOW' && !rundownItems[i.name])
+    const orderItems = items.filter(i => i.orderQty > 0 && !rundownItems[i.name] && !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || ''))
 
     let categorySections = ''
     for (const cat of sortedCats) {
