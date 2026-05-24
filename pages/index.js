@@ -2420,7 +2420,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {orderWizard && (() => {
               const wiz = orderWizard
               const allSuppliers = suppliers.filter(sup =>
-                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name])
+                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name] && !rundownItems[i.name])
               )
               // Build order items per supplier
               const orderBySup = {}
@@ -2428,6 +2428,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 const supItems = items.filter(i =>
                   i.supplier === sup && i.orderQty > 0 &&
                   !orderedItems[i.name] &&
+                  !rundownItems[i.name] &&
                   !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
                 )
                 if (supItems.length > 0) orderBySup[sup] = supItems
@@ -3632,7 +3633,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onOrderCount={onOrderCount}
             onStartOrder={() => {
               const q = {}
-              for (const i of items) q[i.name] = i.orderQty
+              for (const i of items) {
+                if (!rundownItems[i.name]) q[i.name] = i.orderQty
+              }
               setWizQtys(q)
               setOrderWizard({ step: 1, supplier: null, poRef: '', saving: false })
             }}
