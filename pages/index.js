@@ -4579,11 +4579,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
+                        {/* PO column */}
                         <td style={{ padding: '10px 12px' }}>
-                          {doc.po_onedrive_url
-                            ? <a href={doc.po_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
-                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                            {doc.po_onedrive_url
+                              ? <a href={doc.po_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
+                              : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                          </div>
                         </td>
+                        {/* Receipt column */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.receive_url && <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Supabase</a>}
@@ -4591,6 +4595,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             {!doc.receive_url && !doc.receipt_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
+                        {/* Invoice column — links if saved, upload button if missing */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
@@ -4598,7 +4603,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             {!doc.invoice_url && !doc.invoice_onedrive_url && (
                               docInvoiceUploading[doc.id]
                                 ? <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
-                                : <label style={{ cursor: 'pointer' }}>
+                                : <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
                                     <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
                                       onChange={async e => {
                                         const file = e.target.files?.[0]
@@ -4612,30 +4617,32 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                           })
                                           const poRef = doc.po_ref
                                           const ext = file.name.split('.').pop()
-                                          const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
+                                          const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
+                                          // Save to Supabase storage
+                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
                                           // Save to OneDrive
                                           const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
                                           const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                          // Save to Supabase storage
-                                          await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                          // Update OneDrive URL reference in DB
+                                          // Write OneDrive URL back to DB
                                           if (odData.webUrl) {
-                                            await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                               body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
                                           }
-                                          // Trigger PDF price extraction
+                                          // Trigger PDF price extraction (background, non-blocking)
                                           if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
                                             const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
                                             fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                               body: JSON.stringify({ pdf_base64: base64 }) })
-                                              .then(r => r.json()).then(d => {
-                                                if (d.items?.length) fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                  body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, items: d.items }) }).catch(() => null)
+                                              .then(r => r.ok ? r.json() : null)
+                                              .then(d => {
+                                                if (!d?.items?.length) return
+                                                fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                  body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
                                               }).catch(() => null)
                                           }
-                                          // Reload documents so fresh URLs appear as clickable links
+                                          // Reload to show fresh links
                                           await loadDocuments()
                                         } finally {
                                           setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
