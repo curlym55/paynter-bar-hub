@@ -50,7 +50,6 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
-  const [docInvoiceUploading, setDocInvoiceUploading] = useState({}) // { [doc.id]: true }
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -2244,7 +2243,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { divider: true },
             // Records (was Administration)
             { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📁', label: 'Purchase Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
             { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
             { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
             { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2347,7 +2346,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Purchase Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -4576,18 +4575,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <tr key={doc.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>{doc.po_ref}</td>
                         <td style={{ padding: '10px 12px', fontSize: 13 }}>{doc.supplier}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date ? new Date(doc.order_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date ? new Date(doc.receive_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
-                        {/* PO column */}
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
-                            {doc.po_onedrive_url
-                              ? <a href={doc.po_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
-                              : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
-                          </div>
+                          {doc.po_onedrive_url
+                            ? <a href={doc.po_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
+                            : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                         </td>
-                        {/* Receipt column */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.receive_url && <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Supabase</a>}
@@ -4595,62 +4590,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             {!doc.receive_url && !doc.receipt_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
-                        {/* Invoice column — links if saved, upload button if missing */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
                             {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
-                            {!doc.invoice_url && !doc.invoice_onedrive_url && (
-                              docInvoiceUploading[doc.id]
-                                ? <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
-                                : <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
-                                      onChange={async e => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
-                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
-                                        try {
-                                          const base64 = await new Promise(resolve => {
-                                            const reader = new FileReader()
-                                            reader.onload = () => resolve(reader.result.split(',')[1])
-                                            reader.readAsDataURL(file)
-                                          })
-                                          const poRef = doc.po_ref
-                                          const ext = file.name.split('.').pop()
-                                          const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
-                                          // Save to Supabase storage
-                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                          // Save to OneDrive
-                                          const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
-                                          const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                          // Write OneDrive URL back to DB
-                                          if (odData.webUrl) {
-                                            await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
-                                          }
-                                          // Trigger PDF price extraction (background, non-blocking)
-                                          if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-                                            const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
-                                            fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ pdf_base64: base64 }) })
-                                              .then(r => r.ok ? r.json() : null)
-                                              .then(d => {
-                                                if (!d?.items?.length) return
-                                                fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                  body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
-                                              }).catch(() => null)
-                                          }
-                                          // Reload to show fresh links
-                                          await loadDocuments()
-                                        } finally {
-                                          setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
-                                        }
-                                      }} />
-                                    <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
-                                  </label>
-                            )}
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
