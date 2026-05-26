@@ -2419,18 +2419,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {/* ── ORDER WIZARD ──────────────────────────────────────────── */}
             {orderWizard && (() => {
               const wiz = orderWizard
-              const allSuppliers = suppliers.filter(sup =>
-                items.some(i => i.supplier === sup && i.orderQty > 0 && !orderedItems[i.name] && !rundownItems[i.name])
-              )
-              // Build order items per supplier
+              // Build order items per supplier — use effective qty (override takes precedence over auto)
               const orderBySup = {}
               for (const sup of suppliers) {
-                const supItems = items.filter(i =>
-                  i.supplier === sup && i.orderQty > 0 &&
-                  !orderedItems[i.name] &&
-                  !rundownItems[i.name] &&
-                  !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
-                )
+                const supItems = items.filter(i => {
+                  const effectiveQty = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty
+                  return i.supplier === sup &&
+                    effectiveQty > 0 &&
+                    !orderedItems[i.name] &&
+                    !rundownItems[i.name] &&
+                    !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
+                })
                 if (supItems.length > 0) orderBySup[sup] = supItems
               }
               const suppliersToOrder = Object.keys(orderBySup)
@@ -2595,7 +2594,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             ← Back
                           </button>
                           <button disabled={wiz.saving} onClick={async () => {
-                            setOrderWizard(prev => ({ ...prev, saving: true }))
+                            setOrderWizard(prev => ({ ...prev, saving: true, saveError: null }))
                             const poRef = wiz.poRef.trim() || `${activeSup.replace(/\s/g,'')}-${Date.now()}`
                             const orderItems = {}
                             for (const item of supItems) {
@@ -2604,18 +2603,27 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ action:'place', supplier: activeSup, poRef, items: orderItems }) }).catch(()=>null)
                             const d = r ? await r.json().catch(()=>({})) : {}
-                            if (d.ok) setOrderedItems(d.ordered)
+                            if (!d.ok) {
+                              setOrderWizard(prev => ({ ...prev, saving: false, saveError: d.error || 'Failed to save order — please try again.' }))
+                              return
+                            }
+                            setOrderedItems(d.ordered)
                             // Move to next supplier or done
                             const remaining = suppliersToOrder.filter(s => s !== activeSup && orderBySup[s]?.length > 0)
                             if (remaining.length > 0) {
-                              setOrderWizard({ step: 1, supplier: remaining[0], poRef: '', saving: false })
+                              setOrderWizard({ step: 1, supplier: remaining[0], poRef: '', saving: false, saveError: null })
                             } else {
-                              setOrderWizard(prev => ({ ...prev, step: 4, saving: false }))
+                              setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
                             }
                           }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                             {wiz.saving ? '⏳ Saving…' : '✓ Mark as Ordered →'}
                           </button>
                         </div>
+                        {wiz.saveError && (
+                          <div style={{ marginTop:12, padding:'10px 14px', background:'#fef2f2', border:'1px solid #fecaca', borderRadius:8, color:'#dc2626', fontSize:13, fontWeight:600 }}>
+                            ⚠️ {wiz.saveError}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -3634,7 +3642,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onStartOrder={() => {
               const q = {}
               for (const i of items) {
-                if (!rundownItems[i.name]) q[i.name] = i.orderQty
+                if (rundownItems[i.name]) continue
+                if (orderQtyOverrides[i.name] !== undefined) {
+                  q[i.name] = orderQtyOverrides[i.name]
+                } else {
+                  q[i.name] = i.isSpirit ? (i.nipsToOrder || i.orderQty) : i.orderQty
+                }
               }
               setWizQtys(q)
               setOrderWizard({ step: 1, supplier: null, poRef: '', saving: false })
