@@ -4579,7 +4579,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date ? new Date(doc.order_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date ? new Date(doc.receive_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
-                        {/* PO column */}
+                        {/* PO */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.po_onedrive_url
@@ -4587,7 +4587,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               : <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
-                        {/* Receipt column */}
+                        {/* Receipt */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.receive_url && <a href={doc.receive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📄 Supabase</a>}
@@ -4595,69 +4595,75 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             {!doc.receive_url && !doc.receipt_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
-                        {/* Invoice column — links when saved, upload when missing */}
+                        {/* Invoice — links from DB, fallback to localStorage record, upload when missing */}
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
                             {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
-                            {!doc.invoice_url && !doc.invoice_onedrive_url && (
-                              docInvoiceUploading[doc.id]
-                                ? <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
-                                : <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                    <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
-                                      onChange={async e => {
-                                        const file = e.target.files?.[0]
-                                        if (!file) return
-                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
-                                        try {
-                                          const base64 = await new Promise(resolve => {
-                                            const reader = new FileReader()
-                                            reader.onload = () => resolve(reader.result.split(',')[1])
-                                            reader.readAsDataURL(file)
-                                          })
-                                          const poRef = doc.po_ref
-                                          const ext = file.name.split('.').pop()
-                                          const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
-                                          // Save to Supabase storage
-                                          const sbRes = await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                          const sbData = sbRes ? await sbRes.json().catch(() => ({})) : {}
-                                          // Save to OneDrive
-                                          const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
-                                          const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                          // Write OneDrive URL back to DB
-                                          if (odData.webUrl) {
-                                            await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
-                                          }
-                                          // Immediately update local state so links appear without waiting for DB round-trip
-                                          const invUrl = sbData.url || sbData.invoice_url || null
-                                          const invOdUrl = odData.webUrl || null
-                                          setDocuments(prev => prev.map(d => d.id === doc.id
-                                            ? { ...d, ...(invUrl ? { invoice_url: invUrl } : {}), ...(invOdUrl ? { invoice_onedrive_url: invOdUrl } : {}) }
-                                            : d))
-                                          // Trigger PDF price extraction (background, non-blocking)
-                                          if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-                                            const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
-                                            fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ pdf_base64: base64 }) })
-                                              .then(r => r.ok ? r.json() : null)
-                                              .then(d => {
-                                                if (!d?.items?.length) return
-                                                fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                  body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
-                                              }).catch(() => null)
-                                          }
-                                          // Background refresh to sync any server-side URL updates
-                                          loadDocuments()
-                                        } finally {
-                                          setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && (() => {
+                              // Check localStorage for a previously uploaded invoice for this PO
+                              let stored = null
+                              try { stored = JSON.parse(localStorage.getItem('inv_upload_' + doc.po_ref) || 'null') } catch {}
+                              if (stored) return (
+                                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                                  {stored.odUrl
+                                    ? <a href={stored.odUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
+                                    : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {stored.name}</span>}
+                                </div>
+                              )
+                              if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
+                              return (
+                                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                                    onChange={async e => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
+                                      try {
+                                        const base64 = await new Promise(resolve => {
+                                          const reader = new FileReader()
+                                          reader.onload = () => resolve(reader.result.split(',')[1])
+                                          reader.readAsDataURL(file)
+                                        })
+                                        const poRef = doc.po_ref
+                                        const ext = file.name.split('.').pop()
+                                        const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
+                                        // Save to Supabase storage
+                                        fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
+                                        // Save to OneDrive — await so we get the URL
+                                        const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
+                                        const odData = odRes ? await odRes.json().catch(() => ({})) : {}
+                                        // Write OneDrive URL to DB
+                                        if (odData.webUrl) {
+                                          fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
                                         }
-                                      }} />
-                                    <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
-                                  </label>
-                            )}
+                                        // Persist to localStorage — survives page refresh regardless of DB
+                                        try { localStorage.setItem('inv_upload_' + poRef, JSON.stringify({ name: file.name, odUrl: odData.webUrl || null })) } catch {}
+                                        // Trigger PDF price extraction (background)
+                                        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                                          const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
+                                          fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ pdf_base64: base64 }) })
+                                            .then(r => r.ok ? r.json() : null)
+                                            .then(d => {
+                                              if (!d?.items?.length) return
+                                              fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
+                                            }).catch(() => null)
+                                        }
+                                        // Reload documents in background to pick up any DB-side URL updates
+                                        loadDocuments()
+                                      } finally {
+                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
+                                      }
+                                    }} />
+                                  <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
+                                </label>
+                              )
+                            })()}
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
