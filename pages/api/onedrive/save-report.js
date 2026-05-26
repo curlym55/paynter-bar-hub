@@ -5,80 +5,186 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   if (!process.env.ONEDRIVE_CLIENT_ID || !process.env.ONEDRIVE_CLIENT_SECRET) {
-    return res.status(200).json({ success: true, skipped: true, reason: 'OneDrive not configured — add ONEDRIVE_CLIENT_ID and ONEDRIVE_CLIENT_SECRET in Vercel' })
+    return res.status(200).json({ success: true, skipped: true, reason: 'OneDrive not configured' })
   }
 
-  const { reference, supplier, items } = req.body ?? {}
+  const { reference, supplier, receivedBy, locationName, items } = req.body ?? {}
   if (!Array.isArray(items) || items.length === 0) return res.status(400).json({ error: 'items array required' })
 
-  const NAVY = 'FF1E3A5F', WHITE = 'FFFFFFFF', LGREY = 'FFF1F5F9'
-  const sup = supplier || 'Unknown'
-  const date = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
-  const dateFile = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }).replace(/\//g, '-')
+  // ── Colours (ExcelJS ARGB) ────────────────────────────────────────────────
+  const NAVY  = 'FF0F172A'
+  const TEAL  = 'FF0E7490'
+  const WHITE = 'FFFFFFFF'
+  const LGREY = 'FFF1F5F9'
+  const SLATE = 'FF64748B'
+  const GREEN = 'FF16A34A'
+  const AMBER = 'FFD97706'
+  const RED   = 'FFDC2626'
+  const LBLUE = 'FFEFF6FF'
+
+  const sup       = supplier     || 'Unknown'
+  const receiver  = receivedBy   || 'Bar Manager'
+  const location  = locationName || 'Paynter Bar'
+  const date      = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
+  const dateFile  = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }).replace(/\//g, '-')
+
+  const totalOrdered  = items.reduce((s, i) => s + (i.orderedQty  || 0), 0)
+  const totalReceived = items.reduce((s, i) => s + (i.receivedQty || 0), 0)
+  const itemsReceived = items.filter(i => (i.receivedQty || 0) > 0).length
+  const itemsMissing  = items.filter(i => (i.receivedQty || 0) === 0).length
+
+  // ── Style helpers ─────────────────────────────────────────────────────────
+  const fill  = argb => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
+  const font  = (opts) => opts
+  const align = (h, v = 'middle') => ({ horizontal: h, vertical: v })
+  const border = (style, argb) => ({ style, color: { argb } })
+
+  const colHdrStyle = cell => {
+    cell.fill      = fill(TEAL)
+    cell.font      = { bold: true, size: 10, color: { argb: WHITE } }
+    cell.alignment = align(cell.value === 'Item' ? 'left' : 'center')
+    cell.border    = { bottom: { style: 'medium', color: { argb: NAVY } } }
+  }
+
+  const dataStyle = (cell, col, rowIdx, missing) => {
+    const bg = missing ? 'FFFFF7ED' : rowIdx % 2 === 0 ? 'FFF8FAFC' : WHITE
+    cell.fill      = fill(bg)
+    cell.alignment = align(['ordered', 'received', 'unit'].includes(col) ? 'center' : 'left', 'middle')
+    if (col === 'item')     { cell.font = { size: 11, bold: false } }
+    if (col === 'sku')      { cell.font = { size: 10, color: { argb: SLATE } } }
+    if (col === 'ordered')  { cell.font = { size: 10, color: { argb: SLATE } } }
+    if (col === 'received') {
+      const qty = cell.value
+      cell.font   = { bold: true, size: 11, color: { argb: qty > 0 ? GREEN : AMBER } }
+    }
+    if (col === 'unit')     { cell.font = { size: 10, color: { argb: SLATE } } }
+    if (col === 'note')     { cell.font = { size: 10, italic: true, color: { argb: missing ? AMBER : SLATE } } }
+    cell.border = { bottom: { style: 'hair', color: { argb: 'FFE2E8F0' } } }
+  }
 
   try {
     const wb = new ExcelJS.Workbook()
+    wb.creator  = 'Paynter Bar Hub'
+    wb.created  = new Date()
     const ws = wb.addWorksheet('Goods Received')
 
-    ws.views = [{ state: 'frozen', ySplit: reference ? 7 : 6 }]
     ws.columns = [
-      { key: 'item',     width: 42 },
+      { key: 'item',     width: 40 },
       { key: 'sku',      width: 16 },
       { key: 'ordered',  width: 12 },
       { key: 'received', width: 12 },
       { key: 'unit',     width: 10 },
-      { key: 'note',     width: 24 },
+      { key: 'note',     width: 28 },
     ]
 
-    const titleRow = ws.addRow(['Paynter Bar - Goods Received', '', '', '', '', ''])
+    // ── Row 1: Banner title ──────────────────────────────────────────────────
+    const r1 = ws.addRow(['Goods Received Report', '', '', '', '', ''])
     ws.mergeCells('A1:F1')
-    titleRow.getCell(1).font = { bold: true, size: 14, color: { argb: NAVY } }
-    titleRow.height = 22
+    r1.height = 30
+    const c1 = r1.getCell(1)
+    c1.value     = 'Goods Received Report'
+    c1.fill      = fill(NAVY)
+    c1.font      = { bold: true, size: 16, color: { argb: WHITE } }
+    c1.alignment = align('left', 'middle')
 
-    const meta = (label, val) => {
-      const r = ws.addRow([label, val, '', '', '', ''])
-      r.getCell(1).font = { size: 10, color: { argb: 'FF64748B' } }
-      r.getCell(2).font = { size: 10, color: { argb: 'FF64748B' } }
+    // ── Rows 2-3: Supplier / Date meta ───────────────────────────────────────
+    const addMeta = (label, value, valueColor = SLATE) => {
+      const r = ws.addRow([label, value, '', '', '', ''])
+      r.height = 16
+      r.getCell(1).font = { bold: true, size: 10, color: { argb: SLATE } }
+      r.getCell(2).font = { size: 10, color: { argb: valueColor } }
+      return r
     }
-    meta('Supplier', sup)
-    meta('Date', date)
-    if (reference) meta('PO Reference', reference)
-    meta('Items received', String(items.filter(i => (i.receivedQty || 0) > 0).length))
+    addMeta('Supplier', sup)
+    addMeta('Date', date)
+    if (reference) addMeta('PO Reference', reference, NAVY)
+    addMeta('Received By', receiver)
+
+    // ── Summary bar ──────────────────────────────────────────────────────────
+    ws.addRow([])
+    const summRow = ws.addRow([
+      `${itemsReceived} of ${items.length} lines received`,
+      '',
+      `${totalReceived} units in`,
+      '',
+      itemsMissing > 0 ? `${itemsMissing} line${itemsMissing !== 1 ? 's' : ''} missing` : 'All lines received',
+      '',
+    ])
+    ws.mergeCells(`A${summRow.number}:B${summRow.number}`)
+    ws.mergeCells(`C${summRow.number}:D${summRow.number}`)
+    ws.mergeCells(`E${summRow.number}:F${summRow.number}`)
+    summRow.height = 20
+    ;[1, 3, 5].forEach(col => {
+      const c = summRow.getCell(col)
+      c.fill      = fill(LBLUE)
+      c.font      = { bold: true, size: 10, color: { argb: col === 5 && itemsMissing > 0 ? AMBER : NAVY } }
+      c.alignment = align('center', 'middle')
+      c.border    = { top: { style: 'thin', color: { argb: TEAL } }, bottom: { style: 'thin', color: { argb: TEAL } } }
+    })
+    ;[2, 4, 6].forEach(col => {
+      const c = summRow.getCell(col)
+      c.fill   = fill(LBLUE)
+      c.border = { top: { style: 'thin', color: { argb: TEAL } }, bottom: { style: 'thin', color: { argb: TEAL } } }
+    })
+
     ws.addRow([])
 
+    // ── Column headers ───────────────────────────────────────────────────────
     const hRow = ws.addRow(['Item', 'SKU', 'Ordered', 'Received', 'Unit', 'Note'])
-    hRow.eachCell(cell => {
-      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
-      cell.font = { bold: true, color: { argb: WHITE } }
-      cell.alignment = { horizontal: ['Ordered', 'Received'].includes(cell.value) ? 'right' : 'left', vertical: 'middle' }
-    })
-    hRow.height = 18
+    hRow.height = 20
+    hRow.eachCell(cell => colHdrStyle(cell))
 
+    const hdrRowNum = hRow.number
+    ws.views = [{ state: 'frozen', ySplit: hdrRowNum }]
+    ws.autoFilter = { from: `A${hdrRowNum}`, to: `F${hdrRowNum}` }
+
+    // ── Data rows ─────────────────────────────────────────────────────────────
     items.forEach((item, i) => {
-      const bg = { type: 'pattern', pattern: 'solid', fgColor: { argb: i % 2 === 0 ? LGREY : WHITE } }
-      const row = ws.addRow([item.name, item.sku || '', item.orderedQty || '', item.receivedQty ?? '', item.unit || '', item.note || ''])
-      row.getCell(1).fill = bg; row.getCell(1).font = { size: 12 }
-      row.getCell(2).fill = bg; row.getCell(2).font = { size: 11, color: { argb: 'FF64748B' } }
-      row.getCell(3).fill = bg; row.getCell(3).alignment = { horizontal: 'right' }
-      row.getCell(4).fill = bg; row.getCell(4).font = { bold: true, size: 12 }; row.getCell(4).alignment = { horizontal: 'right' }
-      row.getCell(5).fill = bg; row.getCell(5).font = { size: 11, color: { argb: 'FF64748B' } }
-      row.getCell(6).fill = bg; row.getCell(6).font = { size: 11, italic: true, color: { argb: 'FF94A3B8' } }
+      const missing = (item.receivedQty || 0) === 0
+      const row = ws.addRow([
+        item.name,
+        item.sku      || '',
+        item.orderedQty  || '',
+        item.receivedQty ?? '',
+        item.unit     || '',
+        item.note     || '',
+      ])
+      row.height = 18
+      const cols = ['item', 'sku', 'ordered', 'received', 'unit', 'note']
+      row.eachCell((cell, colNum) => dataStyle(cell, cols[colNum - 1], i, missing))
+    })
+
+    // ── Totals row ────────────────────────────────────────────────────────────
+    const totRow = ws.addRow(['TOTALS', '', totalOrdered || '', totalReceived || '', '', ''])
+    totRow.height = 18
+    ;[1, 3, 4].forEach(col => {
+      const c = totRow.getCell(col)
+      c.fill      = fill(NAVY)
+      c.font      = { bold: true, size: 10, color: { argb: WHITE } }
+      c.alignment = align(col === 1 ? 'left' : 'center', 'middle')
+    })
+    ;[2, 5, 6].forEach(col => {
+      const c = totRow.getCell(col)
+      c.fill = fill(NAVY)
     })
 
     ws.addRow([])
-    const foot = ws.addRow(['Paynter Bar - GemLife Palmwoods', '', '', '', '', 'Generated by Paynter Bar Hub'])
-    ;[1, 6].forEach(c => { foot.getCell(c).font = { size: 9, italic: true, color: { argb: 'FF94A3B8' } } })
 
-    const hdrRow = reference ? 7 : 6
-    ws.autoFilter = { from: `A${hdrRow}`, to: `F${hdrRow}` }
+    // ── Footer ────────────────────────────────────────────────────────────────
+    const footRow = ws.addRow([`${location} - GemLife Palmwoods`, '', '', '', '', 'Generated by Paynter Bar Hub'])
+    ws.mergeCells(`A${footRow.number}:E${footRow.number}`)
+    ;[1, 6].forEach(col => {
+      footRow.getCell(col).font = { size: 9, italic: true, color: { argb: SLATE } }
+    })
 
+    // ── Write and upload ─────────────────────────────────────────────────────
     const buf = await wb.xlsx.writeBuffer()
     const safeSupplier = sup.replace(/[^a-zA-Z0-9 ]/g, '').trim()
     const filename = `${reference ? reference.replace(/\s/g, '_') + '-' : ''}Receipt-${dateFile}.xlsx`
-    const folder = `POs Invoices and Receive Reports/Receive Reports/${safeSupplier}`
+    const folder   = `POs Invoices and Receive Reports/Receive Reports/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
-    const token = await getAccessToken()
-    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
+    const token    = await getAccessToken()
+    const url      = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
 
     const uploadRes = await fetch(url, {
       method: 'PUT',
