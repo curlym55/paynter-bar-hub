@@ -4617,17 +4617,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                           const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
                                           const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                          // Save to Supabase storage + update PO record URLs
-                                          const sbRes = await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          // Save to Supabase storage
+                                          await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
                                             body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                          const sbData = sbRes ? await sbRes.json().catch(() => ({})) : {}
-                                          // Update URL references in DB
-                                          const urls = {}
-                                          if (odData.webUrl) urls.invoice_onedrive_url = odData.webUrl
-                                          if (sbData.url)    urls.invoice_url = sbData.url
-                                          if (Object.keys(urls).length) {
+                                          // Update OneDrive URL reference in DB
+                                          if (odData.webUrl) {
                                             await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                              body: JSON.stringify({ action: 'update_urls', po_ref: poRef, ...urls }) }).catch(() => null)
+                                              body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
                                           }
                                           // Trigger PDF price extraction
                                           if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
@@ -4639,10 +4635,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                                   body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, items: d.items }) }).catch(() => null)
                                               }).catch(() => null)
                                           }
-                                          // Refresh doc row with new URLs
-                                          setDocuments(prev => prev.map(d => d.id === doc.id
-                                            ? { ...d, invoice_url: sbData.url || d.invoice_url, invoice_onedrive_url: odData.webUrl || d.invoice_onedrive_url }
-                                            : d))
+                                          // Reload documents so fresh URLs appear as clickable links
+                                          await loadDocuments()
                                         } finally {
                                           setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
                                         }
