@@ -62,32 +62,6 @@ export default function Home() {
   const [phAvgData, setPhAvgData] = useState(null)
   const [phDays, setPhDays] = useState('all')
 
-  // Auto-update Hub buy prices from 90-day invoice average after any invoice save
-  const autoUpdateBuyPrices = async (supplier, days = 90) => {
-    try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days}&supplier=${encodeURIComponent(supplier)}`)
-      const d = await r.json()
-      if (!r.ok || !d.items?.length) return 0
-      const updatable = d.items.filter(row => row.avg_unit_price_ex_gst != null && row.matched_hub_key)
-      if (!updatable.length) return 0
-      let updated = 0
-      for (const row of updatable) {
-        const nipsPerBtl = row.nips_per_bottle ?? null
-        const avgIncGst = Math.round(
-          (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000
-        ) / 1000
-        const r2 = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: avgIncGst }) }).catch(() => null)
-        if (r2?.ok) updated++
-      }
-      if (updated > 0) loadItems(false) // refresh items silently to show new buy prices
-      return updated
-    } catch (e) {
-      console.error('[autoUpdateBuyPrices]', e)
-      return 0
-    }
-  }
-
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
@@ -482,16 +456,15 @@ export default function Home() {
               .then(r => r.ok ? r.json() : null)
               .then(d => {
                 if (!d?.items?.length) return
-                const sup = d.supplier || supplier
                 return fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({
                     invoice_ref: d.invoice_ref || poRef,
-                    supplier: sup,
+                    supplier: d.supplier || supplier,
                     invoice_date: d.invoice_date || dateStr,
                     gst_included: d.gst_included ?? true,
                     items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })),
                   })
-                }).then(() => autoUpdateBuyPrices(sup, 90))
+                })
               })
               .catch(() => null) // silent — never block the receive flow
           }
@@ -4064,14 +4037,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           if (skipped.length) msg += ` Skipped ${skipped.length} (no items).`
                           if (failed.length) msg += ` ⚠️ ${failed.length} failed: ` + failed.map(r => `${r.ref}: ${r.error}`).join(', ')
                           setPhSaveResult({ type: total > 0 ? 'ok' : 'warn', msg })
-                          if (total > 0) {
-                            // Auto-update buy prices for each supplier in the saved invoices
-                            const savedSuppliers = [...new Set(
-                              (phExtracted?.invoices || []).map(inv => inv.supplier).filter(Boolean)
-                            )]
-                            for (const sup of savedSuppliers) autoUpdateBuyPrices(sup, 90)
-                            setPhExtracted(null); setPhPdf(null)
-                          }
+                          if (total > 0) { setPhExtracted(null); setPhPdf(null) }
                         } catch (e) {
                           setPhSaveResult({ type:'error', msg:'Unexpected error: ' + e.message })
                           console.error('[save]', e)
@@ -4138,7 +4104,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       {phMatching ? '⏳ Matching…' : '🤖 Auto-match'}
                     </button>
                   )}
-                  {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
+                  {phManageData && (() => {
+                    const activeNames = new Set(items.map(i => i.name))
+                    const hiddenCount = phManageData.filter(row => {
+                      const hub = row._hub || row.item_name_hub || ''
+                      const isMatched = hub && hub !== row.item_name_raw
+                      if (!isMatched) return false
+                      return rundownItems[hub] || !activeNames.has(hub)
+                    }).length
+                    return (
+                      <span style={{ fontSize:12, color:'#64748b' }}>
+                        {phManageData.length - hiddenCount} active items
+                        {hiddenCount > 0 && <span style={{ color:'#d97706' }}> · {hiddenCount} rundown/deleted hidden</span>}
+                      </span>
+                    )
+                  })()}
                 </div>
 
                 {phManageData && (
@@ -4159,7 +4139,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </tr>
                         </thead>
                         <tbody>
-                          {phManageData.map((row, i) => {
+                          {(() => {
+                            const activeNames = new Set(items.map(i => i.name))
+                            return phManageData.filter(row => {
+                              const hub = row._hub || row.item_name_hub || ''
+                              const isMatched = hub && hub !== row.item_name_raw
+                              // Always show unmatched rows — user needs to manage them
+                              if (!isMatched) return true
+                              // Hide rows matched to rundown items
+                              if (rundownItems[hub]) return false
+                              // Hide rows matched to items no longer in the Hub / deleted from Square
+                              if (!activeNames.has(hub)) return false
+                              return true
+                            })
+                          })().map((row, i) => {
                             const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
                             const saved = phManageSaving[row.item_name_raw]
                             return (
