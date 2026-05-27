@@ -60,13 +60,12 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
-  const [phDays, setPhDays] = useState('all')
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
     try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
+      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Load failed')
       setPhAvgData(d)
@@ -1873,8 +1872,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
-    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
-    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : Math.abs(p-40) <= 3 ? { argb:'FF166534' } : p < 37 ? { argb:'FF92400E' } : { argb:'FF0369A1' }
+    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
+    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
     // Alternating pair background colours for glass+bottle wine pairs
     const PAIR_BG = [{ argb:'FFF5F3FF' }, { argb:'FFEDE9FE' }]
@@ -1913,7 +1912,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       // Sugg sell highlight — amber if below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
         const mp = (sell * serves - avgBuy) / avgBuy * 100
-        if (Math.abs(mp - markupTarget) > 3) {
+        if (Math.abs(mp - markupTarget) > 2) {
           const sc = row.getCell('suggSell')
           sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
           sc.font = { bold: true, color: mp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
@@ -2070,7 +2069,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (isWine && sellBottle!=null && buy!=null && buy>0) btlMarkupPct=(sellBottle-buy)/buy*100
       const fmt = (n) => n!=null ? '$'+Number(n).toFixed(2) : '—'
       const fmtPct = (p) => p!=null ? p.toFixed(1)+'%' : '—'
-      const mColor = (p) => p==null?'#94a3b8':p<25?'#dc2626':Math.abs(p-40)<=3?'#16a34a':p<37?'#d97706':'#0369a1'
+      const mColor = (p) => p==null?'#94a3b8':p<25?'#991b1b':p<40?'#d97706':'#16a34a'
       return `<tr>
         <td>${item.name}</td>
         <td>${item.category}</td>
@@ -3543,7 +3542,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const revenuePerBottle = (isWine && sellUnit === 'glass' && sell != null && servesPerBottle)
                             ? +(sell * servesPerBottle).toFixed(2) : null
                           const markupStr   = markupPct != null ? markupPct.toFixed(1) + '%' : '—'
-                          const markupColor = markupPct == null ? '#94a3b8' : Math.abs(markupPct-40) <= 3 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
+                          const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -4215,11 +4214,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
 
                   const sellGlass = hubItem.isSpirit
-                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null))
-                    : glassVar?.price != null ? Number(glassVar.price)
-                    : bottleVar?.price != null ? Number(bottleVar.price)
-                    : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice)
-                    : hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null
+                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                    : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
                   const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
                     : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
                     : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
@@ -4407,16 +4403,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {phSubTab === 'reports' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <div style={{ display:'flex', gap:4 }}>
-                    {['30','60','90','180','all'].map(d => (
-                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
-                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
-                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
-                        {d === 'all' ? 'All' : `${d} days`}
-                      </button>
-                    ))}
-                  </div>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
+                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4432,7 +4420,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
+                  <button onClick={() => loadPhReport(90, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -4447,7 +4435,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
