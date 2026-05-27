@@ -50,6 +50,8 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
+  const [docEmailSending, setDocEmailSending] = useState({}) // { [doc.id]: bool }
+  const [docEmailSent,    setDocEmailSent]    = useState({}) // { [doc.id]: 'ok'|'error' }
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -2542,22 +2544,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         {/* Order summary */}
                         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
                           <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.length} items</div>
-                          {supItems.map(item => {
-                            const nips = wizQtys[item.name] ?? item.orderQty
-                            const btl  = item.isSpirit && nips > 0
-                              ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30)))
-                              : null
-                            return (
-                              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
-                                <span style={{ color:'#374151' }}>{item.name}</span>
-                                <span style={{ fontWeight:700, color:'#1e3a5f' }}>
-                                  {item.isSpirit
-                                    ? <>{nips} nips <span style={{ fontWeight:400, color:'#64748b' }}>({btl} btl)</span></>
-                                    : <>{nips} units</>}
-                                </span>
-                              </div>
-                            )
-                          })}
+                          {supItems.map(item => (
+                            <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
+                              <span style={{ color:'#374151' }}>{item.name}</span>
+                              <span style={{ fontWeight:700, color:'#1e3a5f' }}>{wizQtys[item.name] ?? item.orderQty} {item.isSpirit ? 'nips' : 'units'}</span>
+                            </div>
+                          ))}
                         </div>
 
                         <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:20, fontSize:13 }}>
@@ -3448,12 +3440,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (() => {
-                            const effectiveNips = orderQtyOverrides[item.name] !== undefined
-                              ? orderQtyOverrides[item.name]
-                              : (item.nipsToOrder || 0)
-                            const btl = effectiveNips > 0
-                              ? Math.ceil(effectiveNips / ((item.bottleML || 700) / (item.nipML || 30)))
-                              : 0
+                            const btl = item.bottlesToOrder || 0
                             return btl > 0 ? btl : '-'
                           })() : '-'}
                         </td>
@@ -4620,18 +4607,50 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <button onClick={async () => {
-                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
-                            const r = await fetch('/api/documents/delete', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
-                            })
-                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
-                            else alert('Delete failed')
-                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                            🗑 Delete
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {/* Email Treasurer */}
+                            {doc.status === 'received' && (
+                              docEmailSent[doc.id]
+                                ? <span style={{ fontSize: 11, fontWeight: 700,
+                                    color: docEmailSent[doc.id] === 'ok' ? '#16a34a' : '#dc2626' }}>
+                                    {docEmailSent[doc.id] === 'ok' ? '✅ Sent' : '❌ Failed'}
+                                  </span>
+                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
+                                    setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
+                                    try {
+                                      const r = await fetch('/api/send-treasurer-email', {
+                                        method: 'POST',
+                                        headers: { 'Content-Type': 'application/json' },
+                                        body: JSON.stringify({ doc }),
+                                      })
+                                      const d = await r.json().catch(() => ({}))
+                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: d.ok ? 'ok' : 'error' }))
+                                      if (!d.ok) alert(`Email failed: ${d.error || 'Unknown error'}`)
+                                    } catch {
+                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
+                                    } finally {
+                                      setDocEmailSending(prev => ({ ...prev, [doc.id]: false }))
+                                    }
+                                  }} style={{ padding: '3px 10px', background: docEmailSending[doc.id] ? '#e2e8f0' : '#eff6ff',
+                                    color: docEmailSending[doc.id] ? '#94a3b8' : '#1d4ed8',
+                                    border: '1px solid #bfdbfe', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                  {docEmailSending[doc.id] ? '⏳ Sending…' : '📧 Email Treasurer'}
+                                </button>
+                            )}
+                            {/* Delete */}
+                            <button onClick={async () => {
+                              if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                              const r = await fetch('/api/documents/delete', {
+                                method: 'DELETE',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
+                              })
+                              if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                              else alert('Delete failed')
+                            }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                              🗑 Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
