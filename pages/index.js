@@ -60,13 +60,12 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
-  const [phDays, setPhDays] = useState('all')
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
     try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
+      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Load failed')
       setPhAvgData(d)
@@ -4389,7 +4388,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </table>
                     )}
                     <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
-                      Sugg sell = avg buy ÷ {(1 - TARGET/100).toFixed(2)}, rounded to nearest $0.50 · Glass wine = sell × 5/btl
+                      Sugg sell = avg buy ÷ {(1 - TARGET/100).toFixed(2)}, rounded to nearest $0.25 · Glass wine = sell × 5/btl
                     </div>
                   </div>
                 </div>
@@ -4399,16 +4398,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {phSubTab === 'reports' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <div style={{ display:'flex', gap:4 }}>
-                    {['30','60','90','180','all'].map(d => (
-                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
-                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
-                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
-                        {d === 'all' ? 'All' : `${d} days`}
-                      </button>
-                    ))}
-                  </div>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
+                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4424,7 +4415,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
+                  <button onClick={() => loadPhReport(90, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -4439,7 +4430,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
