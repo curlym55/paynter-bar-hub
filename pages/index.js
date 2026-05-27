@@ -50,8 +50,6 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
-  const [docEmailSending, setDocEmailSending] = useState({}) // { [doc.id]: bool }
-  const [docEmailSent,    setDocEmailSent]    = useState({}) // { [doc.id]: 'ok'|'error' }
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -2245,7 +2243,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { divider: true },
             // Records (was Administration)
             { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📁', label: 'PO Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
             { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
             { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
             { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2348,7 +2346,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -4551,7 +4549,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           <div style={{ padding: '16px 0' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📁 Purchase Documents</div>
+                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📁 PO Documents</div>
                 <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>All PO records with receive reports and invoices</div>
               </div>
               <button onClick={loadDocuments} style={{ padding: '7px 14px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
@@ -4607,50 +4605,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {/* Email Treasurer */}
-                            {doc.status === 'received' && (
-                              docEmailSent[doc.id]
-                                ? <span style={{ fontSize: 11, fontWeight: 700,
-                                    color: docEmailSent[doc.id] === 'ok' ? '#16a34a' : '#dc2626' }}>
-                                    {docEmailSent[doc.id] === 'ok' ? '✅ Sent' : '❌ Failed'}
-                                  </span>
-                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
-                                    setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
-                                    try {
-                                      const r = await fetch('/api/send-treasurer-email', {
-                                        method: 'POST',
-                                        headers: { 'Content-Type': 'application/json' },
-                                        body: JSON.stringify({ doc }),
-                                      })
-                                      const d = await r.json().catch(() => ({}))
-                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: d.ok ? 'ok' : 'error' }))
-                                      if (!d.ok) alert(`Email failed: ${d.error || 'Unknown error'}`)
-                                    } catch {
-                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
-                                    } finally {
-                                      setDocEmailSending(prev => ({ ...prev, [doc.id]: false }))
-                                    }
-                                  }} style={{ padding: '3px 10px', background: docEmailSending[doc.id] ? '#e2e8f0' : '#eff6ff',
-                                    color: docEmailSending[doc.id] ? '#94a3b8' : '#1d4ed8',
-                                    border: '1px solid #bfdbfe', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                  {docEmailSending[doc.id] ? '⏳ Sending…' : '📧 Email Treasurer'}
-                                </button>
-                            )}
-                            {/* Delete */}
-                            <button onClick={async () => {
-                              if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
-                              const r = await fetch('/api/documents/delete', {
-                                method: 'DELETE',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
-                              })
-                              if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
-                              else alert('Delete failed')
-                            }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                              🗑 Delete
-                            </button>
-                          </div>
+                          <button onClick={async () => {
+                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                            const r = await fetch('/api/documents/delete', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
+                            })
+                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                            else alert('Delete failed')
+                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            🗑 Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
