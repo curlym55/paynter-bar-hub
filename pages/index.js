@@ -1873,8 +1873,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
-    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
-    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
+    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
+    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : Math.abs(p-40) <= 3 ? { argb:'FF166534' } : p < 37 ? { argb:'FF92400E' } : { argb:'FF0369A1' }
 
     // Alternating pair background colours for glass+bottle wine pairs
     const PAIR_BG = [{ argb:'FFF5F3FF' }, { argb:'FFEDE9FE' }]
@@ -1913,7 +1913,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       // Sugg sell highlight — amber if below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
         const mp = (sell * serves - avgBuy) / avgBuy * 100
-        if (Math.abs(mp - markupTarget) > 2) {
+        if (Math.abs(mp - markupTarget) > 3) {
           const sc = row.getCell('suggSell')
           sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
           sc.font = { bold: true, color: mp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
@@ -2070,7 +2070,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (isWine && sellBottle!=null && buy!=null && buy>0) btlMarkupPct=(sellBottle-buy)/buy*100
       const fmt = (n) => n!=null ? '$'+Number(n).toFixed(2) : '—'
       const fmtPct = (p) => p!=null ? p.toFixed(1)+'%' : '—'
-      const mColor = (p) => p==null?'#94a3b8':p<25?'#991b1b':p<40?'#d97706':'#16a34a'
+      const mColor = (p) => p==null?'#94a3b8':p<25?'#dc2626':Math.abs(p-40)<=3?'#16a34a':p<37?'#d97706':'#0369a1'
       return `<tr>
         <td>${item.name}</td>
         <td>${item.category}</td>
@@ -3543,7 +3543,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const revenuePerBottle = (isWine && sellUnit === 'glass' && sell != null && servesPerBottle)
                             ? +(sell * servesPerBottle).toFixed(2) : null
                           const markupStr   = markupPct != null ? markupPct.toFixed(1) + '%' : '—'
-                          const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
+                          const markupColor = markupPct == null ? '#94a3b8' : Math.abs(markupPct-40) <= 3 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
@@ -4104,21 +4104,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       {phMatching ? '⏳ Matching…' : '🤖 Auto-match'}
                     </button>
                   )}
-                  {phManageData && (() => {
-                    const activeNames = new Set(items.map(i => i.name))
-                    const hiddenCount = phManageData.filter(row => {
-                      const hub = row._hub || row.item_name_hub || ''
-                      const isMatched = hub && hub !== row.item_name_raw
-                      if (!isMatched) return false
-                      return rundownItems[hub] || !activeNames.has(hub)
-                    }).length
-                    return (
-                      <span style={{ fontSize:12, color:'#64748b' }}>
-                        {phManageData.length - hiddenCount} active items
-                        {hiddenCount > 0 && <span style={{ color:'#d97706' }}> · {hiddenCount} rundown/deleted hidden</span>}
-                      </span>
-                    )
-                  })()}
+                  {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
                 </div>
 
                 {phManageData && (
@@ -4139,20 +4125,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </tr>
                         </thead>
                         <tbody>
-                          {(() => {
-                            const activeNames = new Set(items.map(i => i.name))
-                            return phManageData.filter(row => {
-                              const hub = row._hub || row.item_name_hub || ''
-                              const isMatched = hub && hub !== row.item_name_raw
-                              // Always show unmatched rows — user needs to manage them
-                              if (!isMatched) return true
-                              // Hide rows matched to rundown items
-                              if (rundownItems[hub]) return false
-                              // Hide rows matched to items no longer in the Hub / deleted from Square
-                              if (!activeNames.has(hub)) return false
-                              return true
-                            })
-                          })().map((row, i) => {
+                          {phManageData.map((row, i) => {
                             const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
                             const saved = phManageSaving[row.item_name_raw]
                             return (
@@ -4242,8 +4215,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
 
                   const sellGlass = hubItem.isSpirit
-                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
-                    : glassVar?.price != null ? Number(glassVar.price) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null)
+                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null))
+                    : glassVar?.price != null ? Number(glassVar.price)
+                    : bottleVar?.price != null ? Number(bottleVar.price)
+                    : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice)
+                    : hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null
                   const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
                     : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
                     : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
