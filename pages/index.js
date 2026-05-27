@@ -401,8 +401,8 @@ export default function Home() {
         // ── 4. Auto-save report to OneDrive ──────────────────────────────
         const odItems = receiveModal.items.map(i => ({
           name: i.name,
-          orderedQty: i.isSpirit ? (i.nipsToOrder || i.orderQty || 0) : (i.orderQty || 0),
-          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.isSpirit ? (i.nipsToOrder || i.orderQty || 0) : (i.orderQty || 0))) : 0,
+          orderedQty: i.orderQty || 0,
+          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0)) : 0,
           unit: i.isSpirit ? 'nip' : 'each',
           note: receiveChecked[i.name] ? '' : 'Not received this delivery',
         }))
@@ -2542,12 +2542,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         {/* Order summary */}
                         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
                           <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.length} items</div>
-                          {supItems.map(item => (
-                            <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
-                              <span style={{ color:'#374151' }}>{item.name}</span>
-                              <span style={{ fontWeight:700, color:'#1e3a5f' }}>{wizQtys[item.name] ?? item.orderQty} {item.isSpirit ? 'nips' : 'units'}</span>
-                            </div>
-                          ))}
+                          {supItems.map(item => {
+                            const nips = wizQtys[item.name] ?? item.orderQty
+                            const btl  = item.isSpirit && nips > 0
+                              ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30)))
+                              : null
+                            return (
+                              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
+                                <span style={{ color:'#374151' }}>{item.name}</span>
+                                <span style={{ fontWeight:700, color:'#1e3a5f' }}>
+                                  {item.isSpirit
+                                    ? <>{nips} nips <span style={{ fontWeight:400, color:'#64748b' }}>({btl} btl)</span></>
+                                    : <>{nips} units</>}
+                                </span>
+                              </div>
+                            )
+                          })}
                         </div>
 
                         <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:20, fontSize:13 }}>
@@ -3438,7 +3448,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (() => {
-                            const btl = item.bottlesToOrder || 0
+                            const effectiveNips = orderQtyOverrides[item.name] !== undefined
+                              ? orderQtyOverrides[item.name]
+                              : (item.nipsToOrder || 0)
+                            const btl = effectiveNips > 0
+                              ? Math.ceil(effectiveNips / ((item.bottleML || 700) / (item.nipML || 30)))
+                              : 0
                             return btl > 0 ? btl : '-'
                           })() : '-'}
                         </td>
