@@ -60,12 +60,13 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
+  const [phDays, setPhDays] = useState('all')
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
     try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
+      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Load failed')
       setPhAvgData(d)
@@ -4192,7 +4193,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
-              const TARGET = pricingMarkupTarget || 40
+              const TARGET = 40
               const BAND   = 3
               const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
               const mround = (v, m) => Math.round(v / m) * m
@@ -4284,14 +4285,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </div>
                       </div>
                       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
-                        {/* Margin target */}
-                        <label style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
-                          <span style={{ color:'#64748b' }}>Target:</span>
-                          <select value={pricingMarkupTarget} onChange={e => setPricingMarkupTarget(Number(e.target.value))}
-                            style={{ padding:'2px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }}>
-                            {[20,25,30,35,40,45,50,55,60].map(v => <option key={v} value={v}>{v}%</option>)}
-                          </select>
-                        </label>
                         {/* Switch supplier */}
                         {["Dan Murphy's",'Coles Woolies','ACW'].filter(s => s !== priceReviewModal).map(s => (
                           <button key={s} onClick={() => setPriceReviewModal(s)}
@@ -4337,10 +4330,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </div>
                     </div>
 
-                    {rows.length === 0 ? (
+                    {phLoading ? (
+                      <div style={{ padding:48, textAlign:'center', color:'#64748b' }}>⏳ Loading price data…</div>
+                    ) : rows.length === 0 ? (
                       <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
-                        ✓ All {priceReviewModal} items are within {BAND}% of the {TARGET}% target.<br/>
-                        <small style={{ color:'#94a3b8' }}>(Load Average Prices first if this looks empty)</small>
+                        {phAvgData
+                          ? <span>✓ All {priceReviewModal} items are within ±{BAND}% of the {TARGET}% markup target.</span>
+                          : <span>⏳ Loading price data…</span>}
                       </div>
                     ) : (
                       <table id={tableId} style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
@@ -4403,8 +4399,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {phSubTab === 'reports' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
+                  <div style={{ display:'flex', gap:4 }}>
+                    {['30','60','90','180','all'].map(d => (
+                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
+                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
+                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
+                        {d === 'all' ? 'All' : `${d} days`}
+                      </button>
+                    ))}
+                  </div>
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4414,13 +4418,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     Active items only
                   </label>
                   {["Dan Murphy's",'Coles Woolies','ACW'].map(sup => (
-                    <button key={sup} onClick={() => setPriceReviewModal(sup)}
+                    <button key={sup} onClick={() => { setPriceReviewModal(sup); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}
                       style={{ padding:'6px 12px', background: sup==="Dan Murphy's"?'#1e3a5f':sup==='Coles Woolies'?'#166534':'#92400e',
                         color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:11, cursor:'pointer' }}>
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={() => loadPhReport(90, phSupFilter)}
+                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -4435,7 +4439,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
