@@ -1858,6 +1858,167 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     setTimeout(() => w.print(), 500)
   }
 
+  async function exportAvgPriceReport() {
+    if (!window.ExcelJS) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+    const ExcelJS = window.ExcelJS
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Avg Price Review')
+    const TARGET = 40
+    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+    const mceil  = (v, m) => Math.ceil(v / m) * m
+    const NAVY   = '0F172A'
+    const GREEN  = '166534'
+    const AMBER  = '92400E'
+    const RED    = '991B1B'
+
+    // Fetch avg prices (all time, all suppliers)
+    let avgPriceMap = {}
+    try {
+      const r = await fetch('/api/invoices/avg-prices?days=730')
+      const d = await r.json()
+      for (const row of d.items || [])
+        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price, nips: row.nips_per_bottle }
+    } catch { alert('Failed to load invoice data'); return }
+
+    ws.columns = [
+      { header: 'Item',              key: 'name',       width: 38 },
+      { header: 'Category',          key: 'cat',        width: 16 },
+      { header: 'Supplier',          key: 'sup',        width: 14 },
+      { header: 'Current Buy Price', key: 'curBuy',     width: 16 },
+      { header: 'Avg Invoice Price', key: 'avgBuy',     width: 16 },
+      { header: '# Invoices',        key: 'invCount',   width: 12 },
+      { header: 'Min Buy',           key: 'minBuy',     width: 12 },
+      { header: 'Max Buy',           key: 'maxBuy',     width: 12 },
+      { header: 'Current Sell',      key: 'sell',       width: 12 },
+      { header: 'Curr Markup %',     key: 'curMarkup',  width: 14 },
+      { header: 'Avg Markup %',      key: 'avgMarkup',  width: 14 },
+      { header: 'Sugg Sell (40%)',   key: 'suggSell',   width: 14 },
+      { header: 'Notes',             key: 'notes',      width: 32 },
+    ]
+
+    const hRow = ws.getRow(1)
+    hRow.eachCell(cell => {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
+      cell.font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
+      cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true }
+    })
+    hRow.height = 32
+
+    const mColor = (p) => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
+    const mFont  = (p) => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
+
+    const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
+      const co = { Beer:0,Cider:1,PreMix:2,'White Wine':3,'Red Wine':4,Rose:5,Sparkling:6,'Fortified & Liqueurs':7,Spirits:8,'Soft Drinks':9,Snacks:10 }
+      return ((co[a.category]??99)-(co[b.category]??99)) || a.name.localeCompare(b.name)
+    })
+
+    let rNum = 1
+    for (const item of allItems) {
+      const isWine   = WINE_C.includes(item.category)
+      const avg      = avgPriceMap[item.name] || null
+      const vars     = item.variations || []
+      const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
+      const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+      const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip'))
+
+      const nipML    = item.nipML || 30
+      const bottleML = item.bottleML || 700
+      const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
+
+      // Avg buy price inc GST (per bottle/unit)
+      const avgBuyExGst = avg?.avg != null
+        ? (item.isSpirit ? avg.avg / nipsPerBtl : avg.avg)
+        : null
+      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
+      const minBuyIncGst = avg?.min != null ? Math.round((item.isSpirit ? avg.min / nipsPerBtl : avg.min) * 1.10 * 1000) / 1000 : null
+      const maxBuyIncGst = avg?.max != null ? Math.round((item.isSpirit ? avg.max / nipsPerBtl : avg.max) * 1.10 * 1000) / 1000 : null
+
+      // Current manual buy price
+      const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+
+      // Sell price
+      const serves = isWine && glassVar ? 5 : 1
+      const sellPrice = item.isSpirit
+        ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice ? Number(item.sellPrice) : null)
+        : glassVar?.price != null ? Number(glassVar.price)
+        : bottleVar?.price != null ? Number(bottleVar.price)
+        : item.squareSellPrice != null ? Number(item.squareSellPrice) : null
+
+      const revenue = sellPrice != null ? sellPrice * serves : null
+      const curMarkup  = curBuy  != null && curBuy  > 0 && revenue != null ? Math.round((revenue - curBuy)  / curBuy  * 1000) / 10 : null
+      const avgMarkup  = avgBuyIncGst != null && avgBuyIncGst > 0 && revenue != null ? Math.round((revenue - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
+      const suggSell   = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / serves, 0.25) : null
+
+      rNum++
+      const row = ws.addRow({
+        name:      item.name,
+        cat:       item.category,
+        sup:       item.supplier || '',
+        curBuy:    curBuy ?? '',
+        avgBuy:    avgBuyIncGst ?? '',
+        invCount:  avg?.count ?? '',
+        minBuy:    minBuyIncGst ?? '',
+        maxBuy:    maxBuyIncGst ?? '',
+        sell:      sellPrice ?? '',
+        curMarkup: curMarkup ?? '',
+        avgMarkup: avgMarkup ?? '',
+        suggSell:  suggSell ?? '',
+        notes:     '',
+      })
+
+      const fmt3 = '"$"#,##0.000'
+      const fmt2 = '"$"#,##0.00'
+      const fmtPct = '0.0"%"'
+      if (curBuy != null)       row.getCell('curBuy').numFmt    = fmt3
+      if (avgBuyIncGst != null) row.getCell('avgBuy').numFmt    = fmt3
+      if (minBuyIncGst != null) row.getCell('minBuy').numFmt    = fmt3
+      if (maxBuyIncGst != null) row.getCell('maxBuy').numFmt    = fmt3
+      if (sellPrice != null)    row.getCell('sell').numFmt      = fmt2
+      if (suggSell != null)     row.getCell('suggSell').numFmt  = fmt2
+      if (curMarkup != null) {
+        row.getCell('curMarkup').numFmt = fmtPct
+        const mc = mColor(curMarkup); if (mc) row.getCell('curMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+        const mf = mFont(curMarkup); if (mf) row.getCell('curMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+      if (avgMarkup != null) {
+        row.getCell('avgMarkup').numFmt = fmtPct
+        const mc = mColor(avgMarkup); if (mc) row.getCell('avgMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+        const mf = mFont(avgMarkup); if (mf) row.getCell('avgMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+      // Highlight if avg buy differs from current buy by >10%
+      if (curBuy != null && avgBuyIncGst != null) {
+        const diff = Math.abs(curBuy - avgBuyIncGst) / avgBuyIncGst
+        if (diff > 0.10) {
+          row.getCell('notes').value = `⚠ Buy price differs from avg by ${(diff*100).toFixed(0)}%`
+          row.getCell('notes').font  = { italic:true, color:{ argb:'FF'+AMBER }, size:9 }
+        }
+      }
+
+      const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
+      row.eachCell({ includeEmpty:true }, cell => {
+        if (!cell.fill || !cell.fill.fgColor || cell.fill.fgColor.argb === rowBg)
+          cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:rowBg } }
+        cell.alignment = { vertical:'middle' }
+      })
+    }
+
+    ws.views = [{ state:'frozen', ySplit:1 }]
+    ws.autoFilter = { from:'A1', to:'M1' }
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    const date = new Date().toLocaleDateString('en-AU', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g,'-')
+    a.href = url; a.download = `AvgPriceReview-${date}.xlsx`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function exportPricingExcel(markupTarget = 40) {
     if (!window.ExcelJS) {
       const s = document.createElement('script')
@@ -1883,14 +2044,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const mColor    = (p) => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
     const mFont     = (p) => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
 
-    // ── Fetch avg prices ────────────────────────────────────────────────────
-    const avgPriceMap = {}
-    try {
-      const ar = await fetch('/api/invoices/avg-prices?days=90')
-      const ad = await ar.json()
-      for (const row of ad.items || [])
-        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price, nips: row.nips_per_bottle }
-    } catch {}
+    // Buy prices are manual only — no avg price fetch
 
     // ── Column definitions ──────────────────────────────────────────────────
     ws.columns = [
@@ -1935,18 +2089,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
       const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
       const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
-      const avg       = avgPriceMap[item.name] || null
-
-      // Buy price per bottle/unit (inc GST)
-      const avgBuyRaw   = avg?.avg ?? null
-      const nipML       = item.nipML || 30
-      const bottleML    = item.bottleML || 700
-      const nipsPerBtl  = isSpirit ? bottleML / nipML : null
-      const avgBuyExGst = isSpirit && avgBuyRaw != null ? avgBuyRaw / nipsPerBtl : avgBuyRaw
-      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
-      const hubBuy      = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-      // Avg invoice price takes priority; manual is fallback for items with no invoice history
-      const buy         = avgBuyIncGst ?? hubBuy
+      // Buy price — manual only
+      const buy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
 
       // Sell prices
       const sellGlassPrice  = isSpirit
@@ -2025,7 +2169,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     }
 
     // ── Column header note for wines ────────────────────────────────────────
-    ws.getRow(1).getCell('buy').note = 'Per bottle (wines) · Per nip (spirits) · Per unit (others). Source: 90-day avg invoice price.'
+    ws.getRow(1).getCell('buy').note = 'Per bottle (wines) · Per nip (spirits) · Per unit (others). Manually entered buy price.'
 
     // ── Freeze header ───────────────────────────────────────────────────────
     ws.views = [{ state:'frozen', ySplit:1 }]
@@ -2039,11 +2183,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     ws.mergeCells(`A${sumRow.number}:L${sumRow.number}`)
 
     const activeItems = allItems.filter(i => !rundownItems[i.name])
-    const withBuy     = activeItems.filter(i => i.buyPrice || avgPriceMap[i.name])
+    const withBuy     = activeItems.filter(i => i.buyPrice != null && i.buyPrice !== '')
     const belowTarget = withBuy.filter(i => {
-      const avg = avgPriceMap[i.name] || null
-      const buy = avg?.avg != null ? Math.round(avg.avg * 1.10 * 100)/100 : (i.buyPrice != null ? Number(i.buyPrice) : null)
-      if (buy == null) return false
+      const buy = Number(i.buyPrice)
+      if (!buy) return false
       const vars = i.variations || []
       const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
       const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
@@ -3123,7 +3266,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
-                  onClick={() => { setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing'); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}>$ Pricing</button>
+                  onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
                 {view !== 'all' && !readOnly && (
                   <>
                     <button onClick={() => printOrderSheet(view)}
@@ -3543,13 +3686,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          const avgEntry2   = phAvgData?.items?.find(r => r.matched_hub_key === item.name)
-                          const nipsPerBtl2 = avgEntry2?.nips_per_bottle ?? (item.bottleML && item.nipML ? item.bottleML / item.nipML : null)
-                          const avgBuyIncGst2 = avgEntry2 ? Math.round((nipsPerBtl2 && item.isSpirit ? avgEntry2.avg_unit_price_ex_gst / nipsPerBtl2 : avgEntry2.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000 : null
-                          const manualBuy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
-                          // Avg invoice price takes priority; manual is fallback for items with no invoice history
-                          const buy = avgBuyIncGst2 ?? manualBuy
-                          const buySource = avgBuyIncGst2 != null ? '90d avg' : manualBuy != null ? 'manual' : null
+                          const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
 
                           // Resolve sell prices from Square variations (same logic as Price List tab)
                           const vars = item.variations || []
@@ -3596,24 +3733,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1 }}>
-                                <EditNumber
-                                  value={item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : (avgBuyIncGst2 ?? '')}
-                                  placeholder="—"
-                                  decimals={3}
-                                  prefix="$"
-                                  onChange={v => saveSetting(item.name, 'buyPrice', v)}
-                                  saving={saving[`${item.name}_buyPrice`]}
-                                  min={0}
-                                  readOnly={readOnly}
-                                />
-                                {buySource && (
-                                  <span style={{ fontSize:9, fontWeight:600,
-                                    color: buySource==='90d avg' ? '#16a34a' : '#d97706' }}>
-                                    {buySource}
-                                  </span>
-                                )}
-                              </div>
+                              <EditNumber
+                                value={item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : ''}
+                                placeholder="—"
+                                decimals={3}
+                                prefix="$"
+                                onChange={v => saveSetting(item.name, 'buyPrice', v)}
+                                saving={saving[`${item.name}_buyPrice`]}
+                                min={0}
+                                readOnly={readOnly}
+                              />
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
@@ -4577,6 +4706,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <button onClick={() => loadPhReport(90, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
+                  </button>
+                  <button onClick={() => exportAvgPriceReport()}
+                    style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    📥 Avg Price Report
                   </button>
 
                   {phAvgData?.items?.length > 0 && !readOnly && (
