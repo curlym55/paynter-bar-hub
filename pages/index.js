@@ -4192,10 +4192,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
-              const TARGET = 40
-              const BAND   = 3
-              const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
-              const mround = (v, m) => Math.round(v / m) * m
+              const TARGET  = 40
+              const WINE_C  = ['White Wine','Red Wine','Rose','Sparkling']
+              const mceil   = (v, m) => Math.ceil(v / m) * m   // always rounds UP to nearest m
               const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
 
               const rows = (phAvgData?.items || [])
@@ -4237,21 +4236,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     const rev    = sellGlass * serves
                     const markup = avgBuyPerUnit > 0 ? (rev - avgBuyPerUnit) / avgBuyPerUnit * 100 : 0
                     const diff   = markup - TARGET
-                    if (Math.abs(diff) > BAND) out.push({
+                    if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
                       sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
-                      suggSell: mround(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
+                      suggSell: mceil(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
                     })
                   }
 
                   if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
                     const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
                     const diff   = markup - TARGET
-                    if (Math.abs(diff) > BAND) out.push({
+                    if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
-                      suggSell: mround(avgBuyPerBottle * (1 + TARGET/100), 0.25)
+                      suggSell: mceil(avgBuyPerBottle * (1 + TARGET/100), 0.25)
                     })
                   }
 
@@ -4262,8 +4261,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const uOrder = { glass: 0, bottle: 1 }
                   return (uOrder[a.unit] ?? 2) - (uOrder[b.unit] ?? 2)
                 })
-              const tooLow  = rows.filter(r => r.diff < 0).length
-              const tooHigh = rows.filter(r => r.diff > 0).length
+              const tooLow  = rows.length  // all rows are below target by definition
 
               const tableId = 'price-review-table'
 
@@ -4280,7 +4278,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           📊 {priceReviewModal} — Price Review
                         </div>
                         <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
-                          {tooLow} below · {tooHigh} above · ±{BAND}% of {TARGET}% target · 90-day avg buy (inc GST)
+                          {tooLow} item{tooLow !== 1 ? 's' : ''} below {TARGET}% target · 90-day avg buy (inc GST) · sugg sell rounds up to nearest $0.25
                         </div>
                       </div>
                       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
@@ -4334,7 +4332,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     ) : rows.length === 0 ? (
                       <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
                         {phAvgData
-                          ? <span>✓ All {priceReviewModal} items are within ±{BAND}% of the {TARGET}% markup target.</span>
+                          ? <span>✓ All {priceReviewModal} items are at or above the {TARGET}% markup target.</span>
                           : <span>⏳ Loading price data…</span>}
                       </div>
                     ) : (
@@ -4388,7 +4386,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </table>
                     )}
                     <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
-                      Sugg sell = avg buy ÷ {(1 - TARGET/100).toFixed(2)}, rounded to nearest $0.25 · Glass wine = sell × 5/btl
+                      Sugg sell = min price for {TARGET}% markup, rounded UP to nearest $0.25 · Glass wine = sell × 5/btl
                     </div>
                   </div>
                 </div>
