@@ -4060,14 +4060,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <button onClick={async () => {
                     setPhManageLoading(true)
                     // Load Hub item names if not yet fetched
-                    if (phHubNames.length === 0 && items.length > 0) {
-                      // Use already-loaded items as the hub name list
-                      setPhHubNames(items.map(i => i.name).filter(Boolean).sort())
-                    } else if (phHubNames.length === 0) {
-                      fetch('/api/items').then(r=>r.json()).then(d => {
-                        const names = (d.items || []).map(i => i.name).filter(Boolean).sort()
-                        setPhHubNames(names)
-                      }).catch(() => {})
+                    if (phHubNames.length === 0) {
+                      if (items.length > 0) {
+                        setPhHubNames(items.map(i => i.name).filter(Boolean).sort())
+                      } else {
+                        fetch('/api/items').then(r=>r.json()).then(d => {
+                          setPhHubNames((d.items || []).map(i => i.name).filter(Boolean).sort())
+                        }).catch(() => {})
+                      }
                     }
                     try {
                       const r = await fetch('/api/invoices/manage')
@@ -4146,10 +4146,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
                                     <option value="">-- select Hub item --</option>
-                                    {(items.length > 0
-                                      ? [...items].filter(it => !rundownItems[it.name]).map(it => it.name).sort()
-                                      : phHubNames.filter(n => !rundownItems[n])
-                                    ).map(n => <option key={n} value={n}>{n}</option>)}
+                                    {(() => {
+                                      const activeNames = (items.length > 0 ? items : phHubNames.map(n => ({ name: n })))
+                                        .filter(it => it.name && !rundownItems[it.name])
+                                        .map(it => it.name).sort()
+                                      const currentVal = row._hub && row._hub !== row.item_name_raw ? row._hub : null
+                                      const isStale = currentVal && !activeNames.includes(currentVal)
+                                      return <>
+                                        {isStale && <option value={currentVal}>⚠ {currentVal} (not in current list)</option>}
+                                        {activeNames.map(n => <option key={n} value={n}>{n}</option>)}
+                                      </>
+                                    })()}
                                   </select>
                                 </td>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
