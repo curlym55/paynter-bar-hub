@@ -1868,222 +1868,234 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const ExcelJS = window.ExcelJS
     const wb = new ExcelJS.Workbook()
     const ws = wb.addWorksheet('Pricing Analysis')
-    wb.calcProperties = { fullCalcOnLoad: true }
 
-    // Fetch 90-day avg buy prices
-    let avgPriceMap = {}
+    const TARGET    = 40
+    const WINE_C    = ['White Wine','Red Wine','Rose','Sparkling']
+    const mceil     = (v, m) => Math.ceil(v / m) * m
+    const fmtPct    = p => p != null ? `${p.toFixed(1)}%` : ''
+    const NAVY      = '0F172A'
+    const TEAL      = '0E7490'
+    const GREEN     = '166534'
+    const AMBER     = '92400E'
+    const RED       = '991B1B'
+    const BLUE      = '0369A1'
+    const LGREY     = 'F8FAFC'
+    const mColor    = (p) => p == null ? null : p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
+    const mFont     = (p) => p == null ? null : p < 25 ? RED : Math.abs(p-40) <= 3 ? GREEN : p < 37 ? AMBER : BLUE
+
+    // ── Fetch avg prices ────────────────────────────────────────────────────
+    const avgPriceMap = {}
     try {
-      const ar = await fetch('/api/invoices/avg-prices?days=730')
-      if (ar.ok) {
-        const ad = await ar.json()
-        for (const row of ad.items || []) avgPriceMap[row.item_name] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price }
-      }
-    } catch(e) {}
+      const ar = await fetch('/api/invoices/avg-prices?days=90')
+      const ad = await ar.json()
+      for (const row of ad.items || [])
+        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price, nips: row.nips_per_bottle }
+    } catch {}
 
-    // Columns: A=Item B=Cat C=Sup D=Unit E=BuyExGST F=Serves/Btl G=Sell H=BtlSell I=Margin% J=BtlMargin% K=OnHand L=InvCount
-    ws.views = [{ state: 'frozen', ySplit: 1 }]
+    // ── Column definitions ──────────────────────────────────────────────────
     ws.columns = [
-      { header: 'Item',                         key: 'name',     width: 42 },
-      { header: 'Category',                     key: 'cat',      width: 18 },
-      { header: 'Supplier',                     key: 'sup',      width: 14 },
-      { header: 'Unit',                         key: 'unit',     width: 10 },
-      { header: 'Buy inc GST (edit)',            key: 'buy',      width: 16 },
-      { header: 'Serves/Btl',                   key: 'srv',      width: 11 },
-      { header: 'Sell',                         key: 'sell',     width: 11 },
-      { header: 'Markup %',                     key: 'markup',   width: 12 },
-      { header: `Sugg Sell (${markupTarget}%)`, key: 'suggSell', width: 15 },
-      { header: 'On Hand',                      key: 'onHand',   width: 10 },
-      { header: 'Invoice Count',                 key: 'invCount', width: 13 },
-      { header: 'Min Buy (inc GST)',             key: 'minBuy',   width: 15 },
-      { header: 'Max Buy (inc GST)',             key: 'maxBuy',   width: 15 },
-      { header: 'Notes',                        key: 'notes',    width: 38 },
+      { header: 'Item',              key: 'name',       width: 38 },
+      { header: 'Category',          key: 'cat',        width: 16 },
+      { header: 'Supplier',          key: 'sup',        width: 14 },
+      { header: 'Buy ($/btl·unit)',  key: 'buy',        width: 16 },
+      { header: 'Sell (glass/unit)', key: 'sellGlass',  width: 14 },
+      { header: 'Sell (bottle)',     key: 'sellBottle', width: 12 },
+      { header: 'Markup %',          key: 'markup',     width: 12 },
+      { header: 'Sugg Sell',         key: 'suggSell',   width: 11 },
+      { header: 'On Hand',           key: 'onHand',     width: 10 },
+      { header: '# Invoices',        key: 'invCount',   width: 10 },
+      { header: 'Min Buy',           key: 'minBuy',     width: 12 },
+      { header: 'Max Buy',           key: 'maxBuy',     width: 12 },
+      { header: 'Notes',             key: 'notes',      width: 36 },
     ]
 
+    // ── Header row styling ──────────────────────────────────────────────────
     const hRow = ws.getRow(1)
-    hRow.height = 22
     hRow.eachCell(cell => {
-      cell.fill      = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
-      cell.font      = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 }
-      cell.alignment = { horizontal: 'center', vertical: 'middle' }
-      cell.border    = { bottom: { style: 'thin', color: { argb: 'FF3B82F6' } } }
+      cell.fill   = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
+      cell.font   = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
+      cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true }
     })
-    ws.getRow(1).getCell('buy').fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF0E7490' } }
-    ws.autoFilter = { from: 'A1', to: 'N1' }
+    hRow.height = 32
 
-    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
-    const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
-      const ca = CATEGORY_ORDER_LIST.indexOf(a.category), cb = CATEGORY_ORDER_LIST.indexOf(b.category)
-      return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
-    })
-
-    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
-    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : Math.abs(p-40) <= 3 ? { argb:'FF166534' } : p < 37 ? { argb:'FF92400E' } : { argb:'FF0369A1' }
-
-    // Alternating pair background colours for glass+bottle wine pairs
-    const PAIR_BG = [{ argb:'FFF5F3FF' }, { argb:'FFEDE9FE' }]
-    let pairIdx = 0
-
-    // Helper: emit a single priced row
-    const addPriceRow = ({ item, unit, sell, serves, avgBuy, avgBuyIncGst, hubBuy, pairBg, avgEntry, isBottleOfPair }) => {
-      const rNum = ws.rowCount + 1
-      const mult = (1 + markupTarget / 100)
-      const mround = (v, m) => Math.round(v / m) * m
-      const sv = avgBuy != null ? mround(avgBuy * mult / serves, 0.25) : null
-
-      const row = ws.addRow({
-        name:     item.name,
-        cat:      item.category,
-        sup:      item.supplier || '',
-        unit,
-        buy:      avgBuy ?? '',
-        srv:      serves,
-        sell:     sell ?? '',
-        markup:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",E${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/E${rNum},"")`, result: 0 },
-        suggSell: sv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.25),"")`, result: sv } : '',
-
-        invCount: !isBottleOfPair ? (avgEntry?.count ?? '') : '',
-        minBuy:   !isBottleOfPair && avgEntry?.min != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const minEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.min / (item.bottleML / _nip) : avgEntry.min; return Math.round(minEx * 1.10 * 1000) / 1000 })() : '',
-        maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const maxEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.max / (item.bottleML / _nip) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
+    // ── Items ───────────────────────────────────────────────────────────────
+    const allItems = [...items]
+      .filter(i => !rundownItems[i.name])
+      .sort((a,b) => {
+        const co = { Beer:0,Cider:1,PreMix:2,'White Wine':3,'Red Wine':4,Rose:5,Sparkling:6,'Fortified & Liqueurs':7,Spirits:8,'Soft Drinks':9,Snacks:10 }
+        const cd = (co[a.category]??99) - (co[b.category]??99)
+        return cd !== 0 ? cd : a.name.localeCompare(b.name)
       })
 
-      // Set onHand by column number — key lookup unreliable when formula cells present
-      row.getCell(10).value = isBottleOfPair ? (item.onHand ?? 0) : ''  // bottles only for wine pairs
-      if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
-      if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
-      row.getCell('markup').numFmt  = '0.0%'
-      row.getCell('suggSell').numFmt = '"$"#,##0.00'
-      if (!isBottleOfPair && avgEntry?.min != null) row.getCell('minBuy').numFmt = '"$"#,##0.000'
-      if (!isBottleOfPair && avgEntry?.max != null) row.getCell('maxBuy').numFmt = '"$"#,##0.000'
-
-      // Sugg sell highlight — amber if below target, blue if above
-      if (avgBuy != null && sell != null && sell > 0) {
-        const mp = (sell * serves - avgBuy) / avgBuy * 100
-        if (Math.abs(mp - markupTarget) > 3) {
-          const sc = row.getCell('suggSell')
-          sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
-          sc.font = { bold: true, color: mp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
-        }
-      }
-
-      // Buy price background
-      const buyCl = row.getCell('buy')
-      buyCl.fill = { type:'pattern', pattern:'solid', fgColor:
-        avgBuyIncGst != null ? { argb:'FFE0F2FE' } :
-        (item.buyPrice != null && item.buyPrice !== '') ? { argb:'FFFFE4B5' } :
-                               { argb:'FFFEF9C3' } }
-      if (avgBuyIncGst == null && hubBuy != null) buyCl.note = 'No invoice data found — using manually entered Hub buy price'
-      if (avgBuyIncGst == null && hubBuy == null) buyCl.note = 'No buy price available — enter manually'
-
-      // Markup cell colour
-      if (avgBuy != null && sell != null && sell > 0) {
-        const mp = (sell * serves - avgBuy) / avgBuy * 100
-        const mc = row.getCell('markup')
-        mc.fill = { type:'pattern', pattern:'solid', fgColor: mColor(mp) }
-        mc.font = { bold: true, color: mFont(mp) }
-        mc.alignment = { horizontal: 'right' }
-      }
-
-      // Row background + purple left-border accent on paired rows
-      const bg = pairBg ?? (ws.rowCount % 2 === 0 ? { argb:'FFF8FAFC' } : { argb:'FFFFFFFF' })
-      ;['name','cat','sup','unit','srv','sell','suggSell','onHand','invCount','minBuy','maxBuy','notes'].forEach(k => {
-        const c = row.getCell(k)
-        if (!c.fill?.fgColor) c.fill = { type:'pattern', pattern:'solid', fgColor: bg }
-      })
-      // Flag wide min/max spread — could indicate a bad invoice extraction
-      if (!isBottleOfPair && avgEntry?.min != null && avgEntry?.max != null && avgEntry.avg > 0) {
-        const spread = (avgEntry.max - avgEntry.min) / avgEntry.avg
-        if (spread > 0.20) {
-          ;['minBuy','maxBuy'].forEach(k => {
-            row.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFFEE2E2' } }
-            row.getCell(k).font = { bold:true, color:{ argb:'FF991B1B' } }
-          })
-          row.getCell('maxBuy').note = `Wide price spread (${(spread*100).toFixed(0)}%) — check invoice extractions for this item`
-        }
-      }
-      if (pairBg) {
-        row.getCell('name').border = { left: { style:'medium', color:{ argb:'FF7C3AED' } } }
-      }
-
-      return row
-    }
+    let lastCat = null
+    let rNum = 1
 
     for (const item of allItems) {
-      const isWine      = WINE_C.includes(item.category)
-      const forceBottle = item.category === 'Sparkling' || item.bottleOnly
-      const sellUnit    = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : isWine ? (item.sellUnit || 'glass') : 'each'
-      const glassWine   = isWine && sellUnit === 'glass'
-      const serves      = glassWine ? 5 : 1
-      const vars        = item.variations || []
-      const glassVar    = vars.find(v => v.name?.toLowerCase().includes('glass'))
-      const bottleVar   = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-      const nipVar      = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
-      const sellGlass   = item.isSpirit
-        ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
-        : glassVar?.price != null ? Number(glassVar.price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
-      const sellBottle  = bottleVar?.price != null ? Number(bottleVar.price) : (item.squareSellPrice != null ? Number(item.squareSellPrice) : null)
-      const sell        = isWine && sellUnit === 'bottle' ? sellBottle : sellGlass
+      const isWine    = WINE_C.includes(item.category)
+      const isSpirit  = item.isSpirit
+      const vars      = item.variations || []
+      const glassVar  = vars.find(v => v.name?.toLowerCase().includes('glass'))
+      const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+      const nipVar    = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
+      const avg       = avgPriceMap[item.name] || null
 
-      const avgEntry     = avgPriceMap[item.name]
-      const avgBuyRaw    = avgEntry?.avg ?? null
-      // Detect nip size from name — takes priority over Hub default (can't distinguish explicit 30ml from default 30ml)
-      // "Baileys Irish Cream 60ml Nip" → 60, "Bacardi Rum 30ml Nip" → 30, items with no "ml nip" → use Hub setting
-      const nipMLDetected  = item.name.match(/(\d+)\s*ml\s*nip/i)
-      const effectiveNipML = nipMLDetected ? Number(nipMLDetected[1]) : (item.nipML || 30)
-      // Convert to inc-GST to match how Hub buy prices are entered
-      const avgBuyExGst  = (item.isSpirit && item.bottleML && effectiveNipML && avgBuyRaw != null)
-        ? Math.round(avgBuyRaw / (item.bottleML / effectiveNipML) * 10000) / 10000
-        : avgBuyRaw
+      // Buy price per bottle/unit (inc GST)
+      const avgBuyRaw   = avg?.avg ?? null
+      const nipML       = item.nipML || 30
+      const bottleML    = item.bottleML || 700
+      const nipsPerBtl  = isSpirit ? bottleML / nipML : null
+      const avgBuyExGst = isSpirit && avgBuyRaw != null ? avgBuyRaw / nipsPerBtl : avgBuyRaw
       const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
-      const hubBuy       = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-      const avgBuy       = avgBuyIncGst ?? hubBuy
+      const hubBuy      = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+      const buy         = avgBuyIncGst ?? hubBuy  // per bottle for wines, per nip for spirits, per unit for others
 
-      if (glassWine && sellBottle) {
-        // ── Glass+bottle wine: split into two paired rows ────────────────
-        const pairBg      = PAIR_BG[pairIdx % 2]
-        pairIdx++
-        const glassMarkup = avgBuy != null && sellGlass != null ? (sellGlass * serves - avgBuy) / avgBuy * 100 : null
-        const btlMarkup   = avgBuy != null && sellBottle != null ? (sellBottle - avgBuy) / avgBuy * 100 : null
-        const glassRev    = sellGlass != null ? sellGlass * serves : null
+      // Sell prices
+      const sellGlassPrice  = isSpirit
+        ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice != null ? Number(item.sellPrice) : null)
+        : glassVar?.price != null ? Number(glassVar.price)
+        : bottleVar?.price != null ? Number(bottleVar.price)
+        : item.squareSellPrice != null ? Number(item.squareSellPrice) : null
+      const sellBottlePrice = bottleVar?.price != null ? Number(bottleVar.price)
+        : item.squareSellPriceBottle != null ? Number(item.squareSellPriceBottle) : null
 
-        let glassNote = '', btlNote = ''
-        if (glassMarkup != null && btlMarkup != null && Math.abs(glassMarkup - btlMarkup) > 20)
-          glassNote = `⚠ Markup gap: glass ${glassMarkup.toFixed(0)}% vs bottle ${btlMarkup.toFixed(0)}%`
-        if (glassRev != null && sellBottle != null && sellBottle > glassRev)
-          btlNote = `⚠ Bottle ($${sellBottle.toFixed(2)}) costs more than ${serves} glasses ($${glassRev.toFixed(2)})`
+      // Markup: for wines use glass × 5 vs bottle cost; for spirits use nip vs nip cost; for others use unit
+      const serves = isWine && glassVar ? 5 : 1
+      const revenue = sellGlassPrice != null ? sellGlassPrice * serves : null
+      const markup  = buy != null && buy > 0 && revenue != null ? Math.round((revenue - buy) / buy * 1000) / 10 : null
 
-        const gRow = addPriceRow({ item, unit:'glass',  sell:sellGlass,  serves,   avgBuy, avgBuyIncGst, hubBuy, pairBg, avgEntry, isBottleOfPair:false })
-        if (glassNote) { gRow.getCell('notes').value = glassNote; gRow.getCell('notes').font = { color:{ argb:'FF92400E' }, italic:true, size:9 } }
-        const bRow = addPriceRow({ item, unit:'bottle', sell:sellBottle, serves:1, avgBuy, avgBuyIncGst, hubBuy, pairBg, avgEntry, isBottleOfPair:true })
-        if (btlNote)   { bRow.getCell('notes').value = btlNote;   bRow.getCell('notes').font = { color:{ argb:'FF991B1B' }, italic:true, size:9 } }
-      } else {
-        // ── Single-unit item ─────────────────────────────────────────────
-        addPriceRow({ item, unit:sellUnit, sell, serves, avgBuy, avgBuyIncGst, hubBuy, pairBg:null, avgEntry, isBottleOfPair:false })
+      // Suggested sell (per glass/nip/unit, rounded UP to nearest $0.25 for ≥40%)
+      const suggSell = buy != null ? mceil(buy * (1 + TARGET/100) / serves, 0.25) : null
+
+      // Category header row
+      if (item.category !== lastCat) {
+        rNum++
+        const catRow = ws.addRow({ name: item.category.toUpperCase() })
+        catRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
+        catRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+TEAL } }
+        ws.mergeCells(`A${catRow.number}:M${catRow.number}`)
+        catRow.height = 20
+        lastCat = item.category
+      }
+
+      rNum++
+      const row = ws.addRow({
+        name:       item.name,
+        cat:        item.category,
+        sup:        item.supplier || '',
+        buy:        buy ?? '',
+        sellGlass:  sellGlassPrice ?? '',
+        sellBottle: isWine ? (sellBottlePrice ?? '') : '',
+        markup:     '',
+        suggSell:   suggSell ?? '',
+        onHand:     item.onHand ?? 0,
+        invCount:   avg?.count ?? '',
+        minBuy:     avg?.min != null ? Math.round(avg.min * 1.10 * 100) / 100 : '',
+        maxBuy:     avg?.max != null ? Math.round(avg.max * 1.10 * 100) / 100 : '',
+        notes:      '',
+      })
+
+      // Format numeric cells
+      if (buy != null)            { row.getCell('buy').numFmt      = '"$"#,##0.000' }
+      if (sellGlassPrice != null) { row.getCell('sellGlass').numFmt = '"$"#,##0.00' }
+      if (sellBottlePrice != null && isWine) { row.getCell('sellBottle').numFmt = '"$"#,##0.00' }
+      if (suggSell != null)       { row.getCell('suggSell').numFmt  = '"$"#,##0.00' }
+      if (avg?.min != null)       { row.getCell('minBuy').numFmt    = '"$"#,##0.000' }
+      if (avg?.max != null)       { row.getCell('maxBuy').numFmt    = '"$"#,##0.000' }
+      row.getCell('onHand').numFmt = '#,##0'
+
+      // Markup cell with formula
+      const buyCol = 'E'; const sellCol = 'F'; const srvCol = buy != null ? serves : 1
+      row.getCell('markup').value   = buy != null && sellGlassPrice != null
+        ? { formula: `=IF(AND(${buyCol}${row.number}<>"",${sellCol}${row.number}<>""),ROUND((${sellCol}${row.number}*${serves}-${buyCol}${row.number})/${buyCol}${row.number}*100,1),"")`, result: markup ?? 0 }
+        : ''
+      if (markup != null) {
+        row.getCell('markup').numFmt  = '0.0"%"'
+        const mc = mColor(markup)
+        if (mc) row.getCell('markup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+        const mf = mFont(markup)
+        if (mf) row.getCell('markup').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+
+      // Row styling
+      const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
+      row.eachCell({ includeEmpty:true }, cell => {
+        if (!cell.fill || cell.fill.fgColor?.argb === rowBg) {
+          cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:rowBg } }
+        }
+        cell.alignment = { vertical:'middle' }
+      })
+      row.getCell('markup').alignment = { vertical:'middle', horizontal:'center' }
+      row.getCell('onHand').alignment  = { vertical:'middle', horizontal:'right' }
+
+      // Flag wide price spread
+      if (avg?.min != null && avg?.max != null && avg.avg > 0) {
+        const spread = (avg.max - avg.min) / avg.avg
+        if (spread > 0.20) {
+          row.getCell('notes').value = `⚠ Price spread ${(spread*100).toFixed(0)}% — check invoices`
+          row.getCell('notes').font  = { italic:true, color:{ argb:'FF'+AMBER }, size:9 }
+        }
       }
     }
 
-    ws.addRow({})
-    const lastData = ws.rowCount - 1
-    const summaryRow = ws.addRow({
-      name:   'OVERALL AVERAGE MARKUP (excl. rundown)',
-      markup: { formula: `=IFERROR(AVERAGEIF(A2:A${lastData},"<>",H2:H${lastData}),"")`, result: 0 },
-    })
-    summaryRow.getCell('name').font = { bold: true, size: 11, color: { argb: 'FF1E3A5F' } }
-    ;['name','cat','sup','unit','buy','srv','sell','onHand','invCount','minBuy','maxBuy','notes'].forEach(k =>
-      summaryRow.getCell(k).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } })
-    const mc = summaryRow.getCell('markup')
-    mc.numFmt = '0.0%'; mc.font = { bold: true, size: 12, color: { argb: 'FF1E3A5F' } }
-    mc.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FFE0E7FF' } }
-    mc.alignment = { horizontal: 'right' }
+    // ── Column header note for wines ────────────────────────────────────────
+    ws.getRow(1).getCell('sellBottle').note = 'Wine bottle sell price (blank for non-wine items)'
+    ws.getRow(1).getCell('sellGlass').note  = 'Per glass for wines / per unit for others'
+    ws.getRow(1).getCell('buy').note        = 'Per bottle (wines) · Per nip (spirits) · Per unit (others). Source: 90-day avg invoice price.'
 
-    const date = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'}).replace(/\//g,'-')
+    // ── Freeze header ───────────────────────────────────────────────────────
+    ws.views = [{ state:'frozen', ySplit:1 }]
+    ws.autoFilter = { from:'A1', to:'M1' }
+
+    // ── Summary section ─────────────────────────────────────────────────────
+    ws.addRow([])
+    const sumRow = ws.addRow(['SUMMARY', '', '', '', '', '', '', '', '', '', '', '', ''])
+    sumRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
+    sumRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' } }
+    ws.mergeCells(`A${sumRow.number}:M${sumRow.number}`)
+
+    const activeItems = allItems.filter(i => !rundownItems[i.name])
+    const withBuy     = activeItems.filter(i => i.buyPrice || avgPriceMap[i.name])
+    const belowTarget = withBuy.filter(i => {
+      const avg = avgPriceMap[i.name] || null
+      const buy = avg?.avg != null ? Math.round(avg.avg * 1.10 * 100)/100 : (i.buyPrice != null ? Number(i.buyPrice) : null)
+      if (buy == null) return false
+      const vars = i.variations || []
+      const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
+      const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+      const nipVar = vars.find(v => v.name?.toLowerCase().includes('nip'))
+      const sell = i.isSpirit
+        ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (i.sellPrice ? Number(i.sellPrice) : null)
+        : glassVar?.price != null ? Number(glassVar.price) : (bottleVar?.price != null ? Number(bottleVar.price) : (i.squareSellPrice != null ? Number(i.squareSellPrice) : null))
+      if (sell == null) return false
+      const isWine = WINE_C.includes(i.category)
+      const serves = isWine && glassVar ? 5 : 1
+      const markup = (sell * serves - buy) / buy * 100
+      return markup < TARGET
+    })
+
+    const stats = [
+      ['Total active items tracked', activeItems.length],
+      ['Items with price data', withBuy.length],
+      ['Items below 40% markup target', belowTarget.length],
+      ['Report generated', new Date().toLocaleString('en-AU', { timeZone:'Australia/Brisbane' })],
+    ]
+    for (const [label, value] of stats) {
+      const r = ws.addRow([label, '', value])
+      r.getCell(1).font  = { bold:false, color:{ argb:'FF374151' } }
+      r.getCell(3).font  = { bold:true,  color:{ argb:'FF'+NAVY } }
+      r.getCell(3).alignment = { horizontal:'left' }
+      ws.mergeCells(`A${r.number}:B${r.number}`)
+    }
+
+    // ── Download ────────────────────────────────────────────────────────────
     const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
     const url  = URL.createObjectURL(blob)
     const a    = document.createElement('a')
+    const date = new Date().toLocaleDateString('en-AU', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g,'-')
     a.href = url; a.download = `PricingAnalysis-${date}.xlsx`; a.click()
     URL.revokeObjectURL(url)
   }
-
 
   function printPricingSheet() {
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
