@@ -4353,24 +4353,40 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const out = []
 
                   if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
+                    const spread       = (row.min_price != null && row.max_price != null && row.avg_unit_price_ex_gst > 0)
+                                         ? (row.max_price - row.min_price) / row.avg_unit_price_ex_gst : 0
+                    const hasAnomaly   = spread > 0.20
+                    const effExGst     = hasAnomaly
+                                         ? (nipsPerBtl ? row.min_price / nipsPerBtl : row.min_price)
+                                         : (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst)
+                    const effBuyPerUnit = Math.round(effExGst * 1.10 * 1000) / 1000
                     const rev    = sellGlass * serves
-                    const markup = avgBuyPerUnit > 0 ? (rev - avgBuyPerUnit) / avgBuyPerUnit * 100 : 0
+                    const markup = effBuyPerUnit > 0 ? (rev - effBuyPerUnit) / effBuyPerUnit * 100 : 0
                     const diff   = markup - TARGET
                     if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
-                      sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
-                      suggSell: mceil(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
+                      sell: sellGlass,
+                      avgBuy: effBuyPerUnit / serves,
+                      avgBuyBottle: glassWine ? effBuyPerUnit : null,
+                      markup, diff, hasAnomaly, spread,
+                      suggSell: mceil(effBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
                     })
                   }
 
                   if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
-                    const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
+                    const spread     = (row.min_price != null && row.max_price != null && row.avg_unit_price_ex_gst > 0)
+                                       ? (row.max_price - row.min_price) / row.avg_unit_price_ex_gst : 0
+                    const hasAnomaly = spread > 0.20
+                    const effBtlExGst = hasAnomaly ? row.min_price : row.avg_unit_price_ex_gst
+                    const effBuyBottle = Math.round(effBtlExGst * 1.10 * 1000) / 1000
+                    const markup = effBuyBottle > 0 ? (sellBottle - effBuyBottle) / effBuyBottle * 100 : 0
                     const diff   = markup - TARGET
                     if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
-                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
-                      suggSell: mceil(avgBuyPerBottle * (1 + TARGET/100), 0.25)
+                      unit: 'bottle', sell: sellBottle, avgBuy: effBuyBottle, markup, diff,
+                      hasAnomaly, spread,
+                      suggSell: mceil(effBuyBottle * (1 + TARGET/100), 0.25)
                     })
                   }
 
@@ -4474,12 +4490,28 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               borderBottom: hasPair && !isNewItem ? '2px solid #bae6fd' : '1px solid #f1f5f9',
                               borderTop: isNewItem && hasPair ? '2px solid #bae6fd' : undefined
                             }}>
-                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>{r.name}</td>
+                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>
+                                {r.name}
+                                {r.hasAnomaly && (
+                                  <span title={`Price spread ${(r.spread*100).toFixed(0)}% — anomaly detected, using min price as effective buy`}
+                                    style={{ marginLeft:6, fontSize:10, background:'#fef3c7', color:'#92400e', border:'1px solid #fde68a', borderRadius:3, padding:'1px 5px', fontWeight:700, cursor:'help' }}>
+                                    ⚠ anomaly
+                                  </span>
+                                )}
+                              </td>
                               <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
                               <td style={{ padding:'7px 10px' }}>
                                 <span style={{ padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#e0f2fe', color:'#0369a1' }}>{r.unit}</span>
                               </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>
+                                ${r.avgBuy.toFixed(3)}
+                                {r.avgBuyBottle != null && (
+                                  <div style={{ fontSize:10, color:'#94a3b8' }}>btl ${r.avgBuyBottle.toFixed(3)}</div>
+                                )}
+                                {r.hasAnomaly && (
+                                  <div style={{ fontSize:10, color:'#d97706' }}>min used</div>
+                                )}
+                              </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET ? '#dc2626' : '#16a34a' }}>
                                 {r.markup.toFixed(1)}%
