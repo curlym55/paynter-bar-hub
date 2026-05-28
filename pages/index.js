@@ -4158,7 +4158,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       🔍 Audit
                     </button>
                   )}
-                  {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
+                  {phManageData && (() => {
+                    const activeNames = new Set(items.map(i => i.name))
+                    const hiddenCount = phManageData.filter(row => {
+                      const hub = row._hub || row.item_name_hub || ''
+                      const isMatched = hub && hub !== row.item_name_raw
+                      if (!isMatched) return false
+                      return rundownItems[hub] || !activeNames.has(hub)
+                    }).length
+                    return (
+                      <span style={{ fontSize:12, color:'#64748b' }}>
+                        {phManageData.length - hiddenCount} active items
+                        {hiddenCount > 0 && <span style={{ color:'#d97706' }}> · {hiddenCount} rundown/deleted hidden</span>}
+                        {' '}— edit Hub Name and Units/Pack then click Save on each row
+                      </span>
+                    )
+                  })()}
                 </div>
 
                 {phAuditItems !== null && (
@@ -4237,7 +4252,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </tr>
                         </thead>
                         <tbody>
-                          {phManageData.map((row, i) => {
+                          {(() => {
+                            const activeNames = new Set(items.map(i => i.name))
+                            return phManageData.filter(row => {
+                              const hub = row._hub || row.item_name_hub || ''
+                              const isMatched = hub && hub !== row.item_name_raw
+                              if (!isMatched) return true          // always show unmatched — needs to be mapped or deleted
+                              if (rundownItems[hub]) return false  // hide rundown
+                              if (!activeNames.has(hub)) return false // hide deleted/not in current list
+                              return true
+                            })
+                          })().map((row, i) => {
                             const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
                             const saved = phManageSaving[row.item_name_raw]
                             return (
