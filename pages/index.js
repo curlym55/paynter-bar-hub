@@ -4304,7 +4304,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px}
                             .r{text-align:right}</style></head><body>
                             <h2>📊 ${priceReviewModal} — Price Review</h2>
-                            <p>${tooLow} below · ${tooHigh} above · ±${BAND}% of ${TARGET}% target</p>
+                            <p>${tooLow} item${tooLow !== 1 ? 's' : ''} below ${TARGET}% markup target · sugg sell rounded up to nearest $0.25</p>
                             ${tbl.outerHTML}</body></html>`)
                           w.document.close(); w.print()
                         }} style={{ padding:'3px 10px', background:'#f8fafc', color:'#374151', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
@@ -4361,7 +4361,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET ? '#dc2626' : '#16a34a' }}>
                                 {r.markup.toFixed(1)}%
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
