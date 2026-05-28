@@ -1947,7 +1947,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       })
 
       // Set onHand by column number — key lookup unreliable when formula cells present
-      row.getCell(10).value = !isBottleOfPair ? (item.onHand ?? 0) : ''
+      row.getCell(10).value = isBottleOfPair ? (item.onHand ?? 0) : ''  // bottles only for wine pairs
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
       if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
       row.getCell('markup').numFmt  = '0.0%'
