@@ -1915,8 +1915,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const maxEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.max / (item.bottleML / _nip) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
       })
 
-      // Set onHand explicitly — ws.addRow key-mapping can fail when formula cells are present
-      if (!isBottleOfPair) row.getCell('onHand').value = item.onHand ?? 0
+      // Set onHand by column number (J=10) — key lookup unreliable when formula cells present
+      row.getCell(10).value = !isBottleOfPair ? (item.onHand ?? 0) : ''
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
       if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
       row.getCell('markup').numFmt  = '0.0%'
