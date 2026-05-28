@@ -1900,8 +1900,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Buy ($/btl·unit)',  key: 'buy',        width: 16 },
       { header: 'Sell (glass/unit)', key: 'sellGlass',  width: 14 },
       { header: 'Sell (bottle)',     key: 'sellBottle', width: 12 },
-      { header: 'Markup %',          key: 'markup',     width: 12 },
-      { header: 'Sugg Sell',         key: 'suggSell',   width: 11 },
+      { header: 'Markup % (glass)',  key: 'markup',     width: 13 },
+      { header: 'Markup % (btl)',   key: 'markupBtl',  width: 13 },
+      { header: 'Sugg Sell (glass)', key: 'suggSell',   width: 13 },
+      { header: 'Sugg Sell (btl)',  key: 'suggBtl',    width: 13 },
       { header: 'On Hand',           key: 'onHand',     width: 10 },
       { header: 'Notes',             key: 'notes',      width: 36 },
     ]
@@ -1959,8 +1961,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const revenue = sellGlassPrice != null ? sellGlassPrice * serves : null
       const markup  = buy != null && buy > 0 && revenue != null ? Math.round((revenue - buy) / buy * 1000) / 10 : null
 
-      // Suggested sell (per glass/nip/unit, rounded UP to nearest $0.25 for ≥40%)
-      const suggSell = buy != null ? mceil(buy * (1 + TARGET/100) / serves, 0.25) : null
+      // Suggested sell prices rounded UP to nearest $0.25 at 40% markup
+      const suggSell    = buy != null ? mceil(buy * (1 + TARGET/100) / serves, 0.25) : null
+      const suggBtl     = buy != null && isWine ? mceil(buy * (1 + TARGET/100), 0.25) : null
+      const markupBtlVal = buy != null && buy > 0 && sellBottlePrice != null && isWine
+        ? Math.round((sellBottlePrice - buy) / buy * 1000) / 10 : null
 
       rNum++
       const row = ws.addRow({
@@ -1971,7 +1976,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         sellGlass:  sellGlassPrice ?? '',
         sellBottle: isWine ? (sellBottlePrice ?? '') : '',
         markup:     '',
+        markupBtl:  '',
         suggSell:   suggSell ?? '',
+        suggBtl:    suggBtl ?? '',
         onHand:     item.onHand ?? 0,
         notes:      '',
       })
@@ -1981,6 +1988,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (sellGlassPrice != null) { row.getCell('sellGlass').numFmt = '"$"#,##0.00' }
       if (sellBottlePrice != null && isWine) { row.getCell('sellBottle').numFmt = '"$"#,##0.00' }
       if (suggSell != null)       { row.getCell('suggSell').numFmt  = '"$"#,##0.00' }
+      if (suggBtl  != null)       { row.getCell('suggBtl').numFmt   = '"$"#,##0.00' }
 
       row.getCell('onHand').numFmt = '#,##0'
 
@@ -1996,6 +2004,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         if (mc) row.getCell('markup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
         const mf = mFont(markup)
         if (mf) row.getCell('markup').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+      // Bottle markup (wines only)
+      if (markupBtlVal != null) {
+        const rn2 = row.number
+        row.getCell('markupBtl').value  = { formula: `=IF(AND(D${rn2}<>,F${rn2}<>),ROUND((F${rn2}-D${rn2})/D${rn2}*100,1),)`, result: markupBtlVal }
+        row.getCell('markupBtl').numFmt = '0.0"%"'
+        const mc2 = mColor(markupBtlVal)
+        if (mc2) row.getCell('markupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc2 }
+        const mf2 = mFont(markupBtlVal)
+        if (mf2) row.getCell('markupBtl').font = { bold:true, color:{ argb:'FF'+mf2 } }
       }
 
       // Row styling
@@ -2017,14 +2035,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     // ── Freeze header ───────────────────────────────────────────────────────
     ws.views = [{ state:'frozen', ySplit:1 }]
-    ws.autoFilter = { from:'A1', to:'I1' }
+    ws.autoFilter = { from:'A1', to:'L1' }
 
     // ── Summary section ─────────────────────────────────────────────────────
     ws.addRow([])
     const sumRow = ws.addRow(['SUMMARY', '', '', '', '', '', '', '', '', '', '', '', ''])
     sumRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
     sumRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' } }
-    ws.mergeCells(`A${sumRow.number}:I${sumRow.number}`)
+    ws.mergeCells(`A${sumRow.number}:L${sumRow.number}`)
 
     const activeItems = allItems.filter(i => !rundownItems[i.name])
     const withBuy     = activeItems.filter(i => i.buyPrice || avgPriceMap[i.name])
