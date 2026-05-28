@@ -3084,14 +3084,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       🖨️ Print
                     </button>
-                    <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
-                      <span style={{ color:'#475569' }}>Target:</span>
-                      <input type='number' value={pricingMarkupTarget} min={10} max={90} step={5}
-                        onChange={e => setPricingMarkupTarget(Number(e.target.value))}
-                        style={{ width:46, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
-                      <span style={{ color:'#475569' }}>%</span>
-                    </span>
-                    <button onClick={() => exportPricingExcel(pricingMarkupTarget)}
+                    <button onClick={() => exportPricingExcel(40)}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
@@ -3327,6 +3320,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Markup</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sugg Sell</th>
                     </>}
                   </tr>
                 </thead>
@@ -3521,7 +3515,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
+                          // Buy price: prefer 90-day avg from price history, fall back to manual buyPrice
+                          const avgEntry    = phAvgData?.items?.find(r => r.matched_hub_key === item.name)
+                          const nipsPerBtl  = avgEntry?.nips_per_bottle ?? (item.bottleML && item.nipML ? item.bottleML / item.nipML : null)
+                          const avgBuyIncGst = avgEntry ? Math.round(
+                            (nipsPerBtl && item.isSpirit
+                              ? avgEntry.avg_unit_price_ex_gst / nipsPerBtl
+                              : avgEntry.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+                            : null
+                          const buy = avgBuyIncGst ?? (item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null)
+                          const buySource = avgBuyIncGst != null ? '90d avg' : (item.buyPrice != null ? 'manual' : null)
 
                           // Resolve sell prices from Square variations (same logic as Price List tab)
                           const vars = item.variations || []
@@ -3568,15 +3571,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const markupColor = markupPct == null ? '#94a3b8' : Math.abs(markupPct-40) <= 3 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
-                                onChange={v => saveSetting(item.name, 'buyPrice', v)}
-                                saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
-                              {buy == null && !readOnly && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 2 }}>No cost price set</div>}
-                              {settingsAudit[`${item.name}__buyPrice`] && (
-                                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>
-                                  ↺ {new Date(settingsAudit[`${item.name}__buyPrice`].ts).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}
-                                </div>
-                              )}
+                              {buy != null
+                                ? <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1 }}>
+                                    <span style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:12 }}>${buy.toFixed(3)}</span>
+                                    <span style={{ fontSize:9, color: buySource==='90d avg' ? '#16a34a' : '#d97706', fontWeight:600 }}>{buySource}</span>
+                                  </div>
+                                : <span style={{ fontSize:10, color:'#dc2626', fontWeight:700 }}>No price data</span>}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
@@ -3639,6 +3639,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               {servesPerBottle != null && servesPerBottle > 1 && revenuePerBottle != null && (
                                 <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 400 }}>${revenuePerBottle.toFixed(2)}/btl rev</div>
                               )}
+                            </td>
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#7c3aed' }}>
+                              {buy != null ? (() => {
+                                const TARGET = 40
+                                const mceil = (v, m) => Math.ceil(v / m) * m
+                                const serves = servesPerBottle && !item.isSpirit && (isWine && sellUnit === 'glass') ? servesPerBottle : 1
+                                return `$${mceil(buy * (1 + TARGET/100) / serves, 0.25).toFixed(2)}`
+                              })() : '—'}
                             </td>
                           </>
                         })()}
