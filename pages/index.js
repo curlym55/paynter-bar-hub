@@ -3111,7 +3111,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
-                  onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
+                  onClick={() => { setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing'); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}>$ Pricing</button>
                 {view !== 'all' && !readOnly && (
                   <>
                     <button onClick={() => printOrderSheet(view)}
@@ -3582,12 +3582,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              {buy != null
-                                ? <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1 }}>
-                                    <span style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:12 }}>${buy.toFixed(3)}</span>
-                                    <span style={{ fontSize:9, color:buySource==='90d avg'?'#16a34a':'#d97706', fontWeight:600 }}>{buySource}</span>
-                                  </div>
-                                : <span style={{ fontSize:10, color:'#dc2626', fontWeight:700 }}>No price data</span>}
+                              <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1 }}>
+                                <EditNumber
+                                  value={item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : (avgBuyIncGst2 ?? '')}
+                                  placeholder="—"
+                                  decimals={3}
+                                  prefix="$"
+                                  onChange={v => saveSetting(item.name, 'buyPrice', v)}
+                                  saving={saving[`${item.name}_buyPrice`]}
+                                  min={0}
+                                  readOnly={readOnly}
+                                />
+                                {buySource && (
+                                  <span style={{ fontSize:9, fontWeight:600,
+                                    color: buySource==='90d avg' ? '#16a34a' : '#d97706' }}>
+                                    {buySource}
+                                  </span>
+                                )}
+                              </div>
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
