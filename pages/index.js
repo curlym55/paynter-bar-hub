@@ -50,6 +50,9 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
+  const [docInvoiceUploading, setDocInvoiceUploading] = useState({})
+  const [docEmailSending,     setDocEmailSending]     = useState({})
+  const [docEmailSent,        setDocEmailSent]        = useState({})
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -60,12 +63,13 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
+  const [phDays, setPhDays] = useState('all')
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
     try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
+      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Load failed')
       setPhAvgData(d)
@@ -2242,7 +2246,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { divider: true },
             // Records (was Administration)
             { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📁', label: 'PO Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
             { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
             { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
             { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2345,7 +2349,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -4192,9 +4196,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
             {priceReviewModal && (() => {
-              const TARGET  = 40
-              const WINE_C  = ['White Wine','Red Wine','Rose','Sparkling']
-              const mceil   = (v, m) => Math.ceil(v / m) * m   // always rounds UP to nearest m
+              const TARGET = pricingMarkupTarget || 40
+              const BAND   = 3
+              const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+              const mround = (v, m) => Math.round(v / m) * m
               const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
 
               const rows = (phAvgData?.items || [])
@@ -4236,21 +4241,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     const rev    = sellGlass * serves
                     const markup = avgBuyPerUnit > 0 ? (rev - avgBuyPerUnit) / avgBuyPerUnit * 100 : 0
                     const diff   = markup - TARGET
-                    if (markup < TARGET) out.push({
+                    if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
                       sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
-                      suggSell: mceil(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
+                      suggSell: mround(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
                     })
                   }
 
                   if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
                     const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
                     const diff   = markup - TARGET
-                    if (markup < TARGET) out.push({
+                    if (Math.abs(diff) > BAND) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
-                      suggSell: mceil(avgBuyPerBottle * (1 + TARGET/100), 0.25)
+                      suggSell: mround(avgBuyPerBottle * (1 + TARGET/100), 0.25)
                     })
                   }
 
@@ -4261,7 +4266,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const uOrder = { glass: 0, bottle: 1 }
                   return (uOrder[a.unit] ?? 2) - (uOrder[b.unit] ?? 2)
                 })
-              const tooLow  = rows.length  // all rows are below target by definition
+              const tooLow  = rows.filter(r => r.diff < 0).length
+              const tooHigh = rows.filter(r => r.diff > 0).length
 
               const tableId = 'price-review-table'
 
@@ -4278,10 +4284,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           📊 {priceReviewModal} — Price Review
                         </div>
                         <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
-                          {tooLow} item{tooLow !== 1 ? 's' : ''} below {TARGET}% target · 90-day avg buy (inc GST) · sugg sell rounds up to nearest $0.25
+                          {tooLow} below · {tooHigh} above · ±{BAND}% of {TARGET}% target · 90-day avg buy (inc GST)
                         </div>
                       </div>
                       <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
+                        {/* Margin target */}
+                        <label style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
+                          <span style={{ color:'#64748b' }}>Target:</span>
+                          <select value={pricingMarkupTarget} onChange={e => setPricingMarkupTarget(Number(e.target.value))}
+                            style={{ padding:'2px 6px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12 }}>
+                            {[20,25,30,35,40,45,50,55,60].map(v => <option key={v} value={v}>{v}%</option>)}
+                          </select>
+                        </label>
                         {/* Switch supplier */}
                         {["Dan Murphy's",'Coles Woolies','ACW'].filter(s => s !== priceReviewModal).map(s => (
                           <button key={s} onClick={() => setPriceReviewModal(s)}
@@ -4304,7 +4318,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px}
                             .r{text-align:right}</style></head><body>
                             <h2>📊 ${priceReviewModal} — Price Review</h2>
-                            <p>${tooLow} item${tooLow !== 1 ? 's' : ''} below ${TARGET}% markup target · sugg sell rounded up to nearest $0.25</p>
+                            <p>${tooLow} below · ${tooHigh} above · ±${BAND}% of ${TARGET}% target</p>
                             ${tbl.outerHTML}</body></html>`)
                           w.document.close(); w.print()
                         }} style={{ padding:'3px 10px', background:'#f8fafc', color:'#374151', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
@@ -4327,13 +4341,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </div>
                     </div>
 
-                    {phLoading ? (
-                      <div style={{ padding:48, textAlign:'center', color:'#64748b' }}>⏳ Loading price data…</div>
-                    ) : rows.length === 0 ? (
+                    {rows.length === 0 ? (
                       <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
-                        {phAvgData
-                          ? <span>✓ All {priceReviewModal} items are at or above the {TARGET}% markup target.</span>
-                          : <span>⏳ Loading price data…</span>}
+                        ✓ All {priceReviewModal} items are within {BAND}% of the {TARGET}% target.<br/>
+                        <small style={{ color:'#94a3b8' }}>(Load Average Prices first if this looks empty)</small>
                       </div>
                     ) : (
                       <table id={tableId} style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
@@ -4361,7 +4372,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET ? '#dc2626' : '#16a34a' }}>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET-BAND ? '#dc2626' : '#0369a1' }}>
                                 {r.markup.toFixed(1)}%
                               </td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
@@ -4386,7 +4397,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </table>
                     )}
                     <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
-                      Sugg sell = min price for {TARGET}% markup, rounded UP to nearest $0.25 · Glass wine = sell × 5/btl
+                      Sugg sell = avg buy ÷ {(1 - TARGET/100).toFixed(2)}, rounded to nearest $0.50 · Glass wine = sell × 5/btl
                     </div>
                   </div>
                 </div>
@@ -4396,8 +4407,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {phSubTab === 'reports' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
+                  <div style={{ display:'flex', gap:4 }}>
+                    {['30','60','90','180','all'].map(d => (
+                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
+                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
+                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
+                        {d === 'all' ? 'All' : `${d} days`}
+                      </button>
+                    ))}
+                  </div>
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4407,13 +4426,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     Active items only
                   </label>
                   {["Dan Murphy's",'Coles Woolies','ACW'].map(sup => (
-                    <button key={sup} onClick={() => { setPriceReviewModal(sup); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}
+                    <button key={sup} onClick={() => setPriceReviewModal(sup)}
                       style={{ padding:'6px 12px', background: sup==="Dan Murphy's"?'#1e3a5f':sup==='Coles Woolies'?'#166534':'#92400e',
                         color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:11, cursor:'pointer' }}>
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={() => loadPhReport(90, phSupFilter)}
+                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -4428,7 +4447,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
@@ -4559,8 +4578,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <tr key={doc.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>{doc.po_ref}</td>
                         <td style={{ padding: '10px 12px', fontSize: 13 }}>{doc.supplier}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date ? new Date(doc.order_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date ? new Date(doc.receive_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
                         <td style={{ padding: '10px 12px' }}>
                           {doc.po_onedrive_url
@@ -4578,7 +4597,63 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
                             {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
-                            {!doc.invoice_url && !doc.invoice_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && (() => {
+                              let stored = null
+                              try { stored = JSON.parse(localStorage.getItem('inv_upload_' + doc.po_ref) || 'null') } catch {}
+                              if (stored) return (
+                                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
+                                  {stored.odUrl
+                                    ? <a href={stored.odUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
+                                    : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {stored.name}</span>}
+                                </div>
+                              )
+                              if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
+                              return (
+                                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
+                                    onChange={async e => {
+                                      const file = e.target.files?.[0]
+                                      if (!file) return
+                                      setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
+                                      try {
+                                        const base64 = await new Promise(resolve => {
+                                          const reader = new FileReader()
+                                          reader.onload = () => resolve(reader.result.split(',')[1])
+                                          reader.readAsDataURL(file)
+                                        })
+                                        const poRef = doc.po_ref
+                                        const ext = file.name.split('.').pop()
+                                        const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
+                                        await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
+                                        const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
+                                        const odData = odRes ? await odRes.json().catch(() => ({})) : {}
+                                        if (odData.webUrl) {
+                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
+                                        }
+                                        try { localStorage.setItem('inv_upload_' + poRef, JSON.stringify({ name: file.name, odUrl: odData.webUrl || null })) } catch {}
+                                        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
+                                          const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
+                                          fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ pdf_base64: base64 }) })
+                                            .then(r => r.ok ? r.json() : null)
+                                            .then(d => {
+                                              if (!d?.items?.length) return
+                                              fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                                body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
+                                            }).catch(() => null)
+                                        }
+                                        loadDocuments()
+                                      } finally {
+                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
+                                      }
+                                    }} />
+                                  <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
+                                </label>
+                              )
+                            })()}
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
@@ -4589,18 +4664,37 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <button onClick={async () => {
-                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
-                            const r = await fetch('/api/documents/delete', {
-                              method: 'DELETE',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
-                            })
-                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
-                            else alert('Delete failed')
-                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                            🗑 Delete
-                          </button>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                            {doc.status === 'received' && (
+                              docEmailSent[doc.id]
+                                ? <span style={{ fontSize: 11, fontWeight: 700, color: docEmailSent[doc.id] === 'ok' ? '#16a34a' : '#dc2626' }}>
+                                    {docEmailSent[doc.id] === 'ok' ? '✅ Sent' : '❌ Failed'}
+                                  </span>
+                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
+                                    setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
+                                    try {
+                                      const r = await fetch('/api/send-treasurer-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ doc }) })
+                                      const d = await r.json().catch(() => ({}))
+                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: d.ok ? 'ok' : 'error' }))
+                                      if (!d.ok) alert(`Email failed: ${d.error || 'Unknown error'}`)
+                                    } catch { setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
+                                    } finally { setDocEmailSending(prev => ({ ...prev, [doc.id]: false })) }
+                                  }} style={{ padding: '3px 10px', background: docEmailSending[doc.id] ? '#e2e8f0' : '#eff6ff',
+                                    color: docEmailSending[doc.id] ? '#94a3b8' : '#1d4ed8', border: '1px solid #bfdbfe',
+                                    borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                    {docEmailSending[doc.id] ? '⏳ Sending…' : '📧 Email Treasurer'}
+                                  </button>
+                            )}
+                            <button onClick={async () => {
+                              if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                              const r = await fetch('/api/documents/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path }) })
+                              if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                              else alert('Delete failed')
+                            }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                              🗑 Delete
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))}
