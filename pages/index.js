@@ -510,7 +510,12 @@ export default function Home() {
     try {
       const r = await fetch('/api/documents/list')
       const d = await r.json()
-      setDocuments(d.documents || [])
+      const docs = d.documents || []
+      setDocuments(docs)
+      // Pre-flag all received documents as already sent to treasurer
+      const alreadySent = {}
+      docs.filter(doc => doc.status === 'received').forEach(doc => { alreadySent[doc.id] = 'ok' })
+      setDocEmailSent(alreadySent)
     } catch {}
     setDocsLoading(false)
   }
