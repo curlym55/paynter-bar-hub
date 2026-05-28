@@ -50,9 +50,6 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
-  const [docInvoiceUploading, setDocInvoiceUploading] = useState({})
-  const [docEmailSending,     setDocEmailSending]     = useState({})
-  const [docEmailSent,        setDocEmailSent]        = useState({})
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -88,10 +85,7 @@ export default function Home() {
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phMatching, setPhMatching] = useState(false)
-  const [phManageSaving,   setPhManageSaving]   = useState({})
-  const [phAuditItems,     setPhAuditItems]     = useState(null)
-  const [phAuditSelected,  setPhAuditSelected]  = useState(new Set())
-  const [phAuditDeleting,  setPhAuditDeleting]  = useState(false)
+  const [phManageSaving, setPhManageSaving] = useState({})
   const [phSaveResult, setPhSaveResult] = useState(null)
   const [phHubNames, setPhHubNames] = useState([])
   const [editingTarget, setEditingTarget] = useState(false)
@@ -1265,7 +1259,7 @@ export default function Home() {
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
-            cell(item.onHand, ns),
+            cell(item.onHand ?? 0, ns),
             cell(item.weeklyAvg, ns),
             cell(item.targetStock, ns),
             cell(item.priority, statusStyle(item.priority)),
@@ -1721,7 +1715,7 @@ export default function Home() {
             : (item.orderQty > 0 ? String(item.orderQty) : '—')
           dataRows.push([
             cell(item.name, rs),
-            cell(item.onHand, ns),
+            cell(item.onHand ?? 0, ns),
             cell(item.weeklyAvg, ns),
             cell(item.targetStock, ns),
             cell(item.priority, statusStyle(item.priority)),
@@ -1878,8 +1872,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
-    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
-    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : Math.abs(p-40) <= 3 ? { argb:'FF166534' } : p < 37 ? { argb:'FF92400E' } : { argb:'FF0369A1' }
+    const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
+    const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
     // Alternating pair background colours for glass+bottle wine pairs
     const PAIR_BG = [{ argb:'FFF5F3FF' }, { argb:'FFEDE9FE' }]
@@ -1918,7 +1912,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       // Sugg sell highlight — amber if below target, blue if above
       if (avgBuy != null && sell != null && sell > 0) {
         const mp = (sell * serves - avgBuy) / avgBuy * 100
-        if (Math.abs(mp - markupTarget) > 3) {
+        if (Math.abs(mp - markupTarget) > 2) {
           const sc = row.getCell('suggSell')
           sc.fill = { type:'pattern', pattern:'solid', fgColor: mp < 40 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' } }
           sc.font = { bold: true, color: mp < 40 ? { argb:'FF92400E' } : { argb:'FF0369A1' } }
@@ -2150,16 +2144,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
+    .filter(item => !dontOrder(item))
     .filter(item => {
     if (!filterOrder) return true
     const onOrder = !!orderedItems[item.name]
     const orderAgain = orderAgainItems.has(item.name)
     // If on order and not flagged to order again — suppress from order filter
     if (onOrder && !orderAgain) return false
-    // Rundown items stay visible in the planner (so they can be unmarked)
-    // but only appear in the order filter if they have on-order status
-    if (dontOrder(item)) return onOrder
-    return (item.orderQty > 0) || onOrder || (orderQtyOverrides[item.name] > 0)
+    return (item.orderQty > 0 && !dontOrder(item)) || onOrder || (orderQtyOverrides[item.name] > 0)
   })
 
 
@@ -2250,7 +2242,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { divider: true },
             // Records (was Administration)
             { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'PO Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
             { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
             { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
             { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2353,7 +2345,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -2549,22 +2541,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         {/* Order summary */}
                         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
                           <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.length} items</div>
-                          {supItems.map(item => {
-                            const nips = wizQtys[item.name] ?? item.orderQty
-                            const btl  = item.isSpirit && nips > 0
-                              ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30)))
-                              : null
-                            return (
-                              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
-                                <span style={{ color:'#374151' }}>{item.name}</span>
-                                <span style={{ fontWeight:700, color:'#1e3a5f' }}>
-                                  {item.isSpirit
-                                    ? <>{nips} nips <span style={{ fontWeight:400, color:'#64748b' }}>({btl} btl)</span></>
-                                    : <>{nips} units</>}
-                                </span>
-                              </div>
-                            )
-                          })}
+                          {supItems.map(item => (
+                            <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
+                              <span style={{ color:'#374151' }}>{item.name}</span>
+                              <span style={{ fontWeight:700, color:'#1e3a5f' }}>{wizQtys[item.name] ?? item.orderQty} {item.isSpirit ? 'nips' : 'units'}</span>
+                            </div>
+                          ))}
                         </div>
 
                         <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:20, fontSize:13 }}>
@@ -3084,7 +3066,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       🖨️ Print
                     </button>
-                    <button onClick={() => exportPricingExcel(40)}
+                    <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
+                      <span style={{ color:'#475569' }}>Target:</span>
+                      <input type='number' value={pricingMarkupTarget} min={10} max={90} step={5}
+                        onChange={e => setPricingMarkupTarget(Number(e.target.value))}
+                        style={{ width:46, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
+                      <span style={{ color:'#475569' }}>%</span>
+                    </span>
+                    <button onClick={() => exportPricingExcel(pricingMarkupTarget)}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
@@ -3320,7 +3309,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Markup</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sugg Sell</th>
                     </>}
                   </tr>
                 </thead>
@@ -3449,12 +3437,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (() => {
-                            const effectiveNips = orderQtyOverrides[item.name] !== undefined
-                              ? orderQtyOverrides[item.name]
-                              : (item.nipsToOrder || 0)
-                            const btl = effectiveNips > 0
-                              ? Math.ceil(effectiveNips / ((item.bottleML || 700) / (item.nipML || 30)))
-                              : 0
+                            const btl = item.bottlesToOrder || 0
                             return btl > 0 ? btl : '-'
                           })() : '-'}
                         </td>
@@ -3515,16 +3498,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                                 : serveML ? +(bottleML / serveML).toFixed(1)
                                                 : null
 
-                          // Buy price: prefer 90-day avg from price history, fall back to manual buyPrice
-                          const avgEntry    = phAvgData?.items?.find(r => r.matched_hub_key === item.name)
-                          const nipsPerBtl  = avgEntry?.nips_per_bottle ?? (item.bottleML && item.nipML ? item.bottleML / item.nipML : null)
-                          const avgBuyIncGst = avgEntry ? Math.round(
-                            (nipsPerBtl && item.isSpirit
-                              ? avgEntry.avg_unit_price_ex_gst / nipsPerBtl
-                              : avgEntry.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                            : null
-                          const buy = avgBuyIncGst ?? (item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null)
-                          const buySource = avgBuyIncGst != null ? '90d avg' : (item.buyPrice != null ? 'manual' : null)
+                          const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
 
                           // Resolve sell prices from Square variations (same logic as Price List tab)
                           const vars = item.variations || []
@@ -3568,15 +3542,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const revenuePerBottle = (isWine && sellUnit === 'glass' && sell != null && servesPerBottle)
                             ? +(sell * servesPerBottle).toFixed(2) : null
                           const markupStr   = markupPct != null ? markupPct.toFixed(1) + '%' : '—'
-                          const markupColor = markupPct == null ? '#94a3b8' : Math.abs(markupPct-40) <= 3 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
+                          const markupColor = markupPct == null ? '#94a3b8' : markupPct >= 40 ? '#16a34a' : markupPct >= 25 ? '#d97706' : '#dc2626'
                           return <>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
-                              {buy != null
-                                ? <div style={{ display:'flex', flexDirection:'column', alignItems:'flex-end', gap:1 }}>
-                                    <span style={{ fontFamily:'IBM Plex Mono, monospace', fontSize:12 }}>${buy.toFixed(3)}</span>
-                                    <span style={{ fontSize:9, color: buySource==='90d avg' ? '#16a34a' : '#d97706', fontWeight:600 }}>{buySource}</span>
-                                  </div>
-                                : <span style={{ fontSize:10, color:'#dc2626', fontWeight:700 }}>No price data</span>}
+                              <EditNumber value={buy ?? ''} placeholder="$0.00" decimals={2} prefix="$"
+                                onChange={v => saveSetting(item.name, 'buyPrice', v)}
+                                saving={saving[`${item.name}_buyPrice`]} min={0} readOnly={readOnly} />
+                              {buy == null && !readOnly && <div style={{ fontSize: 9, color: '#dc2626', fontWeight: 700, marginTop: 2 }}>No cost price set</div>}
+                              {settingsAudit[`${item.name}__buyPrice`] && (
+                                <div style={{ fontSize: 9, color: '#94a3b8', marginTop: 1 }}>
+                                  ↺ {new Date(settingsAudit[`${item.name}__buyPrice`].ts).toLocaleDateString('en-AU', { day: '2-digit', month: 'short' })}
+                                </div>
+                              )}
                             </td>
                             <td style={{ ...styles.td, textAlign: 'right' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
@@ -3639,14 +3616,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               {servesPerBottle != null && servesPerBottle > 1 && revenuePerBottle != null && (
                                 <div style={{ fontSize: 9, color: '#94a3b8', fontWeight: 400 }}>${revenuePerBottle.toFixed(2)}/btl rev</div>
                               )}
-                            </td>
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#7c3aed' }}>
-                              {buy != null ? (() => {
-                                const TARGET = 40
-                                const mceil = (v, m) => Math.ceil(v / m) * m
-                                const serves = servesPerBottle && !item.isSpirit && (isWine && sellUnit === 'glass') ? servesPerBottle : 1
-                                return `$${mceil(buy * (1 + TARGET/100) / serves, 0.25).toFixed(2)}`
-                              })() : '—'}
                             </td>
                           </>
                         })()}
@@ -4091,13 +4060,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     setPhManageLoading(true)
                     // Load Hub item names if not yet fetched
                     if (phHubNames.length === 0) {
-                      if (items.length > 0) {
-                        setPhHubNames(items.map(i => i.name).filter(Boolean).sort())
-                      } else {
-                        fetch('/api/items').then(r=>r.json()).then(d => {
-                          setPhHubNames((d.items || []).map(i => i.name).filter(Boolean).sort())
-                        }).catch(() => {})
-                      }
+                      fetch('/api/settings').then(r=>r.json()).then(d => {
+                        const names = Object.keys(d.settings || {}).sort()
+                        setPhHubNames(names)
+                      }).catch(() => {})
                     }
                     try {
                       const r = await fetch('/api/invoices/manage')
@@ -4137,112 +4103,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       {phMatching ? '⏳ Matching…' : '🤖 Auto-match'}
                     </button>
                   )}
-                  {phManageData && (
-                    <button onClick={() => {
-                      const activeNames = new Set(items.map(i => i.name))
-                      const normalize = s => s.toLowerCase().replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim()
-                      const hubGroups = {}
-                      for (const row of phManageData) {
-                        const hub = row.item_name_hub
-                        if (!hub || hub === row.item_name_raw) continue
-                        if (!hubGroups[hub]) hubGroups[hub] = []
-                        hubGroups[hub].push(row)
-                      }
-                      const audit = []
-                      for (const [hub, rows] of Object.entries(hubGroups)) {
-                        if (rows.length > 1) rows.forEach((r, idx) => audit.push({ raw: r.item_name_raw, hub, reason: `Duplicate — ${rows.length} invoice names map to "${hub}"`, flag: 'duplicate', keepFirst: idx === 0 }))
-                      }
-                      for (const row of phManageData) {
-                        const hub = row.item_name_hub
-                        if (!hub || hub === row.item_name_raw) continue
-                        if (!activeNames.has(hub) && !audit.find(a => a.raw === row.item_name_raw))
-                          audit.push({ raw: row.item_name_raw, hub, reason: `"${hub}" not in current item list`, flag: 'stale' })
-                        if (rundownItems[hub] && !audit.find(a => a.raw === row.item_name_raw))
-                          audit.push({ raw: row.item_name_raw, hub, reason: `"${hub}" is a rundown item`, flag: 'rundown' })
-                      }
-                      setPhAuditItems(audit)
-                      setPhAuditSelected(new Set(audit.filter(a => a.flag !== 'duplicate' || !a.keepFirst).map(a => a.raw)))
-                    }} style={{ padding:'6px 14px', background:'#0e7490', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                      🔍 Audit
-                    </button>
-                  )}
-                  {phManageData && (() => {
-                    const activeNames = new Set(items.map(i => i.name))
-                    const hiddenCount = phManageData.filter(row => {
-                      const hub = row._hub || row.item_name_hub || ''
-                      if (!hub) return false
-                      if (rundownItems[hub]) return true
-                      if (activeNames.size > 0 && !activeNames.has(hub)) return true
-                      return false
-                    }).length
-                    return (
-                      <span style={{ fontSize:12, color:'#64748b' }}>
-                        {phManageData.length - hiddenCount} active items
-                        {hiddenCount > 0 && <span style={{ color:'#d97706' }}> · {hiddenCount} rundown/deleted hidden</span>}
-                        {' '}— edit Hub Name and Units/Pack then click Save on each row
-                      </span>
-                    )
-                  })()}
+                  {phManageData && <span style={{ fontSize:12, color:'#64748b' }}>{phManageData.length} distinct items — edit Hub Name and Units/Pack then click Save on each row</span>}
                 </div>
 
-                {phAuditItems !== null && (
-                  <div style={{ marginBottom:16, background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:16 }}>
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:10 }}>
-                      <div style={{ fontWeight:700, fontSize:13, color:'#92400e' }}>
-                        {phAuditItems.length === 0 ? '✓ No issues found' : `🔍 Audit — ${phAuditItems.length} issue${phAuditItems.length!==1?'s':''} found`}
-                      </div>
-                      <div style={{ display:'flex', gap:8 }}>
-                        {phAuditSelected.size > 0 && (
-                          <button disabled={phAuditDeleting} onClick={async () => {
-                            if (!confirm(`Delete ${phAuditSelected.size} item record${phAuditSelected.size!==1?'s':''}? Cannot be undone.`)) return
-                            setPhAuditDeleting(true)
-                            try {
-                              const r = await fetch('/api/invoices/delete-items', { method:'DELETE', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ raw_names:[...phAuditSelected] }) })
-                              const d = await r.json()
-                              if (!d.ok) throw new Error(d.error)
-                              setPhManageData(prev => prev.filter(row => !phAuditSelected.has(row.item_name_raw)))
-                              setPhAuditItems(null); setPhAuditSelected(new Set())
-                              alert(`Deleted ${d.deleted} record${d.deleted!==1?'s':''} and their price history.`)
-                            } catch(e) { alert('Delete failed: ' + e.message) }
-                            setPhAuditDeleting(false)
-                          }} style={{ padding:'5px 14px', background:phAuditDeleting?'#94a3b8':'#dc2626', color:'#fff', border:'none', borderRadius:5, fontWeight:700, fontSize:12, cursor:'pointer' }}>
-                            {phAuditDeleting?'⏳ Deleting…':`🗑 Delete ${phAuditSelected.size} selected`}
-                          </button>
-                        )}
-                        <button onClick={() => { setPhAuditItems(null); setPhAuditSelected(new Set()) }}
-                          style={{ padding:'5px 12px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12, cursor:'pointer' }}>✕ Close</button>
-                      </div>
-                    </div>
-                    {phAuditItems.length > 0 && (
-                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:11 }}>
-                        <thead><tr style={{ background:'#fef3c7', borderBottom:'1px solid #fde68a' }}>
-                          <th style={{ padding:'5px 8px', width:28 }}>
-                            <input type="checkbox" checked={phAuditSelected.size===phAuditItems.length}
-                              onChange={e => setPhAuditSelected(e.target.checked ? new Set(phAuditItems.map(a=>a.raw)) : new Set())} />
-                          </th>
-                          {['Invoice Name','Matched Hub Item','Issue'].map(h => (
-                            <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, color:'#92400e' }}>{h}</th>
-                          ))}
-                        </tr></thead>
-                        <tbody>
-                          {phAuditItems.map((a, idx) => (
-                            <tr key={a.raw} style={{ borderBottom:'1px solid #fde68a', background:idx%2===0?'#fffbeb':'#fefce8' }}>
-                              <td style={{ padding:'5px 8px', textAlign:'center' }}>
-                                <input type="checkbox" checked={phAuditSelected.has(a.raw)}
-                                  onChange={e => { const s=new Set(phAuditSelected); e.target.checked?s.add(a.raw):s.delete(a.raw); setPhAuditSelected(s) }} />
-                              </td>
-                              <td style={{ padding:'5px 8px', fontFamily:'monospace' }}>{a.raw}</td>
-                              <td style={{ padding:'5px 8px', color:'#64748b' }}>{a.hub||'—'}</td>
-                              <td style={{ padding:'5px 8px', fontWeight:600, color:a.flag==='duplicate'?'#0369a1':a.flag==='rundown'?'#d97706':'#dc2626' }}>
-                                {a.flag==='duplicate'?'🔵 ':a.flag==='rundown'?'🟡 ':'🔴 '}{a.reason}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
                 {phManageData && (
                   <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
                     <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
@@ -4261,19 +4124,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </tr>
                         </thead>
                         <tbody>
-                          {(() => {
-                            const activeNames = new Set(items.map(i => i.name))
-                            return phManageData.filter(row => {
-                              const hub = row._hub || row.item_name_hub || ''
-                              if (!hub) return true
-                              // Hide rundown items (any hub name, matched or unmatched)
-                              if (rundownItems[hub]) return false
-                              // Hide items where the hub (or raw fallback) is not in the current active items list
-                              // — catches deleted items whether or not they were explicitly matched
-                              if (activeNames.size > 0 && !activeNames.has(hub)) return false
-                              return true
-                            })
-                          })().map((row, i) => {
+                          {phManageData.map((row, i) => {
                             const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
                             const saved = phManageSaving[row.item_name_raw]
                             return (
@@ -4288,26 +4139,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     </span>
                                   )}
                                   <select value={row._hub}
-                                    onChange={e => setPhManageData(prev => prev.map(r => r.item_name_raw === row.item_name_raw ? {...r, _hub: e.target.value, _dirty: true} : r))}
+                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
                                     <option value="">-- select Hub item --</option>
-                                    {(() => {
-                                      const activeNames = (items.length > 0 ? items : phHubNames.map(n => ({ name: n })))
-                                        .filter(it => it.name && !rundownItems[it.name]).map(it => it.name).sort()
-                                      const currentVal = row._hub && row._hub !== row.item_name_raw ? row._hub : null
-                                      const isStale = currentVal && !activeNames.includes(currentVal)
-                                      return <>
-                                        {isStale && <option value={currentVal}>⚠ {currentVal} (not in current list)</option>}
-                                        {activeNames.map(n => <option key={n} value={n}>{n}</option>)}
-                                      </>
-                                    })()}
+                                    {items.length > 0
+                                      ? items.map(it => <option key={it.name} value={it.name}>{it.name}</option>)
+                                      : phHubNames.map(n => <option key={n} value={n}>{n}</option>)
+                                    }
                                   </select>
                                 </td>
                                 <td style={{ padding:'5px 8px', color:'#64748b', fontSize:11, whiteSpace:'nowrap' }}>{row.supplier}</td>
                                 <td style={{ padding:'5px 8px', textAlign:'right' }}>${Number(row.invoice_unit_price).toFixed(2)}</td>
                                 <td style={{ padding:'5px 8px', textAlign:'center' }}>
                                   <input type="number" value={row._units} min={1}
-                                    onChange={e => setPhManageData(prev => prev.map(r => r.item_name_raw === row.item_name_raw ? {...r, _units: Number(e.target.value)||1, _dirty: true} : r))}
+                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _units: Number(e.target.value)||1, _dirty: true} : r))}
                                     style={{ width:50, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11, textAlign:'center' }} />
                                 </td>
                                 <td style={{ padding:'5px 8px', textAlign:'right', fontWeight:700, color: row._dirty ? '#d97706' : '#1e3a5f' }}>
@@ -4325,7 +4170,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         })
                                         const d = await r.json()
                                         if (!r.ok) throw new Error(d.error)
-                                        setPhManageData(prev => prev.map(r2 => r2.item_name_raw === row.item_name_raw ? {...r2, item_name_hub: r2._hub, units_per_pack: r2._units, _dirty: false} : r2))
+                                        setPhManageData(prev => prev.map((r2,j) => j===i ? {...r2, item_name_hub: r2._hub, units_per_pack: r2._units, _dirty: false} : r2))
                                       } catch (e) { alert('Save failed: ' + e.message) }
                                       setPhManageSaving(prev => ({ ...prev, [row.item_name_raw]: false }))
                                     }} style={{ padding:'3px 10px', background:'#16a34a', color:'#fff', border:'none', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
@@ -4391,40 +4236,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const out = []
 
                   if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
-                    const spread       = (row.min_price != null && row.max_price != null && row.avg_unit_price_ex_gst > 0)
-                                         ? (row.max_price - row.min_price) / row.avg_unit_price_ex_gst : 0
-                    const hasAnomaly   = spread > 0.20
-                    const effExGst     = hasAnomaly
-                                         ? (nipsPerBtl ? row.min_price / nipsPerBtl : row.min_price)
-                                         : (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst)
-                    const effBuyPerUnit = Math.round(effExGst * 1.10 * 1000) / 1000
                     const rev    = sellGlass * serves
-                    const markup = effBuyPerUnit > 0 ? (rev - effBuyPerUnit) / effBuyPerUnit * 100 : 0
+                    const markup = avgBuyPerUnit > 0 ? (rev - avgBuyPerUnit) / avgBuyPerUnit * 100 : 0
                     const diff   = markup - TARGET
                     if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
                       unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
-                      sell: sellGlass,
-                      avgBuy: effBuyPerUnit / serves,
-                      avgBuyBottle: glassWine ? effBuyPerUnit : null,
-                      markup, diff, hasAnomaly, spread,
-                      suggSell: mceil(effBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
+                      sell: sellGlass, avgBuy: avgBuyPerUnit, markup, diff,
+                      suggSell: mceil(avgBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
                     })
                   }
 
                   if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
-                    const spread     = (row.min_price != null && row.max_price != null && row.avg_unit_price_ex_gst > 0)
-                                       ? (row.max_price - row.min_price) / row.avg_unit_price_ex_gst : 0
-                    const hasAnomaly = spread > 0.20
-                    const effBtlExGst = hasAnomaly ? row.min_price : row.avg_unit_price_ex_gst
-                    const effBuyBottle = Math.round(effBtlExGst * 1.10 * 1000) / 1000
-                    const markup = effBuyBottle > 0 ? (sellBottle - effBuyBottle) / effBuyBottle * 100 : 0
+                    const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
                     const diff   = markup - TARGET
                     if (markup < TARGET) out.push({
                       name: row.matched_hub_key, cat: hubItem.category,
-                      unit: 'bottle', sell: sellBottle, avgBuy: effBuyBottle, markup, diff,
-                      hasAnomaly, spread,
-                      suggSell: mceil(effBuyBottle * (1 + TARGET/100), 0.25)
+                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
+                      suggSell: mceil(avgBuyPerBottle * (1 + TARGET/100), 0.25)
                     })
                   }
 
@@ -4528,28 +4357,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               borderBottom: hasPair && !isNewItem ? '2px solid #bae6fd' : '1px solid #f1f5f9',
                               borderTop: isNewItem && hasPair ? '2px solid #bae6fd' : undefined
                             }}>
-                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>
-                                {r.name}
-                                {r.hasAnomaly && (
-                                  <span title={`Price spread ${(r.spread*100).toFixed(0)}% — anomaly detected, using min price as effective buy`}
-                                    style={{ marginLeft:6, fontSize:10, background:'#fef3c7', color:'#92400e', border:'1px solid #fde68a', borderRadius:3, padding:'1px 5px', fontWeight:700, cursor:'help' }}>
-                                    ⚠ anomaly
-                                  </span>
-                                )}
-                              </td>
+                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>{r.name}</td>
                               <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
                               <td style={{ padding:'7px 10px' }}>
                                 <span style={{ padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#e0f2fe', color:'#0369a1' }}>{r.unit}</span>
                               </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>
-                                ${r.avgBuy.toFixed(3)}
-                                {r.avgBuyBottle != null && (
-                                  <div style={{ fontSize:10, color:'#94a3b8' }}>btl ${r.avgBuyBottle.toFixed(3)}</div>
-                                )}
-                                {r.hasAnomaly && (
-                                  <div style={{ fontSize:10, color:'#d97706' }}>min used</div>
-                                )}
-                              </td>
+                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
                               <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET ? '#dc2626' : '#16a34a' }}>
                                 {r.markup.toFixed(1)}%
@@ -4749,8 +4562,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <tr key={doc.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>{doc.po_ref}</td>
                         <td style={{ padding: '10px 12px', fontSize: 13 }}>{doc.supplier}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date ? new Date(doc.order_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date ? new Date(doc.receive_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
                         <td style={{ padding: '10px 12px' }}>
                           {doc.po_onedrive_url
@@ -4768,63 +4581,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
                             {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
-                            {!doc.invoice_url && !doc.invoice_onedrive_url && (() => {
-                              let stored = null
-                              try { stored = JSON.parse(localStorage.getItem('inv_upload_' + doc.po_ref) || 'null') } catch {}
-                              if (stored) return (
-                                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                                  {stored.odUrl
-                                    ? <a href={stored.odUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
-                                    : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {stored.name}</span>}
-                                </div>
-                              )
-                              if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
-                              return (
-                                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
-                                    onChange={async e => {
-                                      const file = e.target.files?.[0]
-                                      if (!file) return
-                                      setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
-                                      try {
-                                        const base64 = await new Promise(resolve => {
-                                          const reader = new FileReader()
-                                          reader.onload = () => resolve(reader.result.split(',')[1])
-                                          reader.readAsDataURL(file)
-                                        })
-                                        const poRef = doc.po_ref
-                                        const ext = file.name.split('.').pop()
-                                        const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
-                                        await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                        const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
-                                        const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                        if (odData.webUrl) {
-                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
-                                        }
-                                        try { localStorage.setItem('inv_upload_' + poRef, JSON.stringify({ name: file.name, odUrl: odData.webUrl || null })) } catch {}
-                                        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-                                          const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
-                                          fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ pdf_base64: base64 }) })
-                                            .then(r => r.ok ? r.json() : null)
-                                            .then(d => {
-                                              if (!d?.items?.length) return
-                                              fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
-                                            }).catch(() => null)
-                                        }
-                                        loadDocuments()
-                                      } finally {
-                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
-                                      }
-                                    }} />
-                                  <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
-                                </label>
-                              )
-                            })()}
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
@@ -4835,37 +4592,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {doc.status === 'received' && (
-                              docEmailSent[doc.id]
-                                ? <span style={{ fontSize: 11, fontWeight: 700, color: docEmailSent[doc.id] === 'ok' ? '#16a34a' : '#dc2626' }}>
-                                    {docEmailSent[doc.id] === 'ok' ? '✅ Sent' : '❌ Failed'}
-                                  </span>
-                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
-                                    setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
-                                    try {
-                                      const r = await fetch('/api/send-treasurer-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ doc }) })
-                                      const d = await r.json().catch(() => ({}))
-                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: d.ok ? 'ok' : 'error' }))
-                                      if (!d.ok) alert(`Email failed: ${d.error || 'Unknown error'}`)
-                                    } catch { setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
-                                    } finally { setDocEmailSending(prev => ({ ...prev, [doc.id]: false })) }
-                                  }} style={{ padding: '3px 10px', background: docEmailSending[doc.id] ? '#e2e8f0' : '#eff6ff',
-                                    color: docEmailSending[doc.id] ? '#94a3b8' : '#1d4ed8', border: '1px solid #bfdbfe',
-                                    borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    {docEmailSending[doc.id] ? '⏳ Sending…' : '📧 Email Treasurer'}
-                                  </button>
-                            )}
-                            <button onClick={async () => {
-                              if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
-                              const r = await fetch('/api/documents/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path }) })
-                              if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
-                              else alert('Delete failed')
-                            }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                              🗑 Delete
-                            </button>
-                          </div>
+                          <button onClick={async () => {
+                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                            const r = await fetch('/api/documents/delete', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
+                            })
+                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                            else alert('Delete failed')
+                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            🗑 Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
