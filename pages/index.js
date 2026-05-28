@@ -1630,6 +1630,20 @@ export default function Home() {
     if (exportXlsx) {
       await loadExcelJS()
 
+      // Build category groupings fresh (not shared with generateStockReport)
+      const byCategory = {}
+      for (const item of items) {
+        const cat = item.category || 'Uncategorised'
+        if (!byCategory[cat]) byCategory[cat] = []
+        byCategory[cat].push(item)
+      }
+      const CATEGORY_ORDER_XLS = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
+      const sortedCats = [...CATEGORY_ORDER_XLS.filter(c => byCategory[c]), ...Object.keys(byCategory).filter(c => !CATEGORY_ORDER_XLS.includes(c))]
+      const totalValue = items.reduce((sum, i) => sum + (i.buyPrice != null && i.onHand > 0 ? Number(i.buyPrice) * Number(i.onHand) : 0), 0)
+      const critItems  = items.filter(i => i.priority === 'CRITICAL' && !rundownItems[i.name])
+      const lowItems   = items.filter(i => i.priority === 'LOW' && !rundownItems[i.name])
+      const orderItems = items.filter(i => i.orderQty > 0 && !rundownItems[i.name])
+
       // ── Style helpers ────────────────────────────────────────────────────
       const NAVY  = '0F172A'
       const TEAL  = '0E7490'
