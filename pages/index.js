@@ -4280,7 +4280,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     </span>
                                   )}
                                   <select value={row._hub}
-                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _hub: e.target.value, _dirty: true} : r))}
+                                    onChange={e => setPhManageData(prev => prev.map(r => r.item_name_raw === row.item_name_raw ? {...r, _hub: e.target.value, _dirty: true} : r))}
                                     style={{ width:'100%', padding:'3px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }}>
                                     <option value="">-- select Hub item --</option>
                                     {(() => {
@@ -4299,7 +4299,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 <td style={{ padding:'5px 8px', textAlign:'right' }}>${Number(row.invoice_unit_price).toFixed(2)}</td>
                                 <td style={{ padding:'5px 8px', textAlign:'center' }}>
                                   <input type="number" value={row._units} min={1}
-                                    onChange={e => setPhManageData(prev => prev.map((r,j) => j===i ? {...r, _units: Number(e.target.value)||1, _dirty: true} : r))}
+                                    onChange={e => setPhManageData(prev => prev.map(r => r.item_name_raw === row.item_name_raw ? {...r, _units: Number(e.target.value)||1, _dirty: true} : r))}
                                     style={{ width:50, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11, textAlign:'center' }} />
                                 </td>
                                 <td style={{ padding:'5px 8px', textAlign:'right', fontWeight:700, color: row._dirty ? '#d97706' : '#1e3a5f' }}>
@@ -4317,7 +4317,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         })
                                         const d = await r.json()
                                         if (!r.ok) throw new Error(d.error)
-                                        setPhManageData(prev => prev.map((r2,j) => j===i ? {...r2, item_name_hub: r2._hub, units_per_pack: r2._units, _dirty: false} : r2))
+                                        setPhManageData(prev => prev.map(r2 => r2.item_name_raw === row.item_name_raw ? {...r2, item_name_hub: r2._hub, units_per_pack: r2._units, _dirty: false} : r2))
                                       } catch (e) { alert('Save failed: ' + e.message) }
                                       setPhManageSaving(prev => ({ ...prev, [row.item_name_raw]: false }))
                                     }} style={{ padding:'3px 10px', background:'#16a34a', color:'#fff', border:'none', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
