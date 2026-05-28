@@ -1886,10 +1886,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
-    // TEMP DIAGNOSTIC
-    const wineCheck = ['Balliamo','Rosemount','Marlborough Sounds','Pepperjack']
-    const wineDebug = allItems.filter(i => wineCheck.some(w => i.name.includes(w))).map(i => `${i.name}: onHand=${i.onHand}`)
-    alert('Pricing Excel onHand check:\n' + (wineDebug.join('\n') || 'None found'))
     const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
     const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
@@ -1914,12 +1910,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         sell:     sell ?? '',
         markup:   { formula: `=IF(AND(E${rNum}<>"",G${rNum}<>"",E${rNum}>0),(G${rNum}*F${rNum}-E${rNum})/E${rNum},"")`, result: 0 },
         suggSell: sv != null ? { formula: `=IF(E${rNum}<>"",MROUND(E${rNum}*(1+${markupTarget}/100)/F${rNum},0.25),"")`, result: sv } : '',
-        onHand:   !isBottleOfPair ? (item.onHand ?? 0) : '',
         invCount: !isBottleOfPair ? (avgEntry?.count ?? '') : '',
         minBuy:   !isBottleOfPair && avgEntry?.min != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const minEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.min / (item.bottleML / _nip) : avgEntry.min; return Math.round(minEx * 1.10 * 1000) / 1000 })() : '',
         maxBuy:   !isBottleOfPair && avgEntry?.max != null ? (() => { const _nd = item.name.match(/(\d+)\s*ml\s*nip/i); const _nip = _nd ? Number(_nd[1]) : (item.nipML || 30); const maxEx = (item.isSpirit && item.bottleML && _nip) ? avgEntry.max / (item.bottleML / _nip) : avgEntry.max; return Math.round(maxEx * 1.10 * 1000) / 1000 })() : '',
       })
 
+      // Set onHand explicitly — ws.addRow key-mapping can fail when formula cells are present
+      if (!isBottleOfPair) row.getCell('onHand').value = item.onHand ?? 0
       if (avgBuy != null) row.getCell('buy').numFmt  = '"$"#,##0.000'
       if (sell   != null) row.getCell('sell').numFmt = '"$"#,##0.00'
       row.getCell('markup').numFmt  = '0.0%'
