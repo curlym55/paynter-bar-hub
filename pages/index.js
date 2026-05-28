@@ -1880,8 +1880,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const RED       = '991B1B'
     const BLUE      = '0369A1'
     const LGREY     = 'F8FAFC'
-    const mColor    = (p) => p == null ? null : p < 25 ? { argb:'FFFEE2E2' } : Math.abs(p-40) <= 3 ? { argb:'FFF0FDF4' } : p < 37 ? { argb:'FFFEF3C7' } : { argb:'FFE0F2FE' }
-    const mFont     = (p) => p == null ? null : p < 25 ? RED : Math.abs(p-40) <= 3 ? GREEN : p < 37 ? AMBER : BLUE
+    const mColor    = (p) => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
+    const mFont     = (p) => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
 
     // ── Fetch avg prices ────────────────────────────────────────────────────
     const avgPriceMap = {}
@@ -2003,13 +2003,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (avg?.max != null)       { row.getCell('maxBuy').numFmt    = '"$"#,##0.000' }
       row.getCell('onHand').numFmt = '#,##0'
 
-      // Markup cell with formula
-      const buyCol = 'E'; const sellCol = 'F'; const srvCol = buy != null ? serves : 1
-      row.getCell('markup').value   = buy != null && sellGlassPrice != null
-        ? { formula: `=IF(AND(${buyCol}${row.number}<>"",${sellCol}${row.number}<>""),ROUND((${sellCol}${row.number}*${serves}-${buyCol}${row.number})/${buyCol}${row.number}*100,1),"")`, result: markup ?? 0 }
+      // Markup cell — new layout: Buy=D(4), SellGlass=E(5)
+      // formula: (SellGlass × serves - Buy) / Buy × 100
+      const rn = row.number
+      row.getCell('markup').value = buy != null && sellGlassPrice != null
+        ? { formula: `=IF(AND(D${rn}<>"",E${rn}<>""),ROUND((E${rn}*${serves}-D${rn})/D${rn}*100,1),"")`, result: markup ?? 0 }
         : ''
       if (markup != null) {
-        row.getCell('markup').numFmt  = '0.0"%"'
+        row.getCell('markup').numFmt = '0.0"%"'
         const mc = mColor(markup)
         if (mc) row.getCell('markup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
         const mf = mFont(markup)
