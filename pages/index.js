@@ -1992,12 +1992,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       row.getCell('onHand').numFmt = '#,##0'
 
-      // Markup cell — new layout: Buy=D(4), SellGlass=E(5)
-      // formula: (SellGlass × serves - Buy) / Buy × 100
-      const rn = row.number
-      row.getCell('markup').value = buy != null && sellGlassPrice != null
-        ? { formula: `=IF(AND(D${rn}<>"",E${rn}<>""),ROUND((E${rn}*${serves}-D${rn})/D${rn}*100,1),"")`, result: markup ?? 0 }
-        : ''
+      // Markup cells — plain values (no formulas avoids Excel XML corruption)
+      row.getCell('markup').value = markup ?? ''
       if (markup != null) {
         row.getCell('markup').numFmt = '0.0"%"'
         const mc = mColor(markup)
@@ -2005,17 +2001,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         const mf = mFont(markup)
         if (mf) row.getCell('markup').font = { bold:true, color:{ argb:'FF'+mf } }
       }
-      // Bottle markup (wines only)
       if (markupBtlVal != null) {
-        const rn2 = row.number
-        row.getCell('markupBtl').value  = { formula: `=IF(AND(D${rn2}<>,F${rn2}<>),ROUND((F${rn2}-D${rn2})/D${rn2}*100,1),)`, result: markupBtlVal }
+        row.getCell('markupBtl').value  = markupBtlVal
         row.getCell('markupBtl').numFmt = '0.0"%"'
         const mc2 = mColor(markupBtlVal)
         if (mc2) row.getCell('markupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc2 }
         const mf2 = mFont(markupBtlVal)
         if (mf2) row.getCell('markupBtl').font = { bold:true, color:{ argb:'FF'+mf2 } }
       }
-
       // Row styling
       const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
       row.eachCell({ includeEmpty:true }, cell => {
