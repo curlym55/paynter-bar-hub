@@ -104,7 +104,6 @@ export default function Home() {
   const [phLoading, setPhLoading] = useState(false)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
   const [priceReviewModal, setPriceReviewModal] = useState(false)
-  const [pricingMarkupTarget, setPricingMarkupTarget] = useState(40)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phMatching, setPhMatching] = useState(false)
@@ -3120,14 +3119,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       🖨️ Print
                     </button>
-                    <span style={{ display:'flex', alignItems:'center', gap:4, fontSize:12 }}>
-                      <span style={{ color:'#475569' }}>Target:</span>
-                      <input type='number' value={pricingMarkupTarget} min={10} max={90} step={5}
-                        onChange={e => setPricingMarkupTarget(Number(e.target.value))}
-                        style={{ width:46, padding:'2px 4px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:12, textAlign:'center' }} />
-                      <span style={{ color:'#475569' }}>%</span>
-                    </span>
-                    <button onClick={() => exportPricingExcel(pricingMarkupTarget)}
+                    <button onClick={() => exportPricingExcel(40)}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
