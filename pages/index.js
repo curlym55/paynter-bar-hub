@@ -50,9 +50,6 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
-  const [docInvoiceUploading, setDocInvoiceUploading] = useState({})
-  const [docEmailSending,     setDocEmailSending]     = useState({})
-  const [docEmailSent,        setDocEmailSent]        = useState({})
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsRevTarget, setSettingsRevTarget] = useState(null)
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
@@ -63,13 +60,12 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
-  const [phDays, setPhDays] = useState('all')
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
     setPhAvgData(null)
     try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days === 'all' ? 730 : days}&supplier=${encodeURIComponent(sup)}`)
+      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
       const d = await r.json()
       if (!r.ok) throw new Error(d.error || 'Load failed')
       setPhAvgData(d)
@@ -2246,7 +2242,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { divider: true },
             // Records (was Administration)
             { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'PO Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📁', label: 'Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
             { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
             { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
             { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
@@ -2349,7 +2345,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -4407,16 +4403,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {phSubTab === 'reports' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <div style={{ display:'flex', gap:4 }}>
-                    {['30','60','90','180','all'].map(d => (
-                      <button key={d} onClick={() => { setPhDays(d); if (phAvgData) loadPhReport(d, phSupFilter) }}
-                        style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:12, cursor:'pointer',
-                          background: phDays===d ? '#1e3a5f' : '#f8fafc', color: phDays===d ? '#fff' : '#374151', fontWeight: phDays===d ? 700 : 400 }}>
-                        {d === 'all' ? 'All' : `${d} days`}
-                      </button>
-                    ))}
-                  </div>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(phDays, v) }}
+                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -4432,7 +4420,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       📊 {sup}
                     </button>
                   ))}
-                  <button onClick={() => loadPhReport(phDays, phSupFilter)}
+                  <button onClick={() => loadPhReport(90, phSupFilter)}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -4447,7 +4435,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         return avgIncGst != null && row.matched_hub_key
                       })
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their ${phDays === 'all' ? 'all-time' : phDays + '-day'} average (inc GST)? This will overwrite existing buy prices.`)) return
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         const nipsPerBtl = row.nips_per_bottle ?? null
@@ -4578,8 +4566,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <tr key={doc.id} style={{ background: i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9' }}>
                         <td style={{ padding: '10px 12px', fontFamily: 'monospace', fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>{doc.po_ref}</td>
                         <td style={{ padding: '10px 12px', fontSize: 13 }}>{doc.supplier}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date ? new Date(doc.order_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date ? new Date(doc.receive_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.order_date || '—'}</td>
+                        <td style={{ padding: '10px 12px', fontSize: 12, color: '#64748b' }}>{doc.receive_date || '—'}</td>
                         <td style={{ padding: '10px 12px', fontSize: 12, textAlign: 'center' }}>{doc.item_count || '—'}</td>
                         <td style={{ padding: '10px 12px' }}>
                           {doc.po_onedrive_url
@@ -4597,63 +4585,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
                             {doc.invoice_url && <a href={doc.invoice_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#16a34a', fontWeight: 600, textDecoration: 'none' }}>📎 Supabase</a>}
                             {doc.invoice_onedrive_url && <a href={doc.invoice_onedrive_url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>}
-                            {!doc.invoice_url && !doc.invoice_onedrive_url && (() => {
-                              let stored = null
-                              try { stored = JSON.parse(localStorage.getItem('inv_upload_' + doc.po_ref) || 'null') } catch {}
-                              if (stored) return (
-                                <div style={{ display:'flex', flexDirection:'column', gap:2 }}>
-                                  {stored.odUrl
-                                    ? <a href={stored.odUrl} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: '#0ea5e9', fontWeight: 600, textDecoration: 'none' }}>☁️ OneDrive</a>
-                                    : <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>✓ {stored.name}</span>}
-                                </div>
-                              )
-                              if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
-                              return (
-                                <label style={{ cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                                  <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display: 'none' }}
-                                    onChange={async e => {
-                                      const file = e.target.files?.[0]
-                                      if (!file) return
-                                      setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: true }))
-                                      try {
-                                        const base64 = await new Promise(resolve => {
-                                          const reader = new FileReader()
-                                          reader.onload = () => resolve(reader.result.split(',')[1])
-                                          reader.readAsDataURL(file)
-                                        })
-                                        const poRef = doc.po_ref
-                                        const ext = file.name.split('.').pop()
-                                        const invName = `${poRef.replace(/\s/g, '_')}-Invoice.${ext}`
-                                        await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ action: 'invoice', po_ref: poRef, supplier: doc.supplier, file_base64: base64, file_name: invName, file_mime: file.type }) }).catch(() => null)
-                                        const odRes = await fetch('/api/onedrive/save-invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                          body: JSON.stringify({ filename: invName, base64, mimeType: file.type, supplier: doc.supplier }) }).catch(() => null)
-                                        const odData = odRes ? await odRes.json().catch(() => ({})) : {}
-                                        if (odData.webUrl) {
-                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ action: 'update_urls', po_ref: poRef, invoice_onedrive_url: odData.webUrl }) }).catch(() => null)
-                                        }
-                                        try { localStorage.setItem('inv_upload_' + poRef, JSON.stringify({ name: file.name, odUrl: odData.webUrl || null })) } catch {}
-                                        if (file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-                                          const dateStr = new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })
-                                          fetch('/api/invoices/extract', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                            body: JSON.stringify({ pdf_base64: base64 }) })
-                                            .then(r => r.ok ? r.json() : null)
-                                            .then(d => {
-                                              if (!d?.items?.length) return
-                                              fetch('/api/invoices/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                                                body: JSON.stringify({ supplier: doc.supplier, invoice_ref: d.invoice_ref || poRef, invoice_date: d.invoice_date || dateStr, gst_included: d.gst_included ?? true, items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })) }) }).catch(() => null)
-                                            }).catch(() => null)
-                                        }
-                                        loadDocuments()
-                                      } finally {
-                                        setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false }))
-                                      }
-                                    }} />
-                                  <span style={{ fontSize: 11, color: '#3b82f6', textDecoration: 'underline', fontWeight: 600 }}>📎 Upload</span>
-                                </label>
-                              )
-                            })()}
+                            {!doc.invoice_url && !doc.invoice_onedrive_url && <span style={{ fontSize: 11, color: '#94a3b8' }}>—</span>}
                           </div>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
@@ -4664,37 +4596,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </span>
                         </td>
                         <td style={{ padding: '10px 12px' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                            {doc.status === 'received' && (
-                              docEmailSent[doc.id]
-                                ? <span style={{ fontSize: 11, fontWeight: 700, color: docEmailSent[doc.id] === 'ok' ? '#16a34a' : '#dc2626' }}>
-                                    {docEmailSent[doc.id] === 'ok' ? '✅ Sent' : '❌ Failed'}
-                                  </span>
-                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
-                                    setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
-                                    try {
-                                      const r = await fetch('/api/send-treasurer-email', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ doc }) })
-                                      const d = await r.json().catch(() => ({}))
-                                      setDocEmailSent(prev => ({ ...prev, [doc.id]: d.ok ? 'ok' : 'error' }))
-                                      if (!d.ok) alert(`Email failed: ${d.error || 'Unknown error'}`)
-                                    } catch { setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
-                                    } finally { setDocEmailSending(prev => ({ ...prev, [doc.id]: false })) }
-                                  }} style={{ padding: '3px 10px', background: docEmailSending[doc.id] ? '#e2e8f0' : '#eff6ff',
-                                    color: docEmailSending[doc.id] ? '#94a3b8' : '#1d4ed8', border: '1px solid #bfdbfe',
-                                    borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap' }}>
-                                    {docEmailSending[doc.id] ? '⏳ Sending…' : '📧 Email Treasurer'}
-                                  </button>
-                            )}
-                            <button onClick={async () => {
-                              if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
-                              const r = await fetch('/api/documents/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path }) })
-                              if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
-                              else alert('Delete failed')
-                            }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                              🗑 Delete
-                            </button>
-                          </div>
+                          <button onClick={async () => {
+                            if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
+                            const r = await fetch('/api/documents/delete', {
+                              method: 'DELETE',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_report_path, invoice_path: doc.invoice_path })
+                            })
+                            if (r.ok) setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                            else alert('Delete failed')
+                          }} style={{ padding: '3px 10px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                            🗑 Delete
+                          </button>
                         </td>
                       </tr>
                     ))}
