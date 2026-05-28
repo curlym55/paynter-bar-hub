@@ -1903,9 +1903,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Markup %',          key: 'markup',     width: 12 },
       { header: 'Sugg Sell',         key: 'suggSell',   width: 11 },
       { header: 'On Hand',           key: 'onHand',     width: 10 },
-      { header: '# Invoices',        key: 'invCount',   width: 10 },
-      { header: 'Min Buy',           key: 'minBuy',     width: 12 },
-      { header: 'Max Buy',           key: 'maxBuy',     width: 12 },
       { header: 'Notes',             key: 'notes',      width: 36 },
     ]
 
@@ -1972,7 +1969,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         const catRow = ws.addRow({ name: item.category.toUpperCase() })
         catRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
         catRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+TEAL } }
-        ws.mergeCells(`A${catRow.number}:M${catRow.number}`)
+        ws.mergeCells(`A${catRow.number}:I${catRow.number}`)
         catRow.height = 20
         lastCat = item.category
       }
@@ -1988,9 +1985,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         markup:     '',
         suggSell:   suggSell ?? '',
         onHand:     item.onHand ?? 0,
-        invCount:   avg?.count ?? '',
-        minBuy:     avg?.min != null ? Math.round(avg.min * 1.10 * 100) / 100 : '',
-        maxBuy:     avg?.max != null ? Math.round(avg.max * 1.10 * 100) / 100 : '',
         notes:      '',
       })
 
@@ -1999,8 +1993,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       if (sellGlassPrice != null) { row.getCell('sellGlass').numFmt = '"$"#,##0.00' }
       if (sellBottlePrice != null && isWine) { row.getCell('sellBottle').numFmt = '"$"#,##0.00' }
       if (suggSell != null)       { row.getCell('suggSell').numFmt  = '"$"#,##0.00' }
-      if (avg?.min != null)       { row.getCell('minBuy').numFmt    = '"$"#,##0.000' }
-      if (avg?.max != null)       { row.getCell('maxBuy').numFmt    = '"$"#,##0.000' }
+
       row.getCell('onHand').numFmt = '#,##0'
 
       // Markup cell — new layout: Buy=D(4), SellGlass=E(5)
@@ -2028,31 +2021,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       row.getCell('markup').alignment = { vertical:'middle', horizontal:'center' }
       row.getCell('onHand').alignment  = { vertical:'middle', horizontal:'right' }
 
-      // Flag wide price spread
-      if (avg?.min != null && avg?.max != null && avg.avg > 0) {
-        const spread = (avg.max - avg.min) / avg.avg
-        if (spread > 0.20) {
-          row.getCell('notes').value = `⚠ Price spread ${(spread*100).toFixed(0)}% — check invoices`
-          row.getCell('notes').font  = { italic:true, color:{ argb:'FF'+AMBER }, size:9 }
-        }
-      }
+
     }
 
     // ── Column header note for wines ────────────────────────────────────────
-    ws.getRow(1).getCell('sellBottle').note = 'Wine bottle sell price (blank for non-wine items)'
-    ws.getRow(1).getCell('sellGlass').note  = 'Per glass for wines / per unit for others'
-    ws.getRow(1).getCell('buy').note        = 'Per bottle (wines) · Per nip (spirits) · Per unit (others). Source: 90-day avg invoice price.'
+    ws.getRow(1).getCell('buy').note = 'Per bottle (wines) · Per nip (spirits) · Per unit (others). Source: 90-day avg invoice price.'
 
     // ── Freeze header ───────────────────────────────────────────────────────
     ws.views = [{ state:'frozen', ySplit:1 }]
-    ws.autoFilter = { from:'A1', to:'M1' }
+    ws.autoFilter = { from:'A1', to:'I1' }
 
     // ── Summary section ─────────────────────────────────────────────────────
     ws.addRow([])
     const sumRow = ws.addRow(['SUMMARY', '', '', '', '', '', '', '', '', '', '', '', ''])
     sumRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
     sumRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' } }
-    ws.mergeCells(`A${sumRow.number}:M${sumRow.number}`)
+    ws.mergeCells(`A${sumRow.number}:I${sumRow.number}`)
 
     const activeItems = allItems.filter(i => !rundownItems[i.name])
     const withBuy     = activeItems.filter(i => i.buyPrice || avgPriceMap[i.name])
