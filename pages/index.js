@@ -1054,6 +1054,11 @@ export default function Home() {
   }
 
   async function generateStockReport(exportXlsx = false) {
+    // TEMP DIAGNOSTIC — remove after confirming fix
+    const wineCheck = ['Balliamo','Rosemount Chardonnay','Marlborough Sounds','Pepperjack']
+    const wineDebug = items.filter(i => wineCheck.some(w => i.name.includes(w)))
+      .map(i => `${i.name}: onHand=${i.onHand}`)
+    alert('Wine onHand check:\n' + (wineDebug.join('\n') || 'None found'))
     const date = new Date()
     const monthName = date.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
     const generated = date.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
