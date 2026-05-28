@@ -1054,11 +1054,6 @@ export default function Home() {
   }
 
   async function generateStockReport(exportXlsx = false) {
-    // TEMP DIAGNOSTIC — remove after confirming fix
-    const wineCheck = ['Balliamo','Rosemount Chardonnay','Marlborough Sounds','Pepperjack']
-    const wineDebug = items.filter(i => wineCheck.some(w => i.name.includes(w)))
-      .map(i => `${i.name}: onHand=${i.onHand}`)
-    alert('Wine onHand check:\n' + (wineDebug.join('\n') || 'None found'))
     const date = new Date()
     const monthName = date.toLocaleDateString('en-AU', { month: 'long', year: 'numeric' })
     const generated = date.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -1891,6 +1886,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       return ca !== cb ? ca - cb : a.name.localeCompare(b.name)
     })
 
+    // TEMP DIAGNOSTIC
+    const wineCheck = ['Balliamo','Rosemount','Marlborough Sounds','Pepperjack']
+    const wineDebug = allItems.filter(i => wineCheck.some(w => i.name.includes(w))).map(i => `${i.name}: onHand=${i.onHand}`)
+    alert('Pricing Excel onHand check:\n' + (wineDebug.join('\n') || 'None found'))
     const mColor = (p) => p < 25 ? { argb:'FFFEE2E2' } : p < 40 ? { argb:'FFFEF3C7' } : { argb:'FFF0FDF4' }
     const mFont  = (p) => p < 25 ? { argb:'FF991B1B' } : p < 40 ? { argb:'FF92400E' } : { argb:'FF166534' }
 
