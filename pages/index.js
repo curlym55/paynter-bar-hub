@@ -1924,7 +1924,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         return cd !== 0 ? cd : a.name.localeCompare(b.name)
       })
 
-    let lastCat = null
     let rNum = 1
 
     for (const item of allItems) {
@@ -1962,17 +1961,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
       // Suggested sell (per glass/nip/unit, rounded UP to nearest $0.25 for ≥40%)
       const suggSell = buy != null ? mceil(buy * (1 + TARGET/100) / serves, 0.25) : null
-
-      // Category header row
-      if (item.category !== lastCat) {
-        rNum++
-        const catRow = ws.addRow({ name: item.category.toUpperCase() })
-        catRow.getCell(1).font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
-        catRow.getCell(1).fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+TEAL } }
-        ws.mergeCells(`A${catRow.number}:I${catRow.number}`)
-        catRow.height = 20
-        lastCat = item.category
-      }
 
       rNum++
       const row = ws.addRow({
