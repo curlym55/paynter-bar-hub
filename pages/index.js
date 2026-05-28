@@ -1945,8 +1945,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const avgBuyExGst = isSpirit && avgBuyRaw != null ? avgBuyRaw / nipsPerBtl : avgBuyRaw
       const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
       const hubBuy      = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-      // Manual override takes priority; fall back to 90d avg — matches planner behaviour
-      const buy         = hubBuy ?? avgBuyIncGst
+      // Avg invoice price takes priority; manual is fallback for items with no invoice history
+      const buy         = avgBuyIncGst ?? hubBuy
 
       // Sell prices
       const sellGlassPrice  = isSpirit
@@ -3547,9 +3547,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const nipsPerBtl2 = avgEntry2?.nips_per_bottle ?? (item.bottleML && item.nipML ? item.bottleML / item.nipML : null)
                           const avgBuyIncGst2 = avgEntry2 ? Math.round((nipsPerBtl2 && item.isSpirit ? avgEntry2.avg_unit_price_ex_gst / nipsPerBtl2 : avgEntry2.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000 : null
                           const manualBuy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
-                          // Manual override takes priority; fall back to 90d avg
-                          const buy = manualBuy ?? avgBuyIncGst2
-                          const buySource = manualBuy != null ? 'manual' : avgBuyIncGst2 != null ? '90d avg' : null
+                          // Avg invoice price takes priority; manual is fallback for items with no invoice history
+                          const buy = avgBuyIncGst2 ?? manualBuy
+                          const buySource = avgBuyIncGst2 != null ? '90d avg' : manualBuy != null ? 'manual' : null
 
                           // Resolve sell prices from Square variations (same logic as Price List tab)
                           const vars = item.variations || []
