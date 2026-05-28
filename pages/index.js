@@ -4162,9 +4162,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     const activeNames = new Set(items.map(i => i.name))
                     const hiddenCount = phManageData.filter(row => {
                       const hub = row._hub || row.item_name_hub || ''
-                      if (hub && rundownItems[hub]) return true
-                      const isMatched = hub && hub !== row.item_name_raw
-                      if (isMatched && !activeNames.has(hub)) return true
+                      if (!hub) return false
+                      if (rundownItems[hub]) return true
+                      if (activeNames.size > 0 && !activeNames.has(hub)) return true
                       return false
                     }).length
                     return (
@@ -4257,11 +4257,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             const activeNames = new Set(items.map(i => i.name))
                             return phManageData.filter(row => {
                               const hub = row._hub || row.item_name_hub || ''
-                              // Always hide if hub name is a rundown item (regardless of whether name matches raw)
-                              if (hub && rundownItems[hub]) return false
-                              // Hide if matched to a hub item that no longer exists in the active items list
-                              const isMatched = hub && hub !== row.item_name_raw
-                              if (isMatched && !activeNames.has(hub)) return false
+                              if (!hub) return true
+                              // Hide rundown items (any hub name, matched or unmatched)
+                              if (rundownItems[hub]) return false
+                              // Hide items where the hub (or raw fallback) is not in the current active items list
+                              // — catches deleted items whether or not they were explicitly matched
+                              if (activeNames.size > 0 && !activeNames.has(hub)) return false
                               return true
                             })
                           })().map((row, i) => {
