@@ -2377,25 +2377,28 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         <style>{`
           .sidebar { display: flex !important; }
           .mobile-menu-btn { display: none !important; }
+          .mobile-drawer { display: none !important; }
+          .mobile-backdrop { display: none !important; }
           .dash-stats   { grid-template-columns: repeat(5, 1fr) !important; }
           .dash-features { grid-template-columns: repeat(4, 1fr) !important; }
           @media (max-width: 768px) {
             .sidebar      { display: none  !important; }
             .mobile-menu-btn { display: block !important; }
             .mobile-drawer {
+              display: flex !important;
               position: fixed; top: 0; left: 0; height: 100%; width: 280px;
               background: #0f172a; z-index: 1000;
               transform: translateX(-100%);
               transition: transform 0.25s ease;
               overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.5);
-              display: flex; flex-direction: column;
+              flex-direction: column;
             }
             .mobile-drawer.open { transform: translateX(0); }
             .mobile-backdrop {
-              display: none; position: fixed; inset: 0;
+              display: none !important; position: fixed; inset: 0;
               background: rgba(0,0,0,0.5); z-index: 999;
             }
-            .mobile-backdrop.open { display: block; }
+            .mobile-backdrop.open { display: block !important; }
             .stats-bar    { padding: 0 16px !important; }
             .stat-cell    { padding: 10px 14px !important; }
             .stat-num     { font-size: 18px !important; }
