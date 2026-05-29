@@ -10,9 +10,7 @@ import StocktakeView from '../components/bar/views/StocktakeView'
 import SohHistoryView from '../components/bar/views/SohHistoryView'
 import DashboardView from '../components/bar/views/DashboardView'
 import BarcodeSheetView from '../components/bar/views/BarcodeSheetView'
-import BestSellersView from '../components/bar/views/BestSellersView'
 import PriceListView from '../components/bar/views/PriceListView'
-import TrendsView from '../components/bar/views/TrendsView'
 import { xlsAOAtoWS } from '../lib/excel/xlsAOAtoWS'
 import { xlsDownload } from '../lib/excel/xlsDownload'
 import { loadExcelJS } from '../lib/excel/loadExcelJS'
@@ -143,10 +141,6 @@ export default function Home() {
   const [salesError, setSalesError]     = useState(null)
   const [salesCategory, setSalesCategory] = useState('All')
   const [salesSort, setSalesSort]       = useState('units')
-  const [trendData, setTrendData]       = useState(null)
-  const [trendLoading, setTrendLoading] = useState(false)
-  const [trendError, setTrendError]     = useState(null)
-  const [sellersData, setSellersData]   = useState(null)
   const [wastageLog, setWastageLog]     = useState([])
   const [notesLog, setNotesLog]         = useState([])
   const [notesLoaded, setNotesLoaded]   = useState(false)
@@ -159,8 +153,6 @@ export default function Home() {
   useEffect(() => { try { localStorage.setItem('hubTheme', hubTheme) } catch {} }, [hubTheme])
   const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': false, 'Sales & Analytics': false, 'Operations': false, 'Reports': false, 'Help': false })
   const [wastageLoaded, setWastageLoaded] = useState(false)
-  const [sellersLoading, setSellersLoading] = useState(false)
-  const [sellersError, setSellersError] = useState(null)
   const [orderedItems, setOrderedItems]   = useState({})
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
@@ -271,9 +263,6 @@ export default function Home() {
       if (data.supplierVendorNames) setSupplierVendorNames(data.supplierVendorNames || {})
     }).catch(() => {})
   }, [])
-
-  // Reset best-sellers cache when sales period changes so it reloads fresh
-  useEffect(() => { setSellersData(null) }, [daysBack])
 
   async function loadSalesReport(period, custom) {
     setSalesLoading(true)
@@ -696,30 +685,6 @@ export default function Home() {
     setWastageLoaded(true)
   }
 
-  async function loadSellersData() {
-    setSellersLoading(true)
-    setSellersError(null)
-    try {
-      const end   = new Date(); end.setHours(23,59,59,999)
-      const start = new Date(); start.setDate(start.getDate() - daysBack); start.setHours(0,0,0,0)
-      // dummy compare range (required by API but not used here)
-      const compareEnd   = new Date(start.getTime() - 1)
-      const compareStart = new Date(compareEnd); compareStart.setDate(compareStart.getDate() - daysBack)
-      const params = new URLSearchParams({
-        start: start.toISOString(), end: end.toISOString(),
-        compareStart: compareStart.toISOString(), compareEnd: compareEnd.toISOString(),
-      })
-      const r = await fetch(`/api/sales?${params}`)
-      if (!r.ok) throw new Error((await r.json()).error || 'Failed')
-      const data = await r.json()
-      setSellersData(data)
-    } catch(e) {
-      setSellersError(e.message)
-    } finally {
-      setSellersLoading(false)
-    }
-  }
-
   async function saveSetting(itemName, field, value) {
     const key = `${itemName}_${field}`
     setSaving(s => ({ ...s, [key]: true }))
@@ -838,52 +803,6 @@ export default function Home() {
     })
   }
 
-
-  // ── LOAD QUARTERLY TREND DATA ─────────────────────────────────────────────
-  async function loadTrendData() {
-    setTrendLoading(true)
-    setTrendError(null)
-    try {
-      const now = new Date()
-      const yr  = now.getFullYear()
-      const mo  = now.getMonth() // 0-indexed
-
-      // Build last 4 calendar quarters (Jan-Mar, Apr-Jun, Jul-Sep, Oct-Dec)
-      // Work out which quarter we're currently in, then go back 4 from the last completed one
-      // Quarter index: 0=Jan-Mar, 1=Apr-Jun, 2=Jul-Sep, 3=Oct-Dec
-      const currentQ = Math.floor(mo / 3)
-      // Last completed quarter
-      let q = currentQ - 1
-      let y = yr
-      if (q < 0) { q = 3; y = yr - 1 }
-
-      const quarters = []
-      for (let i = 0; i < 4; i++) {
-        const startMonth = q * 3           // 0, 3, 6, or 9
-        const endMonth   = startMonth + 2  // 2, 5, 8, or 11
-        const lastDay    = new Date(y, endMonth + 1, 0).getDate()
-        const start      = new Date(y, startMonth, 1, 0, 0, 0)
-        const end        = new Date(y, endMonth, lastDay, 23, 59, 59)
-        const qNames     = ['Jan–Mar','Apr–Jun','Jul–Sep','Oct–Dec']
-        quarters.unshift({ start, end, label: `${qNames[q]} ${y}` })
-        q--
-        if (q < 0) { q = 3; y-- }
-      }
-
-      const results = await Promise.all(quarters.map(async q => {
-        const params = new URLSearchParams({ start: q.start.toISOString(), end: q.end.toISOString() })
-        const r = await fetch(`/api/sales?${params}`)
-        if (!r.ok) throw new Error('Failed to fetch quarter data')
-        const d = await r.json()
-        return { label: q.label, categories: d.categories, totals: d.totals }
-      }))
-      setTrendData(results)
-    } catch(e) {
-      setTrendError(e.message)
-    } finally {
-      setTrendLoading(false)
-    }
-  }
 
   // ── GENERATE AGM ANNUAL REPORT PDF ────────────────────────────────────────
   async function savePriceListSetting(itemName, field, value, useItemSettings = false) {
@@ -2432,8 +2351,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             // Analytics
             { sectionHeader: '📈 Analytics' },
             { icon: '📊', label: 'Sales Report',         tab: 'sales', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-            { icon: '📈', label: 'Quarterly Trends',     tab: 'trends', action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() } },
-            { icon: '🏆', label: 'Best & Worst Sellers', tab: 'bestsellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() } },
             { divider: true },
             // Manage (was Bar)
             { sectionHeader: '🍺 Manage' },
@@ -2546,7 +2463,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'trends' ? '📈 Quarterly Trends' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'bestsellers' ? '🏆 Best & Worst Sellers' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -2575,8 +2492,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               { label: '🗓️ SOH History',          action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory'), active: mainTab === 'sohhistory' },
               { divider: true, label: 'Sales & Analytics' },
               { label: '📊 Sales Report',         action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
-              { label: '📈 Quarterly Trends',     action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
-              { label: '🏆 Best & Worst Sellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
               { divider: true, label: 'Operations' },
               { label: '⭐ Specials',             action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
               { label: '🏷️ Price List',           action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
@@ -3864,12 +3779,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onNav={(tab) => {
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
-              if (tab === 'trends' && !trendData) loadTrendData()
-              if (tab === 'bestsellers') loadSellersData()
             }}
           />
         )}
-        {mainTab === 'trends' && <TrendsView data={trendData} loading={trendLoading} error={trendError} />}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
         {mainTab === 'settings' && !readOnly && (
           <div style={{ padding: '16px 0', maxWidth: 700 }}>
@@ -4971,7 +4883,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} settings={priceListSettings} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
         {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to BMT members.</div>}
-        {mainTab === 'bestsellers' && <BestSellersView items={items} salesData={sellersData} loading={sellersLoading} error={sellersError} daysBack={daysBack} />}
         {mainTab === 'pricelist' && (
           <PriceListView
             items={items}
