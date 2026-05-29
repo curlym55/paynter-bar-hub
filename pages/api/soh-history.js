@@ -6,14 +6,29 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
-  if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  if (req.method === 'GET') {
+    const { data, error } = await supabase
+      .from('soh_reports')
+      .select('id, report_date, generated_at, items_count, total_value, data')
+      .order('report_date', { ascending: false })
+      .limit(24)
 
-  const { data, error } = await supabase
-    .from('soh_reports')
-    .select('id, report_date, generated_at, items_count, total_value, data')
-    .order('report_date', { ascending: false })
-    .limit(24)
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ reports: data })
+  }
 
-  if (error) return res.status(500).json({ error: error.message })
-  return res.status(200).json({ reports: data })
+  if (req.method === 'DELETE') {
+    const { id } = req.body
+    if (!id) return res.status(400).json({ error: 'Missing id' })
+
+    const { error } = await supabase
+      .from('soh_reports')
+      .delete()
+      .eq('id', id)
+
+    if (error) return res.status(500).json({ error: error.message })
+    return res.status(200).json({ ok: true })
+  }
+
+  return res.status(405).json({ error: 'Method not allowed' })
 }

@@ -4,11 +4,12 @@ import { loadExcelJS } from '../../../lib/excel/loadExcelJS'
 import { xlsDownload } from '../../../lib/excel/xlsDownload'
 import { xlsAOAtoWS } from '../../../lib/excel/xlsAOAtoWS'
 
-export default function SohHistoryView() {
-  const [reports, setReports] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [expanded, setExpanded] = useState(null)
+export default function SohHistoryView({ readOnly, onExportPdf, onExportXlsx }) {
+  const [reports, setReports]     = useState([])
+  const [loading, setLoading]     = useState(true)
+  const [expanded, setExpanded]   = useState(null)
   const [generating, setGenerating] = useState(false)
+  const [deleting, setDeleting]   = useState(null)
 
   useEffect(() => { loadReports() }, [])
 
@@ -30,6 +31,26 @@ export default function SohHistoryView() {
       if (d.ok) { alert(`Snapshot saved: ${d.items} items, $${d.total_value}`); await loadReports() }
       else alert('Error: ' + (d.error || 'unknown'))
     } finally { setGenerating(false) }
+  }
+
+  async function deleteReport(report) {
+    const dateStr = new Date(report.report_date + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'long', year: 'numeric' })
+    if (!confirm(`Delete the snapshot for ${dateStr}?\n\nThis cannot be undone.`)) return
+    setDeleting(report.id)
+    try {
+      const r = await fetch('/api/soh-history', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: report.id }),
+      })
+      const d = await r.json()
+      if (d.ok) {
+        setReports(prev => prev.filter(rpt => rpt.id !== report.id))
+        if (expanded === report.id) setExpanded(null)
+      } else {
+        alert('Delete failed: ' + (d.error || 'unknown'))
+      }
+    } finally { setDeleting(null) }
   }
 
   async function downloadReport(report) {
@@ -96,10 +117,26 @@ export default function SohHistoryView() {
           <div style={{ fontSize: 20, fontWeight: 800, color: '#0f172a' }}>🗓️ SOH History</div>
           <div style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Monthly stock on hand snapshots — auto-generated 2am AEST on the 1st of each month</div>
         </div>
-        <button onClick={runNow} disabled={generating}
-          style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
-          {generating ? 'Generating...' : '📸 Snapshot Now'}
-        </button>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          {!readOnly && onExportPdf && (
+            <button onClick={onExportPdf}
+              style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              🖨️ Print / PDF
+            </button>
+          )}
+          {!readOnly && onExportXlsx && (
+            <button onClick={onExportXlsx}
+              style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 16px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              📊 Export Excel
+            </button>
+          )}
+          {!readOnly && (
+            <button onClick={runNow} disabled={generating}
+              style={{ background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 8, padding: '9px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>
+              {generating ? 'Generating...' : '📸 Snapshot Now'}
+            </button>
+          )}
+        </div>
       </div>
 
       {loading ? (
@@ -127,9 +164,16 @@ export default function SohHistoryView() {
                   ${Number(report.total_value).toFixed(2)}
                 </div>
                 <button onClick={e => { e.stopPropagation(); downloadReport(report) }}
-                  style={{ padding: '6px 14px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer' }}>
-                  CSV
+                  style={{ padding: '6px 14px', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 600 }}>
+                  📊 Excel
                 </button>
+                {!readOnly && (
+                  <button onClick={e => { e.stopPropagation(); deleteReport(report) }}
+                    disabled={deleting === report.id}
+                    style={{ padding: '6px 12px', background: deleting === report.id ? '#f1f5f9' : '#fef2f2', color: deleting === report.id ? '#94a3b8' : '#dc2626', border: '1px solid ' + (deleting === report.id ? '#e2e8f0' : '#fca5a5'), borderRadius: 6, fontSize: 12, cursor: deleting === report.id ? 'default' : 'pointer', fontWeight: 600 }}>
+                    {deleting === report.id ? '...' : '🗑️'}
+                  </button>
+                )}
                 <span style={{ color: '#94a3b8', fontSize: 14 }}>{expanded === report.id ? '▲' : '▼'}</span>
               </div>
               {expanded === report.id && (

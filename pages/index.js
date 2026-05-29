@@ -123,8 +123,6 @@ export default function Home() {
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
   const [salesPdfModal, setSalesPdfModal] = useState(false)
-  const [sohModal, setSohModal]               = useState(false)
-
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
@@ -2426,7 +2424,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             // Stock
             { sectionHeader: '📦 Stock' },
             { icon: '📋', label: 'Stocktake',            tab: 'stocktake',   action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
-            { icon: '📊', label: 'SOH Report',           tab: 'soh',   action: () => setSohModal(true) },
             { icon: '🗓️', label: 'SOH History',          tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
             { divider: true },
             // Analytics
@@ -2584,7 +2581,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               { label: '👥 Roster',               action: () => window.open('/roster','_blank'), active: false },
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
               { divider: true, label: 'Reports' },
-              { label: '📋 SOH Report',           action: () => { setSohModal(true) }, active: false },
               { label: '📁 PO Documents',         action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() }, active: mainTab === 'documents' },
               { label: '📄 Price History',        action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory'), active: mainTab === 'pricehistory' },
               { divider: true, label: '' },
@@ -3210,28 +3206,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button onClick={() => { markAsOrdered(refModal.supplier, refInput); setRefModal(null) }}
                   style={{ flex:2, padding:'9px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
                   ✓ Mark as Ordered
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {sohModal && (
-          <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: 28, width: '100%', maxWidth: 360, boxShadow: '0 20px 60px rgba(0,0,0,0.3)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a' }}>📋 SOH Report</div>
-                <button onClick={() => setSohModal(false)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
-              </div>
-              <p style={{ fontSize: 13, color: '#64748b', marginBottom: 20 }}>Export the current Stock on Hand as a formatted report.</p>
-              <div style={{ display: 'flex', gap: 10 }}>
-                <button onClick={() => { generateStockReport(false); setSohModal(false) }}
-                  style={{ flex: 1, padding: '12px 0', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  🖨️ Print / PDF
-                </button>
-                <button onClick={() => { generateStockReport(true); setSohModal(false) }}
-                  style={{ flex: 1, padding: '12px 0', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 14, fontWeight: 700, cursor: 'pointer' }}>
-                  📊 Excel
                 </button>
               </div>
             </div>
@@ -5007,7 +4981,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           />
         )}
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
-          {mainTab === 'sohhistory' && <SohHistoryView />}
+          {mainTab === 'sohhistory' && <SohHistoryView readOnly={readOnly} onExportPdf={() => generateStockReport(false)} onExportXlsx={() => generateStockReport(true)} />}
           {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
         {mainTab === 'help' && <HelpTab />}
 
