@@ -2384,6 +2384,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           @media (max-width: 768px) {
             .sidebar      { display: none  !important; }
             .mobile-menu-btn { display: block !important; }
+            .mobile-drawer {
+              position: fixed; top: 0; left: 0; height: 100%; width: 280px;
+              background: #0f172a; z-index: 1000;
+              transform: translateX(-100%);
+              transition: transform 0.25s ease;
+              overflow-y: auto; box-shadow: 4px 0 24px rgba(0,0,0,0.5);
+              display: flex; flex-direction: column;
+            }
+            .mobile-drawer.open { transform: translateX(0); }
+            .mobile-backdrop {
+              display: none; position: fixed; inset: 0;
+              background: rgba(0,0,0,0.5); z-index: 999;
+            }
+            .mobile-backdrop.open { display: block; }
             .stats-bar    { padding: 0 16px !important; }
             .stat-cell    { padding: 10px 14px !important; }
             .stat-num     { font-size: 18px !important; }
@@ -2542,30 +2556,57 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             </div>
           </div>
 
-          {/* Mobile dropdown menu */}
-          <div style={{ display: menuOpen ? 'block' : 'none', background: '#1e293b', borderTop: '1px solid #334155' }}>
+          {/* Mobile slide-in drawer — mobile only, desktop unaffected */}
+          <div className={`mobile-backdrop${menuOpen ? ' open' : ''}`} onClick={() => setMenuOpen(false)} />
+          <div className={`mobile-drawer${menuOpen ? ' open' : ''}`}>
+            {/* Drawer header */}
+            <div style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'16px 20px', borderBottom:'1px solid #1e293b', flexShrink:0 }}>
+              <span style={{ color:'#94a3b8', fontSize:13, fontWeight:700, letterSpacing:'0.08em' }}>PAYNTER BAR HUB</span>
+              <button onClick={() => setMenuOpen(false)}
+                style={{ background:'none', border:'none', color:'#94a3b8', fontSize:22, cursor:'pointer', lineHeight:1, padding:'2px 6px' }}>✕</button>
+            </div>
+            {/* Nav items */}
             {[
-              { label: '🏠 Dashboard',           action: () => setMainTab('home'),        active: mainTab === 'home' },
-              { label: '📦 Reorder Planner',     action: () => setMainTab('reorder'),     active: mainTab === 'reorder' },
-              { label: '📋 Stocktake',           action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake'), active: mainTab === 'stocktake' },
-              { label: '📊 Sales Report',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
-              { label: '📈 Quarterly Trends',    action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
-              { label: '🏆 Best & Worst Sellers',action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
-              { label: '🗑️ Wastage Log',         action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
+              { label: '🏠 Dashboard',            action: () => setMainTab('home'),        active: mainTab === 'home' },
+              { label: '📦 Reorder Planner',      action: () => setMainTab('reorder'),     active: mainTab === 'reorder' },
+              { label: '🗑️ Wastage Log',          action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
+              { divider: true, label: 'Stock' },
+              { label: '📋 Stocktake',            action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake'), active: mainTab === 'stocktake' },
+              { label: '🗓️ SOH History',          action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory'), active: mainTab === 'sohhistory' },
+              { divider: true, label: 'Sales & Analytics' },
+              { label: '📊 Sales Report',         action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
+              { label: '📈 Quarterly Trends',     action: () => { const n=mainTab==='trends'?'reorder':'trends'; setMainTab(n); if(n==='trends'&&!trendData) loadTrendData() }, active: mainTab === 'trends' },
+              { label: '🏆 Best & Worst Sellers', action: () => { const n=mainTab==='bestsellers'?'reorder':'bestsellers'; setMainTab(n); if(n==='bestsellers') loadSellersData() }, active: mainTab === 'bestsellers' },
+              { divider: true, label: 'Operations' },
+              { label: '⭐ Specials',             action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
+              { label: '🏷️ Price List',           action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
+              { label: '🖨️ Barcode Sheet',        action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
+              { label: '👥 Roster',               action: () => window.open('/roster','_blank'), active: false },
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
-              { label: '⭐ Specials',              action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
-                { label: '🏷️ Price List',          action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
-              { label: '🖨️ Barcode Sheet',       action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
-              { label: '👥 Roster',              action: () => window.open('/roster','_blank'), active: false },
-              { label: '📋 SOH Report',          action: () => setSohModal(true), active: false },
-                { label: '🗓️ SOH History',         action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory'), active: mainTab === 'sohhistory' },
-              { label: '❓ Help & Guide',        action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
-            ].map(({ label, action, active }) => (
-              <button key={label} onClick={() => { action(); setMenuOpen(false) }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', background: active ? '#2d4a6e' : 'transparent', color: active ? '#60a5fa' : '#e2e8f0', border: 'none', borderBottom: '1px solid #2d3748', padding: '14px 20px', fontSize: 15, fontWeight: active ? 700 : 400, cursor: 'pointer' }}>
-                {label}
-              </button>
-            ))}
+              { divider: true, label: 'Reports' },
+              { label: '📋 SOH Report',           action: () => { setSohModal(true) }, active: false },
+              { label: '📁 PO Documents',         action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() }, active: mainTab === 'documents' },
+              { label: '📄 Price History',        action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory'), active: mainTab === 'pricehistory' },
+              { divider: true, label: '' },
+              { label: '❓ Help & Guide',         action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
+              ...(!readOnly ? [{ label: '⚙️ Settings', action: () => setMainTab(t => t==='settings'?'reorder':'settings'), active: mainTab === 'settings' }] : []),
+            ].map((item, idx) => {
+              if (item.divider) return (
+                <div key={`div-${idx}`} style={{ padding:'10px 20px 4px', color:'#475569', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                  {item.label}
+                </div>
+              )
+              return (
+                <button key={item.label} onClick={() => { item.action(); setMenuOpen(false) }}
+                  style={{ display:'flex', alignItems:'center', gap:10, width:'100%', textAlign:'left',
+                    background: item.active ? 'rgba(96,165,250,0.12)' : 'transparent',
+                    color: item.active ? '#60a5fa' : '#cbd5e1',
+                    border:'none', borderLeft: item.active ? '3px solid #60a5fa' : '3px solid transparent',
+                    padding:'12px 20px', fontSize:15, fontWeight: item.active ? 700 : 400, cursor:'pointer' }}>
+                  {item.label}
+                </button>
+              )
+            })}
           </div>
 
           <div className="stats-bar" style={styles.statsBar}>
