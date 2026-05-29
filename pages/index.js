@@ -3387,7 +3387,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>✅</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Done</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Receipt and invoice saved to Documents and OneDrive.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Receipt and invoice saved to Documents and OneDrive. Invoice prices extracted to Price History. Click 📧 Email Treasurer in Documents to notify the Treasurer.</div>
                 </div>
               </div>
             )}
