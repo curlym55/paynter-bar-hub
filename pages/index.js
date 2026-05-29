@@ -121,7 +121,6 @@ export default function Home() {
   const [daysBack, setDaysBack]         = useState(60)
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
-  const [salesPdfModal, setSalesPdfModal] = useState(false)
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
@@ -1308,7 +1307,6 @@ export default function Home() {
     }
 
     setSalesPdfLoading(false)
-    setSalesPdfModal(false)
 
     const CATEGORY_ORDER = ['Beer','Cider','PreMix','White Wine','Red Wine','Rose','Sparkling','Fortified & Liqueurs','Spirits','Soft Drinks','Snacks']
     const hasRev = report.items.some(i => i.revenue != null && i.revenue > 0)
@@ -2335,39 +2333,35 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {/* ── SIDEBAR ─────────────────────────────────────────── */}
         {(() => {
           const SC = sidebarCollapsed
-          const navItems = [
-            // Help at top
-            { icon: '❓', label: 'Help & Guide', topLevel: true, tab: 'help',        section: null,      action: () => setMainTab(t => t==='help'?'reorder':'help') },
-            { divider: true },
-            // Core — always visible
-            { icon: '🏠', label: 'Dashboard',           tab: 'home',        section: null,      action: () => { setMainTab('home'); setMenuOpen(false) } },
-            { icon: '📦', label: 'Reorder & Orders',    tab: 'reorder',     section: null,      action: () => setMainTab('reorder') },
-            { icon: '🗑️', label: 'Wastage Log',         tab: 'wastage',     section: null,      action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
-            { divider: true },
-            // Stock
-            { sectionHeader: '📦 Stock' },
-            { icon: '📋', label: 'Stocktake',            tab: 'stocktake',   action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
-            { icon: '🗓️', label: 'SOH History',          tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
-            { divider: true },
-            // Analytics
-            { sectionHeader: '📈 Analytics' },
-            { icon: '📊', label: 'Sales Report',         tab: 'sales', action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-            { divider: true },
-            // Manage (was Bar)
-            { sectionHeader: '🍺 Manage' },
-            { icon: '⭐', label: 'Specials',              tab: 'specials',  action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-            { icon: '🏷️', label: 'Price List',           tab: 'pricelist',  action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-            { icon: '💲', label: 'Pricing',              tab: 'pricing',    action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
+
+          // ── SINGLE NAV DEFINITION ─ used by both icon sidebar and mobile drawer ──
+          const NAV_ITEMS = [
+            { icon: '❓', label: 'Help & Guide',     tab: 'help',         topLevel: true, action: () => setMainTab(t => t==='help'?'reorder':'help') },
+            { divider: true, section: null },
+            { icon: '🏠', label: 'Dashboard',        tab: 'home',         topLevel: true, action: () => { setMainTab('home'); setMenuOpen(false) } },
+            { icon: '📦', label: 'Reorder & Orders', tab: 'reorder',      topLevel: true, action: () => setMainTab('reorder') },
+            { icon: '🗑️', label: 'Wastage Log',      tab: 'wastage',      topLevel: true, action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
+            { divider: true, section: 'Stock' },
+            { icon: '📋', label: 'Stocktake',        tab: 'stocktake',    action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+            { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+            { divider: true, section: 'Analytics' },
+            { icon: '📊', label: 'Sales Report',     tab: 'sales',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+            { divider: true, section: 'Manage' },
+            { icon: '⭐', label: 'Specials',          tab: 'specials',     action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+            { icon: '🏷️', label: 'Price List',       tab: 'pricelist',    action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+            { icon: '💲', label: 'Pricing',           tab: 'pricing',      action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
             ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
-            { divider: true },
-            // Records (was Administration)
-            { sectionHeader: '📁 Records' },
-            { icon: '📁', label: 'PO Documents',            tab: 'documents', action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
-            { icon: '📄', label: 'Price History',        tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
-            { icon: '🖨️', label: 'Barcode Sheet',        tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-            { icon: '👥', label: 'Roster',               tab: 'roster', action: () => window.open('/roster','_blank') },
-            ...(!readOnly ? [{ divider: true }, { icon: '⚙️', label: 'Settings', tab: 'settings', section: null, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } }] : []),
+            { divider: true, section: 'Records' },
+            { icon: '📁', label: 'PO Documents',     tab: 'documents',    action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+            { icon: '📄', label: 'Price History',    tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
+            { icon: '🖨️', label: 'Barcode Sheet',    tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+            { icon: '👥', label: 'Roster',            tab: 'roster',       action: () => window.open('/roster','_blank') },
+            ...(!readOnly ? [
+              { divider: true, section: null },
+              { icon: '⚙️', label: 'Settings', tab: 'settings', topLevel: true, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } },
+            ] : []),
           ]
+          const navItems = NAV_ITEMS
 
           const THEMES = {
             navy:     { name:'Navy',     sbBg:'#0f172a', sbBorder:'#1e293b', sbActive:'#1e3a5f', accent:'#0e7490', navText:'#f1f5f9', navMuted:'#64748b', navItem:'#94a3b8', brandBg:'#0e7490' },
@@ -2400,12 +2394,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               {/* Flat nav */}
               <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', padding: '6px 0' }}>
                 {navItems.map((item, idx) => {
-                  if (item.divider) return <div key={idx} style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: T.sbBorder }} />
-                  if (item.sectionHeader) return !SC ? (
-                    <div key={idx} style={{ padding: '8px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.navMuted }}>
-                      {item.sectionHeader}
+                  if (item.divider) return (
+                    <div key={idx}>
+                      <div style={{ margin: SC ? '3px 6px' : '3px 12px', height: 1, background: T.sbBorder }} />
+                      {item.section && !SC && (
+                        <div style={{ padding: '6px 14px 2px', fontSize: 9, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: T.navMuted }}>
+                          {item.section}
+                        </div>
+                      )}
                     </div>
-                  ) : null
+                  )
                   const isActive = mainTab === item.tab
                   return (
                     <button key={item.tab + idx} onClick={() => { item.action(); setMenuOpen(false) }}
@@ -2484,42 +2482,26 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <button onClick={() => setMenuOpen(false)}
                 style={{ background:'none', border:'none', color:'#94a3b8', fontSize:22, cursor:'pointer', lineHeight:1, padding:'2px 6px' }}>✕</button>
             </div>
-            {/* Nav items */}
-            {[
-              { label: '🏠 Dashboard',            action: () => setMainTab('home'),        active: mainTab === 'home' },
-              { label: '📦 Reorder Planner',      action: () => setMainTab('reorder'),     active: mainTab === 'reorder' },
-              { label: '🗑️ Wastage Log',          action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() }, active: mainTab === 'wastage' },
-              { divider: true, label: 'Stock' },
-              { label: '📋 Stocktake',            action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake'), active: mainTab === 'stocktake' },
-              { label: '🗓️ SOH History',          action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory'), active: mainTab === 'sohhistory' },
-              { divider: true, label: 'Sales & Analytics' },
-              { label: '📊 Sales Report',         action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) }, active: mainTab === 'sales' },
-              { divider: true, label: 'Operations' },
-              { label: '⭐ Specials',             action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
-              { label: '🏷️ Price List',           action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
-              { label: '💲 Pricing',              action: () => setMainTab(t => t==='pricing'?'reorder':'pricing'), active: mainTab === 'pricing' },
-              { label: '🖨️ Barcode Sheet',        action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
-              { label: '👥 Roster',               action: () => window.open('/roster','_blank'), active: false },
-              ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
-              { divider: true, label: 'Reports' },
-              { label: '📁 PO Documents',         action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() }, active: mainTab === 'documents' },
-              { label: '📄 Price History',        action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory'), active: mainTab === 'pricehistory' },
-              { divider: true, label: '' },
-              { label: '❓ Help & Guide',         action: () => setMainTab(t => t==='help'?'reorder':'help'), active: mainTab === 'help' },
-              ...(!readOnly ? [{ label: '⚙️ Settings', action: () => setMainTab(t => t==='settings'?'reorder':'settings'), active: mainTab === 'settings' }] : []),
-            ].map((item, idx) => {
+            {/* Nav items — driven by NAV_ITEMS, same source as icon sidebar */}
+            {NAV_ITEMS.map((item, idx) => {
               if (item.divider) return (
-                <div key={`div-${idx}`} style={{ padding:'10px 20px 4px', color:'#475569', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>
-                  {item.label}
+                <div key={`div-${idx}`}>
+                  {item.section && (
+                    <div style={{ padding:'10px 20px 4px', color:'#475569', fontSize:10, fontWeight:700, letterSpacing:'0.1em', textTransform:'uppercase' }}>
+                      {item.section}
+                    </div>
+                  )}
                 </div>
               )
+              const isActive = mainTab === item.tab
               return (
-                <button key={item.label} onClick={() => { item.action(); setMenuOpen(false) }}
+                <button key={item.tab + idx} onClick={() => { item.action(); setMenuOpen(false) }}
                   style={{ display:'flex', alignItems:'center', gap:10, width:'100%', textAlign:'left',
-                    background: item.active ? 'rgba(96,165,250,0.12)' : 'transparent',
-                    color: item.active ? '#60a5fa' : '#cbd5e1',
-                    border:'none', borderLeft: item.active ? '3px solid #60a5fa' : '3px solid transparent',
-                    padding:'12px 20px', fontSize:15, fontWeight: item.active ? 700 : 400, cursor:'pointer' }}>
+                    background: isActive ? 'rgba(96,165,250,0.12)' : 'transparent',
+                    color: isActive ? '#60a5fa' : '#cbd5e1',
+                    border:'none', borderLeft: isActive ? '3px solid #60a5fa' : '3px solid transparent',
+                    padding:'12px 20px', fontSize:15, fontWeight: isActive ? 700 : 400, cursor:'pointer' }}>
+                  {item.icon && <span style={{ fontSize:16, width:20, textAlign:'center', flexShrink:0 }}>{item.icon}</span>}
                   {item.label}
                 </button>
               )
