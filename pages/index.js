@@ -56,6 +56,7 @@ export default function Home() {
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
+  const [pricingSubTab, setPricingSubTab] = useState('avgprices')
   const [phPdf, setPhPdf] = useState(null)
   const [phExtracting, setPhExtracting] = useState(false)
   const [phExtracted, setPhExtracted] = useState(null)
@@ -2356,6 +2357,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             { sectionHeader: '🍺 Manage' },
             { icon: '⭐', label: 'Specials',              tab: 'specials',  action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
             { icon: '🏷️', label: 'Price List',           tab: 'pricelist',  action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+            { icon: '💲', label: 'Pricing',              tab: 'pricing',    action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
             ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
             { divider: true },
             // Records (was Administration)
@@ -2463,7 +2465,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'pricing' ? '💲 Pricing' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
                 </h1>
               </div>
             </div>
@@ -2495,6 +2497,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               { divider: true, label: 'Operations' },
               { label: '⭐ Specials',             action: () => setMainTab(t => t==='specials'?'reorder':'specials'), active: mainTab === 'specials' },
               { label: '🏷️ Price List',           action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist'), active: mainTab === 'pricelist' },
+              { label: '💲 Pricing',              action: () => setMainTab(t => t==='pricing'?'reorder':'pricing'), active: mainTab === 'pricing' },
               { label: '🖨️ Barcode Sheet',        action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet'), active: mainTab === 'barcodesheet' },
               { label: '👥 Roster',               action: () => window.open('/roster','_blank'), active: false },
               ...(!readOnly ? [{ label: '📝 Notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() }, active: mainTab === 'notes' }] : []),
@@ -3959,11 +3962,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'pricehistory' && (
           <div style={{ padding: '16px 0' }}>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              {['import','reports','manage'].map(t => (
+              {['import','manage'].map(t => (
                 <button key={t} onClick={() => setPhSubTab(t)}
                   style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
                     background: phSubTab===t ? '#1e3a5f' : '#f8fafc', color: phSubTab===t ? '#fff' : '#374151' }}>
-                  {t === 'import' ? '📄 Import Invoice' : t === 'reports' ? '📊 Average Prices' : '🔧 Manage History'}
+                  {t === 'import' ? '📄 Import Invoice' : '🔧 Manage History'}
                 </button>
               ))}
             </div>
@@ -4612,8 +4615,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 </div>
               )
             })()}
-            {/* ── REPORTS TAB ────────────────────────────────────── */}
-            {phSubTab === 'reports' && (
+          </div>
+        )}
+
+        {mainTab === 'pricing' && (
+          <div style={{ padding: '16px 0' }}>
+            {/* Sub-tab strip */}
+            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
+              {[['avgprices','📊 Average Prices'],['markup','$ Markup / Sell Prices']].map(([t,label]) => (
+                <button key={t} onClick={() => setPricingSubTab(t)}
+                  style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
+                    background: pricingSubTab===t ? '#1e3a5f' : '#f8fafc', color: pricingSubTab===t ? '#fff' : '#374151' }}>
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* ── AVERAGE PRICES ─────────────────────────────────── */}
+            {pricingSubTab === 'avgprices' && (
               <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
                   <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
@@ -4641,7 +4660,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     📥 Avg Price Report
                   </button>
-
                   {phAvgData?.items?.length > 0 && !readOnly && (
                     <button onClick={async () => {
                       const updatable = phAvgData.items.filter(row => {
@@ -4669,7 +4687,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                   )}
                 </div>
-
                 {phAvgData && (
                   phAvgData.items?.length === 0 ? (
                     <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>No price history found for this period. Import some invoices first.</div>
@@ -4694,7 +4711,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
                               const nipsPerBottle = row.nips_per_bottle ?? null
-                              // Convert per-bottle avg to per-nip for spirits display
                               const avgIncGst = row.avg_unit_price_ex_gst != null
                                 ? Math.round((nipsPerBottle ? row.avg_unit_price_ex_gst / nipsPerBottle : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
                                 : null
@@ -4748,6 +4764,32 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </div>
                   )
                 )}
+              </div>
+            )}
+
+            {/* ── MARKUP / SELL PRICES ───────────────────────────── */}
+            {pricingSubTab === 'markup' && (
+              <div>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:24, marginBottom:16 }}>
+                  <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>$ Markup & Sell Price Analysis</div>
+                  <div style={{ fontSize:12, color:'#64748b', marginBottom:20 }}>
+                    Full pricing analysis with buy prices, markup %, sell prices and margin. Opens in the Reorder Planner pricing view.
+                  </div>
+                  <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
+                    <button onClick={() => { setMainTab('reorder'); setViewMode('pricing') }}
+                      style={{ padding:'10px 22px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      $ Open Pricing View
+                    </button>
+                    <button onClick={printPricingSheet}
+                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      🖨️ Print
+                    </button>
+                    <button onClick={() => exportPricingExcel(40)}
+                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      📥 Excel
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
