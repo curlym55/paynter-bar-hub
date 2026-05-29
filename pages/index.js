@@ -2286,6 +2286,34 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     </div>
   )
 
+  // ── NAV DEFINITION ─ component-level so both sidebar and mobile drawer can access it ──
+  const NAV_ITEMS = [
+    { icon: '❓', label: 'Help & Guide',     tab: 'help',         topLevel: true, action: () => setMainTab(t => t==='help'?'reorder':'help') },
+    { divider: true, section: null },
+    { icon: '🏠', label: 'Dashboard',        tab: 'home',         topLevel: true, action: () => { setMainTab('home'); setMenuOpen(false) } },
+    { icon: '📦', label: 'Reorder & Orders', tab: 'reorder',      topLevel: true, action: () => setMainTab('reorder') },
+    { icon: '🗑️', label: 'Wastage Log',      tab: 'wastage',      topLevel: true, action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
+    { divider: true, section: 'Stock' },
+    { icon: '📋', label: 'Stocktake',        tab: 'stocktake',    action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
+    { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+    { divider: true, section: 'Analytics' },
+    { icon: '📊', label: 'Sales Report',     tab: 'sales',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
+    { divider: true, section: 'Manage' },
+    { icon: '⭐', label: 'Specials',          tab: 'specials',     action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
+    { icon: '🏷️', label: 'Price List',       tab: 'pricelist',    action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
+    { icon: '💲', label: 'Pricing',           tab: 'pricing',      action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
+    ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
+    { divider: true, section: 'Records' },
+    { icon: '📁', label: 'PO Documents',     tab: 'documents',    action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
+    { icon: '📄', label: 'Price History',    tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
+    { icon: '🖨️', label: 'Barcode Sheet',    tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
+    { icon: '👥', label: 'Roster',            tab: 'roster',       action: () => window.open('/roster','_blank') },
+    ...(!readOnly ? [
+      { divider: true, section: null },
+      { icon: '⚙️', label: 'Settings', tab: 'settings', topLevel: true, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } },
+    ] : []),
+  ]
+
   return (
     <>
       <Head>
@@ -2334,33 +2362,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {(() => {
           const SC = sidebarCollapsed
 
-          // ── SINGLE NAV DEFINITION ─ used by both icon sidebar and mobile drawer ──
-          const NAV_ITEMS = [
-            { icon: '❓', label: 'Help & Guide',     tab: 'help',         topLevel: true, action: () => setMainTab(t => t==='help'?'reorder':'help') },
-            { divider: true, section: null },
-            { icon: '🏠', label: 'Dashboard',        tab: 'home',         topLevel: true, action: () => { setMainTab('home'); setMenuOpen(false) } },
-            { icon: '📦', label: 'Reorder & Orders', tab: 'reorder',      topLevel: true, action: () => setMainTab('reorder') },
-            { icon: '🗑️', label: 'Wastage Log',      tab: 'wastage',      topLevel: true, action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
-            { divider: true, section: 'Stock' },
-            { icon: '📋', label: 'Stocktake',        tab: 'stocktake',    action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
-            { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
-            { divider: true, section: 'Analytics' },
-            { icon: '📊', label: 'Sales Report',     tab: 'sales',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
-            { divider: true, section: 'Manage' },
-            { icon: '⭐', label: 'Specials',          tab: 'specials',     action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
-            { icon: '🏷️', label: 'Price List',       tab: 'pricelist',    action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-            { icon: '💲', label: 'Pricing',           tab: 'pricing',      action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
-            ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
-            { divider: true, section: 'Records' },
-            { icon: '📁', label: 'PO Documents',     tab: 'documents',    action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
-            { icon: '📄', label: 'Price History',    tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
-            { icon: '🖨️', label: 'Barcode Sheet',    tab: 'barcodesheet', action: () => setMainTab(t => t==='barcodesheet'?'reorder':'barcodesheet') },
-            { icon: '👥', label: 'Roster',            tab: 'roster',       action: () => window.open('/roster','_blank') },
-            ...(!readOnly ? [
-              { divider: true, section: null },
-              { icon: '⚙️', label: 'Settings', tab: 'settings', topLevel: true, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } },
-            ] : []),
-          ]
           const navItems = NAV_ITEMS
 
           const THEMES = {
