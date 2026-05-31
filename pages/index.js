@@ -4885,11 +4885,31 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <div style={{ fontSize: 12, fontWeight: 600, color: doc.receive_date ? '#374151' : '#cbd5e1' }}>{fmtD(doc.receive_date) || '—'}</div>
                             </div>
                           </div>
-                          {/* Document links — OneDrive preferred, Supabase as fallback */}
-                          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: '1 1 200px', alignItems: 'center' }}>
-                            {DocLink({ href: doc.po_onedrive_url,                        icon: '☁️', label: 'PO',      color: '#0ea5e9' })}
-                            {DocLink({ href: doc.receipt_onedrive_url || doc.receive_url, icon: '📄', label: 'Receipt', color: '#16a34a' })}
-                            {DocLink({ href: doc.invoice_onedrive_url || doc.invoice_url, icon: '📎', label: 'Invoice', color: '#7c3aed' })}
+                          {/* Document links — show all available links */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: '1 1 200px' }}>
+                            {/* PO */}
+                            {(doc.po_onedrive_url) && (
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
+                                {DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
+                              </div>
+                            )}
+                            {/* Receipt */}
+                            {(doc.receipt_onedrive_url || doc.receive_url) && (
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>Receipt</span>
+                                {DocLink({ href: doc.receipt_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
+                                {DocLink({ href: doc.receive_url,          icon: '🗄️', label: 'Supabase', color: '#16a34a' })}
+                              </div>
+                            )}
+                            {/* Invoice */}
+                            {(doc.invoice_onedrive_url || doc.invoice_url) && (
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>Invoice</span>
+                                {DocLink({ href: doc.invoice_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
+                                {DocLink({ href: doc.invoice_url,          icon: '🗄️', label: 'Supabase', color: '#7c3aed' })}
+                              </div>
+                            )}
                             {!doc.invoice_onedrive_url && !doc.invoice_url && (() => {
                               if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
                               return (
