@@ -168,7 +168,10 @@ export default async function handler(req, res) {
           message: {
             subject,
             body:         { contentType: 'HTML', content: htmlBody },
-            toRecipients: [{ emailAddress: { address: TREASURER, name: 'Treasurer' } }],
+            toRecipients: [
+              { emailAddress: { address: TREASURER, name: 'Treasurer' } },
+              { emailAddress: { address: SENDER,    name: 'Paynter Bar' } },
+            ],
             from:         { emailAddress: { address: SENDER,    name: 'Paynter Bar' } },
             attachments,
           },
