@@ -329,6 +329,7 @@ export default function Home() {
 
 
   function openReceiveModal(supplier, supplierItems, ref) {
+    supplierItems = supplierItems.filter(i => (i.orderQty || 0) > 0)
     const checked = {}
     const qtys = {}
     for (const i of supplierItems) {
@@ -3259,7 +3260,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               for (const [name, info] of Object.entries(orderedItems)) {
                 const key = info.ref || info.supplier || 'Unknown'
                 if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
-                byRef[key].items.push({ name, ...info })
+                // Skip zero-qty items — they were excluded from the order
+                if ((info.orderQty || 0) > 0) byRef[key].items.push({ name, ...info })
               }
               return (
                 <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
