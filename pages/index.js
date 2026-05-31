@@ -2733,14 +2733,35 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             for (const item of supItems) {
                               orderItems[item.name] = { supplier: activeSup, date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}), ref: poRef, orderQty: wizQtys[item.name] ?? item.orderQty, isSpirit: item.isSpirit, sku: item.sku }
                             }
+                            // Build items as array (same format as markAsOrdered)
+                            const poItemsArr = supItems.map(item => ({
+                              name: item.name,
+                              sku: item.sku || '',
+                              orderQty: wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty),
+                              bottlesToOrder: item.bottlesToOrder || null,
+                              isSpirit: item.isSpirit || false,
+                            }))
                             const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ action:'place', supplier: activeSup, poRef, items: orderItems }) }).catch(()=>null)
+                              body: JSON.stringify({ action:'place', supplier: activeSup, ref: poRef, items: poItemsArr }) }).catch(()=>null)
                             const d = r ? await r.json().catch(()=>({})) : {}
                             if (!d.ok) {
                               setOrderWizard(prev => ({ ...prev, saving: false, saveError: d.error || 'Failed to save order — please try again.' }))
                               return
                             }
                             setOrderedItems(d.ordered)
+                            // Create document record + save PO to OneDrive (same as markAsOrdered)
+                            const poDocRef = d.ref || poRef
+                            const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+                            fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
+                            fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
+                                order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
+                                items: poItemsArr.map(i => ({ name:i.name, sku:i.sku||'', orderQty:i.orderQty, bottlesToOrder:i.bottlesToOrder||null, isSpirit:i.isSpirit||false })) }) })
+                              .then(r => r.json()).then(od => {
+                                if (od.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) })
+                              }).catch(()=>null)
                             // Move to next supplier or done
                             const remaining = suppliersToOrder.filter(s => s !== activeSup && orderBySup[s]?.length > 0)
                             if (remaining.length > 0) {
