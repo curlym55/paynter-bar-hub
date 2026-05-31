@@ -9,15 +9,21 @@
  *  - App token (client credentials) to send mail via Graph API
  *
  * Required env vars (in addition to existing OneDrive vars):
- *  ONEDRIVE_TENANT_ID   – Azure Directory (tenant) ID — found on app registration Overview page
+ *  ONEDRIVE_TENANT_ID   – Azure Directory (tenant) ID
  *  MAIL_SENDER          – e.g. paynterbar@gemwoods.com.au
  *  MAIL_TREASURER       – e.g. treasurer@gemwoods.com.au (optional, has default)
  */
 
+import { createClient } from '@supabase/supabase-js'
 import { getAccessToken } from '../../lib/onedrive'
 
 const SENDER     = process.env.MAIL_SENDER     || 'paynterbar@gemwoods.com.au'
 const TREASURER  = process.env.MAIL_TREASURER  || 'treasurer@gemwoods.com.au'
+
+const sb = () => createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL,
+  process.env.SUPABASE_SERVICE_ROLE_KEY
+)
 
 // ── App token (client credentials) for Mail.Send ─────────────────────────────
 async function getAppToken() {
@@ -68,7 +74,6 @@ export default async function handler(req, res) {
   if (!doc?.po_ref) return res.status(400).json({ error: 'doc with po_ref required' })
 
   try {
-    // Fetch delegated token (existing) + app token (for mail) in parallel
     const [delegatedToken, appToken] = await Promise.all([
       getAccessToken(),
       getAppToken(),
@@ -82,7 +87,7 @@ export default async function handler(req, res) {
     let receiptName = null
     if (doc.receive_date) {
       const [y, m, d] = doc.receive_date.split('-')
-      const dateFile  = `${d}-${m}-${y}`           // DD-MM-YYYY matches save-report.js
+      const dateFile  = `${d}-${m}-${y}`
       receiptName     = `${safeRef}-Receipt-${dateFile}.xlsx`
       const path      = `POs Invoices and Receive Reports/Receive Reports/${safeSupplier}/${receiptName}`
       const b64       = await fetchFileBase64(path, delegatedToken)
@@ -150,7 +155,7 @@ export default async function handler(req, res) {
   </div>
 </body></html>`
 
-    // ── Send via Graph API (app permission — sends as SENDER mailbox) ─────────
+    // ── Send via Graph API ────────────────────────────────────────────────────
     const sendRes = await fetch(
       `https://graph.microsoft.com/v1.0/users/${SENDER}/sendMail`,
       {
@@ -173,8 +178,15 @@ export default async function handler(req, res) {
     )
 
     if (sendRes.status === 202) {
-      // 202 Accepted = success (Graph sendMail returns no body on success)
-      return res.status(200).json({ ok: true, attached: attachments.map(a => a.name) })
+      // ── Write treasurer_emailed_at timestamp to bar_documents ─────────────
+      const now = new Date().toISOString()
+      await sb()
+        .from('bar_documents')
+        .update({ treasurer_emailed_at: now })
+        .eq('id', doc.id)
+        .catch(e => console.error('[send-treasurer-email] failed to update treasurer_emailed_at:', e.message))
+
+      return res.status(200).json({ ok: true, attached: attachments.map(a => a.name), treasurer_emailed_at: now })
     }
 
     const errData = await sendRes.json().catch(() => ({}))

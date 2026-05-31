@@ -498,9 +498,9 @@ export default function Home() {
       const d = await r.json()
       const docs = d.documents || []
       setDocuments(docs)
-      // Pre-flag all received documents as already sent to treasurer
+      // Seed email-sent state from DB — only flag if treasurer_emailed_at is actually set
       const alreadySent = {}
-      docs.filter(doc => doc.status === 'received').forEach(doc => { alreadySent[doc.id] = 'ok' })
+      docs.filter(doc => doc.treasurer_emailed_at).forEach(doc => { alreadySent[doc.id] = doc.treasurer_emailed_at })
       setDocEmailSent(alreadySent)
     } catch {}
     setDocsLoading(false)
@@ -4876,22 +4876,55 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ padding: '10px 12px' }}>
                           <div style={{ display:'flex', flexDirection:'column', gap:4 }}>
-                            {doc.status === 'received' && (
-                              docEmailSent[doc.id]
-                                ? <span style={{ fontSize:11, fontWeight:700, color:docEmailSent[doc.id]==='ok'?'#16a34a':'#dc2626' }}>{docEmailSent[doc.id]==='ok'?'✅ Sent':'❌ Failed'}</span>
-                                : <button disabled={docEmailSending[doc.id]} onClick={async () => {
-                                    setDocEmailSending(prev=>({...prev,[doc.id]:true}))
-                                    try {
-                                      const r = await fetch('/api/send-treasurer-email',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({doc})})
-                                      const d = await r.json().catch(()=>({}))
-                                      setDocEmailSent(prev=>({...prev,[doc.id]:d.ok?'ok':'error'}))
-                                      if (!d.ok) alert(`Email failed: ${d.error||'Unknown error'}`)
-                                    } catch { setDocEmailSent(prev=>({...prev,[doc.id]:'error'}))
-                                    } finally { setDocEmailSending(prev=>({...prev,[doc.id]:false})) }
-                                  }} style={{ padding:'3px 10px', background:docEmailSending[doc.id]?'#e2e8f0':'#eff6ff', color:docEmailSending[doc.id]?'#94a3b8':'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                                    {docEmailSending[doc.id]?'⏳ Sending…':'📧 Email Treasurer'}
+                            {doc.status === 'received' && (() => {
+                              const sentAt = docEmailSent[doc.id]
+                              const sending = docEmailSending[doc.id]
+                              const sentDate = sentAt && sentAt !== 'error'
+                                ? new Date(sentAt).toLocaleString('en-AU', { timeZone: 'Australia/Brisbane', day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })
+                                : null
+                              async function doSend() {
+                                setDocEmailSending(prev => ({ ...prev, [doc.id]: true }))
+                                try {
+                                  const r = await fetch('/api/send-treasurer-email', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ doc }) })
+                                  const d = await r.json().catch(() => ({}))
+                                  if (d.ok) {
+                                    setDocEmailSent(prev => ({ ...prev, [doc.id]: d.treasurer_emailed_at || new Date().toISOString() }))
+                                  } else {
+                                    setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
+                                    alert(`Email failed: ${d.error || 'Unknown error'}`)
+                                  }
+                                } catch {
+                                  setDocEmailSent(prev => ({ ...prev, [doc.id]: 'error' }))
+                                } finally {
+                                  setDocEmailSending(prev => ({ ...prev, [doc.id]: false }))
+                                }
+                              }
+                              if (sentAt === 'error') return (
+                                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                                  <span style={{ fontSize:11, fontWeight:700, color:'#dc2626' }}>❌ Failed</span>
+                                  <button onClick={doSend} disabled={sending}
+                                    style={{ padding:'3px 10px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                    🔁 Retry
                                   </button>
-                            )}
+                                </div>
+                              )
+                              if (sentDate) return (
+                                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                                  <span style={{ fontSize:11, fontWeight:700, color:'#16a34a' }}>✅ Sent</span>
+                                  <span style={{ fontSize:10, color:'#64748b' }}>{sentDate}</span>
+                                  <button onClick={doSend} disabled={sending}
+                                    style={{ padding:'2px 8px', background:'none', color:'#64748b', border:'1px solid #e2e8f0', borderRadius:4, fontSize:10, fontWeight:600, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                    {sending ? '⏳ Sending…' : '🔁 Resend'}
+                                  </button>
+                                </div>
+                              )
+                              return (
+                                <button onClick={doSend} disabled={sending}
+                                  style={{ padding:'3px 10px', background: sending?'#e2e8f0':'#eff6ff', color: sending?'#94a3b8':'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
+                                  {sending ? '⏳ Sending…' : '📧 Email Treasurer'}
+                                </button>
+                              )
+                            })()}
                             <button onClick={async () => {
                               if (!confirm(`Delete PO record "${doc.po_ref}"? This cannot be undone.`)) return
                               const r = await fetch('/api/documents/delete',{method:'DELETE',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:doc.id,receive_report_path:doc.receive_report_path,invoice_path:doc.invoice_path})})
