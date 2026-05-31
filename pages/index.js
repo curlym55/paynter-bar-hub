@@ -2560,8 +2560,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 if (supItems.length > 0) orderBySup[sup] = supItems
               }
               const suppliersToOrder = Object.keys(orderBySup)
+              // Lock to the single supplier set when wizard was opened
               const activeSup = wiz.supplier || suppliersToOrder[0]
               const supItems  = orderBySup[activeSup] || []
+              // Single-supplier mode — only process the one supplier this wizard was opened for
 
               const STEPS = ['Review Quantities', 'Place Order', 'Record Confirmation', 'Done']
 
@@ -2594,18 +2596,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     {wiz.step === 1 && (
                       <div>
                         <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Review quantities to order</div>
-                        <div style={{ fontSize:13, color:'#64748b', marginBottom:16 }}>Check the suggested quantities — adjust if needed. Tap a supplier tab to switch.</div>
-
-                        {/* Supplier tabs */}
-                        <div style={{ display:'flex', gap:6, marginBottom:16, flexWrap:'wrap' }}>
-                          {suppliersToOrder.map(sup => (
-                            <button key={sup} onClick={() => setOrderWizard(prev => ({ ...prev, supplier: sup }))}
-                              style={{ padding:'6px 16px', border:'none', borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
-                                background: sup === activeSup ? '#1e3a5f' : '#f1f5f9',
-                                color: sup === activeSup ? '#fff' : '#374151' }}>
-                              {sup} ({orderBySup[sup].length})
-                            </button>
-                          ))}
+                        <div style={{ display:'flex', alignItems:'center', gap:10, marginBottom:16, flexWrap:'wrap' }}>
+                          <span style={{ fontSize:13, color:'#64748b' }}>Supplier:</span>
+                          <select value={activeSup} onChange={e => setOrderWizard(prev => ({ ...prev, supplier: e.target.value }))}
+                            style={{ padding:'6px 12px', border:'2px solid #0e7490', borderRadius:6, fontSize:13, fontWeight:700, color:'#1e3a5f', cursor:'pointer' }}>
+                            {suppliersToOrder.map(sup => <option key={sup} value={sup}>{sup} ({orderBySup[sup].length} items)</option>)}
+                          </select>
                         </div>
 
                         {/* Items table */}
@@ -2639,7 +2635,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </div>
 
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                          <div style={{ fontSize:12, color:'#64748b' }}>{suppliersToOrder.length} supplier{suppliersToOrder.length!==1?'s':''} to order from</div>
+
                           <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 2 }))}
                             style={{ background:'#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                             Quantities look good →
@@ -2655,16 +2651,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Use the order sheet below as a reference when placing the order on the supplier's website.</div>
 
                         {/* Supplier tabs */}
-                        <div style={{ display:'flex', gap:6, marginBottom:16 }}>
-                          {suppliersToOrder.map(sup => (
-                            <button key={sup} onClick={() => setOrderWizard(prev => ({ ...prev, supplier: sup }))}
-                              style={{ padding:'6px 16px', border:'none', borderRadius:20, cursor:'pointer', fontSize:12, fontWeight:700,
-                                background: sup === activeSup ? '#1e3a5f' : '#f1f5f9',
-                                color: sup === activeSup ? '#fff' : '#374151' }}>
-                              {sup}
-                            </button>
-                          ))}
-                        </div>
+
 
                         {/* Order summary */}
                         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
@@ -2762,13 +2749,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 if (od.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                                   body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) })
                               }).catch(()=>null)
-                            // Move to next supplier or done
-                            const remaining = suppliersToOrder.filter(s => s !== activeSup && orderBySup[s]?.length > 0)
-                            if (remaining.length > 0) {
-                              setOrderWizard({ step: 1, supplier: remaining[0], poRef: '', saving: false, saveError: null })
-                            } else {
-                              setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
-                            }
+                            // Single supplier — always go to done
+                            setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
                           }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                             {wiz.saving ? '⏳ Saving…' : '✓ Mark as Ordered →'}
                           </button>
