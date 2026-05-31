@@ -2615,7 +2615,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </tr>
                             </thead>
                             <tbody>
-                              {supItems.map((item, i) => (
+                              {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map((item, i) => (
                                 <tr key={item.name} style={{ background: i%2===0?'#fff':'#f8fafc', borderTop:'1px solid #f1f5f9' }}>
                                   <td style={{ padding:'10px 14px' }}>
                                     <div style={{ fontWeight:600, color:'#0f172a' }}>{item.name}</div>
@@ -2623,7 +2623,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   </td>
                                   <td style={{ padding:'10px 14px', textAlign:'center', color:'#64748b' }}>{item.onHand}</td>
                                   <td style={{ padding:'10px 14px', textAlign:'center' }}>
-                                    <input type="number" min={1} value={wizQtys[item.name] ?? item.orderQty}
+                                    <input type="number" min={0} value={wizQtys[item.name] ?? item.orderQty}
                                       onChange={e => setWizQtys(prev => ({ ...prev, [item.name]: Number(e.target.value) }))}
                                       style={{ width:70, padding:'5px 8px', border:'2px solid #0e7490', borderRadius:6, textAlign:'center', fontWeight:700, fontSize:13 }} />
                                     <div style={{ fontSize:10, color:'#94a3b8' }}>{item.isSpirit ? 'nips' : 'units'}</div>
@@ -2735,9 +2735,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             for (const item of supItems) {
                               orderItems[item.name] = { supplier: activeSup, date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}), ref: poRef, orderQty: wizQtys[item.name] ?? item.orderQty, isSpirit: item.isSpirit, sku: item.sku }
                             }
-                            // Build items as array (same format as markAsOrdered)
+                            // Build items as array — exclude zero-qty items
                             // hasOverride:true forces the API to overwrite any stale existing entry for these items
-                            const poItemsArr = supItems.map(item => ({
+                            const poItemsArr = supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map(item => ({
                               name: item.name,
                               sku: item.sku || '',
                               orderQty: wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty),
