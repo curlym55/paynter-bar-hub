@@ -4967,7 +4967,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             )}
           </div>
         )}
-        )}
         {mainTab === 'barcodesheet' && <BarcodeSheetView items={items} settings={priceListSettings} />}
         {mainTab === 'notes' && !readOnly && <NotesView items={items} notes={notesLog} readOnly={readOnly} onRefresh={loadNotes} />}
         {mainTab === 'notes' && readOnly && <div style={{ padding: 48, textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>📝 Notes are only visible to BMT members.</div>}
