@@ -381,7 +381,7 @@ export default function Home() {
           .map(i => {
             const override = orderQtyOverrides[i.name]
             const nips = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (override !== undefined ? override : i.orderQty)
-            const btl  = i.isSpirit ? Math.ceil(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
+            const btl  = i.isSpirit ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
             return { name: i.name, sku: i.sku || '', qty: i.isSpirit ? nips + ' nips (' + btl + ' btl)' : nips + ' units', unitCost: i.buyPrice || '' }
           })
 
@@ -519,7 +519,7 @@ export default function Home() {
         ? (ov !== undefined ? ov : (i.nipsToOrder || 0))
         : (ov !== undefined ? ov : (i.orderQty   || 0))
       const btl = i.isSpirit
-        ? (ov !== undefined ? Math.ceil(ov / ((i.bottleML || 700) / (i.nipML || 30))) : (i.bottlesToOrder || 0))
+        ? (ov !== undefined ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(ov / ((i.bottleML || 700) / (i.nipML || 30))) : (i.bottlesToOrder || 0))
         : null
       const notes = i.isSpirit ? `${btl} Bott` : ''
       return { ...i, _qty: qty, _btl: btl, _notes: notes }
@@ -1749,7 +1749,7 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
       const override = orderQtyOverrides[item.name]
       const qty = override !== undefined ? override : (item.orderQty || 0)
       const qtyLabel = item.isSpirit
-        ? `${qty} nips / ${Math.ceil(qty / ((item.bottleML || 700) / (item.nipML || 30)))} btl`
+        ? `${qty} nips / ${(v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(qty / ((item.bottleML || 700) / (item.nipML || 30)))} btl`
         : `${qty} units`
       return `<tr>
         <td style="text-align:center"><input type="checkbox" style="width:16px;height:16px"></td>
@@ -2659,7 +2659,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).length} items</div>
                           {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map(item => {
                             const nips = wizQtys[item.name] ?? item.orderQty
-                            const btl = item.isSpirit && nips > 0 ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30))) : null
+                            const btl = item.isSpirit && nips > 0 ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(nips / ((item.bottleML || 700) / (item.nipML || 30))) : null
                             return (
                               <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
                                 <span style={{ color:'#374151' }}>{item.name}</span>
@@ -2881,7 +2881,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <div>
                         <div style={{ fontSize: 13, fontWeight: 600, color: '#0f172a', lineHeight: 1.2 }}>{i.name}</div>
                         {i.isSpirit && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
-                          {Math.ceil(receivedQty / ((i.bottleML || 700) / (i.nipML || 30)))} btl
+                          {(v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(receivedQty / ((i.bottleML || 700) / (i.nipML || 30)))} btl
                         </div>}
                       </div>
                       <div style={{ textAlign: 'right', fontSize: 13, fontFamily: 'IBM Plex Mono, monospace', color: '#64748b' }}>
@@ -3566,7 +3566,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#1f4e79', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (() => {
                             const effectiveNips = orderQtyOverrides[item.name] !== undefined ? orderQtyOverrides[item.name] : (item.nipsToOrder || 0)
-                            const btl = effectiveNips > 0 ? Math.ceil(effectiveNips / ((item.bottleML || 700) / (item.nipML || 30))) : 0
+                            const btl = effectiveNips > 0 ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(effectiveNips / ((item.bottleML || 700) / (item.nipML || 30))) : 0
                             return btl > 0 ? btl : '-'
                           })() : '-'}
                         </td>
