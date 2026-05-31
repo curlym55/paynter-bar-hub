@@ -2656,8 +2656,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
                         {/* Order summary */}
                         <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
-                          <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.length} items</div>
-                          {supItems.map(item => {
+                          <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).length} items</div>
+                          {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map(item => {
                             const nips = wizQtys[item.name] ?? item.orderQty
                             const btl = item.isSpirit && nips > 0 ? Math.ceil(nips / ((item.bottleML || 700) / (item.nipML || 30))) : null
                             return (
