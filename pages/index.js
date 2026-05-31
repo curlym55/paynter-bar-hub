@@ -4885,10 +4885,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <div style={{ fontSize: 12, fontWeight: 600, color: doc.receive_date ? '#374151' : '#cbd5e1' }}>{fmtD(doc.receive_date) || '—'}</div>
                             </div>
                           </div>
-                          {/* Document links */}
+                          {/* Document links — OneDrive preferred, Supabase as fallback */}
                           <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', flex: '1 1 200px', alignItems: 'center' }}>
-                            {DocLink({ href: doc.po_onedrive_url,      icon: '🛒', label: 'PO',      color: '#0ea5e9' })}
-                            {DocLink({ href: doc.receipt_onedrive_url, icon: '📄', label: 'Receipt', color: '#16a34a' })}
+                            {DocLink({ href: doc.po_onedrive_url,                        icon: '☁️', label: 'PO',      color: '#0ea5e9' })}
+                            {DocLink({ href: doc.receipt_onedrive_url || doc.receive_url, icon: '📄', label: 'Receipt', color: '#16a34a' })}
                             {DocLink({ href: doc.invoice_onedrive_url || doc.invoice_url, icon: '📎', label: 'Invoice', color: '#7c3aed' })}
                             {!doc.invoice_onedrive_url && !doc.invoice_url && (() => {
                               if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
