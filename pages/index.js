@@ -2721,12 +2721,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               orderItems[item.name] = { supplier: activeSup, date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}), ref: poRef, orderQty: wizQtys[item.name] ?? item.orderQty, isSpirit: item.isSpirit, sku: item.sku }
                             }
                             // Build items as array (same format as markAsOrdered)
+                            // hasOverride:true forces the API to overwrite any stale existing entry for these items
                             const poItemsArr = supItems.map(item => ({
                               name: item.name,
                               sku: item.sku || '',
                               orderQty: wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty),
                               bottlesToOrder: item.bottlesToOrder || null,
                               isSpirit: item.isSpirit || false,
+                              hasOverride: true,
                             }))
                             const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ action:'place', supplier: activeSup, ref: poRef, items: poItemsArr }) }).catch(()=>null)
