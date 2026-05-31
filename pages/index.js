@@ -2682,8 +2682,23 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             style={{ background:'#f1f5f9', color:'#374151', border:'none', borderRadius:8, padding:'12px 20px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
                             ← Back
                           </button>
-                          <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 3 }))}
-                            style={{ background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
+                          <button onClick={async () => {
+                            // Pre-populate poRef with auto-generated Hub PO number if not already set
+                            if (!wiz.poRef) {
+                              try {
+                                const r = await fetch('/api/purchase-order?action=previewNumber')
+                                const d = await r.json()
+                                const ABBR = { "Dan Murphy's": 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
+                                const abbr = ABBR[activeSup] || activeSup.replace(/[^a-zA-Z]/g,'').slice(0,4).toUpperCase()
+                                const brisDate = new Intl.DateTimeFormat('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date()).replace(/\//g,' ')
+                                setOrderWizard(prev => ({ ...prev, step: 3, poRef: `${abbr}-PO-${d.num}-${brisDate}` }))
+                              } catch {
+                                setOrderWizard(prev => ({ ...prev, step: 3 }))
+                              }
+                            } else {
+                              setOrderWizard(prev => ({ ...prev, step: 3 }))
+                            }
+                          }} style={{ background:'#16a34a', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                             ✓ I've placed the order →
                           </button>
                         </div>
@@ -2693,19 +2708,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     {/* STEP 3: Record PO Reference */}
                     {wiz.step === 3 && (
                       <div>
-                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Record the order number</div>
-                        <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Enter the order or confirmation number from the supplier. This links the order to its invoice and delivery receipt.</div>
+                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Confirm the PO reference</div>
+                        <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>The Hub PO number has been pre-filled. You can append or replace it with the supplier's confirmation number if you have one.</div>
 
                         <div style={{ marginBottom:20 }}>
                           <label style={{ display:'block', fontWeight:600, color:'#374151', marginBottom:6, fontSize:13 }}>
-                            {activeSup} order / confirmation number
+                            PO Reference
                           </label>
-                          <input type="text" placeholder="e.g. 166162320"
+                          <input type="text" placeholder="e.g. COLE-PO-101-31 05 2025"
                             value={wiz.poRef}
                             onChange={e => setOrderWizard(prev => ({ ...prev, poRef: e.target.value }))}
-                            style={{ width:'100%', padding:'12px 16px', border:'2px solid #0e7490', borderRadius:8, fontSize:16, fontWeight:600, boxSizing:'border-box' }}
+                            style={{ width:'100%', padding:'12px 16px', border:'2px solid #0e7490', borderRadius:8, fontSize:15, fontWeight:600, boxSizing:'border-box', fontFamily:'monospace' }}
                             autoFocus />
-                          <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>Found in the order confirmation email or supplier website</div>
+                          <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>Supplier confirmation number (if any) can be appended — e.g. COLE-PO-101-31 05 2025 / 1666</div>
                         </div>
 
                         <div style={{ display:'flex', justifyContent:'space-between' }}>
