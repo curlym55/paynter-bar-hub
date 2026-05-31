@@ -180,11 +180,15 @@ export default async function handler(req, res) {
     if (sendRes.status === 202) {
       // ── Write treasurer_emailed_at timestamp to bar_documents ─────────────
       const now = new Date().toISOString()
-      await sb()
-        .from('bar_documents')
-        .update({ treasurer_emailed_at: now })
-        .eq('id', doc.id)
-        .catch(e => console.error('[send-treasurer-email] failed to update treasurer_emailed_at:', e.message))
+      try {
+        const { error: updateError } = await sb()
+          .from('bar_documents')
+          .update({ treasurer_emailed_at: now })
+          .eq('id', doc.id)
+        if (updateError) console.error('[send-treasurer-email] failed to update treasurer_emailed_at:', updateError.message)
+      } catch (e) {
+        console.error('[send-treasurer-email] update threw:', e.message)
+      }
 
       return res.status(200).json({ ok: true, attached: attachments.map(a => a.name), treasurer_emailed_at: now })
     }
