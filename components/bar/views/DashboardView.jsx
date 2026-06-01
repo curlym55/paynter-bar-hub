@@ -2,7 +2,7 @@
 import React from 'react'
 
 export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp, readOnly, poReceiving, onViewOrder, onReceive, onPrintDelivery, lastOrderSummary }) {
-  const onOrderCount = onOrderCountProp ?? Object.keys(orderedItems).length
+  const onOrderCount = onOrderCountProp ?? 0  // always passed from index.js
   const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
   const isRundown    = item => !!rundownItems[item.name]
   const critCount    = critCountProp ?? items.filter(i => i.priority === 'CRITICAL' && !isRundown(i) && !dontOrderRe.test(i.notes || '')).length

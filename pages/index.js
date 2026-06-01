@@ -3953,7 +3953,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           <div style={{ padding: '16px 0' }}>
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
               {['import','manage'].map(t => (
-                <button key={t} onClick={() => setPhSubTab(t)}
+                <button key={t} onClick={() => { setPhSubTab(t); setPhSaveResult(null) }}
                   style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
                     background: phSubTab===t ? '#1e3a5f' : '#f8fafc', color: phSubTab===t ? '#fff' : '#374151' }}>
                   {t === 'import' ? '📄 Import Invoice' : '🔧 Manage History'}
