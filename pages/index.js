@@ -52,11 +52,12 @@ export default function Home() {
   const [docEmailSending,     setDocEmailSending]     = useState({})
   const [docEmailSent,        setDocEmailSent]        = useState({})
   const [settingsSaving, setSettingsSaving] = useState(false)
-  const [settingsRevTarget, setSettingsRevTarget] = useState(null)
+  const [settingsSubTab, setSettingsSubTab] = useState('suppliers')
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
   const [pricingSubTab, setPricingSubTab] = useState('avgprices')
+  const [showPriceDetail, setShowPriceDetail] = useState(false)
   const [phPdf, setPhPdf] = useState(null)
   const [phExtracting, setPhExtracting] = useState(false)
   const [phExtracted, setPhExtracted] = useState(null)
@@ -2310,7 +2311,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     { icon: '👥', label: 'Roster',            tab: 'roster',       action: () => window.open('/roster','_blank') },
     ...(!readOnly ? [
       { divider: true, section: null },
-      { icon: '⚙️', label: 'Settings', tab: 'settings', topLevel: true, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings').then(r=>r.json()).then(d => { setSettingsRevTarget(d.revenueTarget ?? '') }); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } },
+      { icon: '⚙️', label: 'Settings', tab: 'settings', topLevel: true, action: () => { setMainTab(t => t==='settings'?'reorder':'settings'); fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit || {})) } },
     ] : []),
   ]
 
@@ -3800,175 +3801,212 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
         {mainTab === 'settings' && !readOnly && (
-          <div style={{ padding: '16px 0', maxWidth: 700 }}>
+          <div style={{ padding: '16px 0', maxWidth: 720 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>⚙️ Settings</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 24 }}>Manage suppliers, reorder defaults and app configuration</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>Manage suppliers, reorder defaults and app configuration</div>
 
-            {/* Suppliers */}
-            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
-              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Suppliers</div>
-              <div style={{ padding:16 }}>
-                {suppliers.map(s => (
-                  <div key={s} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'#f8fafc', borderRadius:6, marginBottom:6 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:10 }}>
-                      <div style={{ width:12, height:12, borderRadius:'50%', background: SUPPLIER_COLORS[s] || '#374151' }} />
-                      <span style={{ fontWeight:600, fontSize:14 }}>{s}</span>
-                      {supplierVendorNames[s] && <span style={{ fontSize:11, color:'#64748b', background:'#e2e8f0', padding:'1px 6px', borderRadius:4 }}>Square: {supplierVendorNames[s]}</span>}
-                    </div>
-                    <button onClick={() => deleteSupplier(s)} style={{ padding:'3px 10px', background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer' }}>🗑 Remove</button>
-                  </div>
-                ))}
-                <div style={{ display:'flex', gap:8, marginTop:10 }}>
-                  {addingSupplier ? (
-                    <>
-                      <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)}
-                        onKeyDown={e => { if(e.key==='Enter') addSupplier(); if(e.key==='Escape') setAddingSupplier(false) }}
-                        placeholder="Supplier name..." autoFocus
-                        style={{ flex:1, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                      <button onClick={addSupplier} style={{ padding:'6px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer' }}>Add</button>
-                      <button onClick={() => setAddingSupplier(false)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer' }}>Cancel</button>
-                    </>
-                  ) : (
-                    <button onClick={() => setAddingSupplier(true)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px dashed #94a3b8', borderRadius:6, fontSize:13, cursor:'pointer', color:'#64748b' }}>+ Add Supplier</button>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* Square Vendor Names */}
-            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
-              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Square Vendor Names</div>
-              <div style={{ padding:16 }}>
-                <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Map each supplier to their name in Square — used to match invoices and filter Square reports.</div>
-                {suppliers.map(s => (
-                  <div key={s} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                    <span style={{ width:140, fontWeight:600, fontSize:13 }}>{s}</span>
-                    <input defaultValue={supplierVendorNames[s] || ''}
-                      onBlur={async e => {
-                        const val = e.target.value.trim()
-                        const updated = { ...supplierVendorNames }
-                        if (!val) delete updated[s]; else updated[s] = val
-                        setSupplierVendorNames(updated)
-                        await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                          body: JSON.stringify({ itemName:'_global', field:'supplierVendorNames', value: updated }) })
-                      }}
-                      placeholder={`Square name for ${s}...`}
-                      style={{ flex:1, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Reorder Defaults */}
-            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, marginBottom:16, overflow:'hidden' }}>
-              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Reorder Defaults</div>
-              <div style={{ padding:16 }}>
-                <div style={{ display:'flex', alignItems:'center', gap:12, marginBottom:12 }}>
-                  <span style={{ width:180, fontSize:13, fontWeight:600 }}>Default target weeks</span>
-                  <input type="number" defaultValue={settingsTargetWeeks ?? targetWeeks} min={1} max={26}
-                    onBlur={async e => {
-                      const val = Number(e.target.value)
-                      if (!val || val < 1) return
-                      setTargetWeeks(val)
-                      setSettingsTargetWeeks(val)
-                      await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
-                    }}
-                    style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                  <span style={{ fontSize:12, color:'#64748b' }}>weeks of stock to maintain</span>
-                </div>
-                <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                  <span style={{ width:180, fontSize:13, fontWeight:600 }}>Revenue target ($/wk)</span>
-                  <input type="number" defaultValue={settingsRevTarget ?? ''} min={0}
-                    onBlur={async e => {
-                      const val = e.target.value === '' ? null : Number(e.target.value)
-                      setSettingsRevTarget(val ?? '')
-                      await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                        body: JSON.stringify({ itemName:'_global', field:'revenueTarget', value: val }) })
-                    }}
-                    placeholder="Not set"
-                    style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                  <span style={{ fontSize:12, color:'#64748b' }}>optional weekly revenue target</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Data Backup */}
-            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Data Backup</div>
-              <div style={{ padding:16 }}>
-                <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
-                <button onClick={async () => {
-                  setSettingsSaving(true)
-                  const r = await fetch('/api/admin/sync-to-supabase')
-                  setSettingsSaving(false)
-                  alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
-                }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                  {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
+            {/* Sub-tab strip */}
+            <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
+              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['reorder','⚙️ Reorder Defaults'],['access','🔐 App Access']].map(([t,label]) => (
+                <button key={t} onClick={() => setSettingsSubTab(t)}
+                  style={{ padding:'8px 16px', border:'none', borderBottom: settingsSubTab===t ? '2px solid #1e3a5f' : '2px solid transparent',
+                    background:'none', fontSize:13, fontWeight: settingsSubTab===t ? 700 : 500,
+                    color: settingsSubTab===t ? '#1e3a5f' : '#64748b', cursor:'pointer', marginBottom:-2 }}>
+                  {label}
                 </button>
-              </div>
+              ))}
             </div>
 
-            {/* Recent Changes */}
-            <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden', marginTop:16 }}>
-              <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
-                <span>Recent Changes</span>
-                <button onClick={() => fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit||{}))}
-                  style={{ fontSize:11, background:'rgba(255,255,255,0.15)', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', cursor:'pointer' }}>↻ Refresh</button>
-              </div>
-              <div style={{ padding:16 }}>
-                {!settingsAuditData ? (
-                  <div style={{ color:'#94a3b8', fontSize:12 }}>Loading…</div>
-                ) : Object.keys(settingsAuditData).length === 0 ? (
-                  <div style={{ color:'#94a3b8', fontSize:12 }}>No changes recorded yet.</div>
-                ) : (() => {
-                  const FIELD_LABELS = { buyPrice:'Buy Price', sellPrice:'Sell Price', sellPriceBottle:'Bottle Sell Price', supplier:'Supplier', category:'Category', pack:'Pack Size', bottleML:'Bottle mL', nipML:'Nip mL', targetWeeksOverride:'Target Weeks', weeklyAvgOverride:'Weekly Avg Override', stockOverride:'Stock Override', notes:'Notes', bottleOnly:'Bottle Only' }
-                  const entries = Object.entries(settingsAuditData)
-                    .map(([key, val]) => {
-                      const parts = key.split('__')
-                      const field = parts.pop()
-                      const itemName = parts.join('__')
-                      return { itemName, field, ts: val.ts, who: val.who }
-                    })
-                    .sort((a,b) => new Date(b.ts) - new Date(a.ts))
-                    .slice(0, 30)
-                  return (
-                    <div style={{ maxHeight:320, overflowY:'auto' }}>
-                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                        <thead>
-                          <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
-                            {['Date','Item','Field','Old Value','New Value','By'].map(h => (
-                              <th key={h} style={{ padding:'4px 8px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {entries.map((e, i) => (
-                            <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0 ? '#fff' : '#f8fafc' }}>
-                              <td style={{ padding:'5px 8px', color:'#64748b', whiteSpace:'nowrap' }}>
-                                {new Date(e.ts).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric', timeZone:'Australia/Brisbane' })}
-                                <span style={{ marginLeft:4, color:'#94a3b8' }}>
-                                  {new Date(e.ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', timeZone:'Australia/Brisbane' })}
-                                </span>
-                              </td>
-                              <td style={{ padding:'5px 8px', fontWeight:500 }}>{e.itemName}</td>
-                              <td style={{ padding:'5px 8px' }}>
-                                <span style={{ background:'#e0f2fe', color:'#0369a1', padding:'1px 6px', borderRadius:3, fontSize:11, fontWeight:600 }}>
-                                  {FIELD_LABELS[e.field] || e.field}
-                                </span>
-                              </td>
-                              <td style={{ padding:'5px 8px', color:'#94a3b8', fontStyle: e.oldValue == null ? 'italic' : 'normal' }}>{e.oldValue != null ? String(e.oldValue) : '—'}</td>
-                              <td style={{ padding:'5px 8px', fontWeight:600, color:'#0f172a' }}>{e.newValue != null ? String(e.newValue) : '—'}</td>
-                              <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'BMT'}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+            {/* ── SUPPLIERS ──────────────────────────────────────────── */}
+            {settingsSubTab === 'suppliers' && (
+              <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Suppliers</div>
+                <div style={{ padding:16 }}>
+                  {suppliers.map(s => (
+                    <div key={s} style={{ display:'flex', alignItems:'center', justifyContent:'space-between', padding:'8px 12px', background:'#f8fafc', borderRadius:6, marginBottom:6 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10 }}>
+                        <div style={{ width:12, height:12, borderRadius:'50%', background: SUPPLIER_COLORS[s] || '#374151' }} />
+                        <span style={{ fontWeight:600, fontSize:14 }}>{s}</span>
+                        {supplierVendorNames[s] && <span style={{ fontSize:11, color:'#64748b', background:'#e2e8f0', padding:'1px 6px', borderRadius:4 }}>Square: {supplierVendorNames[s]}</span>}
+                      </div>
+                      <button onClick={() => deleteSupplier(s)} style={{ padding:'3px 10px', background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer' }}>🗑 Remove</button>
                     </div>
-                  )
-                })()}
+                  ))}
+                  <div style={{ display:'flex', gap:8, marginTop:10 }}>
+                    {addingSupplier ? (
+                      <>
+                        <input value={newSupplierName} onChange={e => setNewSupplierName(e.target.value)}
+                          onKeyDown={e => { if(e.key==='Enter') addSupplier(); if(e.key==='Escape') setAddingSupplier(false) }}
+                          placeholder="Supplier name..." autoFocus
+                          style={{ flex:1, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                        <button onClick={addSupplier} style={{ padding:'6px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontWeight:700, cursor:'pointer' }}>Add</button>
+                        <button onClick={() => setAddingSupplier(false)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, cursor:'pointer' }}>Cancel</button>
+                      </>
+                    ) : (
+                      <button onClick={() => setAddingSupplier(true)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px dashed #94a3b8', borderRadius:6, fontSize:13, cursor:'pointer', color:'#64748b' }}>+ Add Supplier</button>
+                    )}
+                  </div>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* ── SQUARE MAPPINGS ────────────────────────────────────── */}
+            {settingsSubTab === 'mappings' && (
+              <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Square Vendor Names</div>
+                <div style={{ padding:16 }}>
+                  <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Map each supplier to their name in Square — used to match invoices and filter Square reports.</div>
+                  {suppliers.map(s => (
+                    <div key={s} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
+                      <span style={{ width:140, fontWeight:600, fontSize:13 }}>{s}</span>
+                      <input defaultValue={supplierVendorNames[s] || ''}
+                        onBlur={async e => {
+                          const val = e.target.value.trim()
+                          const updated = { ...supplierVendorNames }
+                          if (!val) delete updated[s]; else updated[s] = val
+                          setSupplierVendorNames(updated)
+                          await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ itemName:'_global', field:'supplierVendorNames', value: updated }) })
+                        }}
+                        placeholder={`Square name for ${s}...`}
+                        style={{ flex:1, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* ── REORDER DEFAULTS ───────────────────────────────────── */}
+            {settingsSubTab === 'reorder' && (
+              <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Reorder Defaults</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
+                      <span style={{ width:200, fontSize:13, fontWeight:600 }}>Default target weeks</span>
+                      <input type="number" defaultValue={settingsTargetWeeks ?? targetWeeks} min={1} max={26}
+                        onBlur={async e => {
+                          const val = Number(e.target.value)
+                          if (!val || val < 1) return
+                          setTargetWeeks(val)
+                          setSettingsTargetWeeks(val)
+                          await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
+                        }}
+                        style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
+                      <span style={{ fontSize:12, color:'#64748b' }}>weeks of stock to maintain</span>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Data Backup</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
+                    <button onClick={async () => {
+                      setSettingsSaving(true)
+                      const r = await fetch('/api/admin/sync-to-supabase')
+                      setSettingsSaving(false)
+                      alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
+                    }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* ── APP ACCESS ─────────────────────────────────────────── */}
+            {settingsSubTab === 'access' && (
+              <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>App PIN Management</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:16 }}>The app uses two PINs — the BMT PIN for full management access, and the read-only PIN for homeowner viewing access.</div>
+                    <div style={{ display:'flex', flexDirection:'column', gap:12 }}>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>BMT Management PIN</div>
+                          <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>Full access — edit prices, receive orders, manage settings</div>
+                        </div>
+                        <button onClick={() => { const p = prompt('Enter new BMT PIN (4–8 digits):'); if (!p || p.length < 4) return; fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemName:'_global',field:'appPin',value:p})}).then(()=>alert('✓ BMT PIN updated.')) }}
+                          style={{ padding:'6px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                          🔑 Change PIN
+                        </button>
+                      </div>
+                      <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
+                        <div style={{ flex:1 }}>
+                          <div style={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>Read-Only PIN</div>
+                          <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>View-only access — stock levels, sales, price list. No editing.</div>
+                        </div>
+                        <button onClick={() => { const p = prompt('Enter new read-only PIN (4–8 digits):'); if (!p || p.length < 4) return; fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemName:'_global',field:'readOnlyPin',value:p})}).then(()=>alert('✓ Read-only PIN updated.')) }}
+                          style={{ padding:'6px 14px', background:'#475569', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                          🔑 Change PIN
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13, display:'flex', justifyContent:'space-between', alignItems:'center' }}>
+                    <span>Recent Changes</span>
+                    <button onClick={() => fetch('/api/settings?action=getAudit').then(r=>r.json()).then(d => setSettingsAuditData(d.audit||{}))}
+                      style={{ fontSize:11, background:'rgba(255,255,255,0.15)', border:'none', borderRadius:4, padding:'2px 8px', color:'#fff', cursor:'pointer' }}>↻ Refresh</button>
+                  </div>
+                  <div style={{ padding:16 }}>
+                    {!settingsAuditData ? (
+                      <div style={{ color:'#94a3b8', fontSize:12 }}>Loading…</div>
+                    ) : Object.keys(settingsAuditData).length === 0 ? (
+                      <div style={{ color:'#94a3b8', fontSize:12 }}>No changes recorded yet.</div>
+                    ) : (() => {
+                      const FIELD_LABELS = { buyPrice:'Buy Price', sellPrice:'Sell Price', sellPriceBottle:'Bottle Sell Price', supplier:'Supplier', category:'Category', pack:'Pack Size', bottleML:'Bottle mL', nipML:'Nip mL', targetWeeksOverride:'Target Weeks', weeklyAvgOverride:'Weekly Avg Override', stockOverride:'Stock Override', notes:'Notes', bottleOnly:'Bottle Only' }
+                      const entries = Object.entries(settingsAuditData)
+                        .map(([key, val]) => {
+                          const parts = key.split('__')
+                          const field = parts.pop()
+                          const itemName = parts.join('__')
+                          return { itemName, field, ts: val.ts, who: val.who }
+                        })
+                        .sort((a,b) => new Date(b.ts) - new Date(a.ts))
+                        .slice(0, 30)
+                      return (
+                        <div style={{ maxHeight:320, overflowY:'auto' }}>
+                          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                            <thead>
+                              <tr style={{ borderBottom:'2px solid #e2e8f0' }}>
+                                {['Date','Item','Field','Old Value','New Value','By'].map(h => (
+                                  <th key={h} style={{ padding:'4px 8px', textAlign:'left', fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em' }}>{h}</th>
+                                ))}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {entries.map((e, i) => (
+                                <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0 ? '#fff' : '#f8fafc' }}>
+                                  <td style={{ padding:'5px 8px', color:'#64748b', whiteSpace:'nowrap' }}>
+                                    {new Date(e.ts).toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric', timeZone:'Australia/Brisbane' })}
+                                    <span style={{ marginLeft:4, color:'#94a3b8' }}>
+                                      {new Date(e.ts).toLocaleTimeString('en-AU', { hour:'2-digit', minute:'2-digit', timeZone:'Australia/Brisbane' })}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding:'5px 8px', fontWeight:500 }}>{e.itemName}</td>
+                                  <td style={{ padding:'5px 8px' }}>
+                                    <span style={{ background:'#e0f2fe', color:'#0369a1', padding:'1px 6px', borderRadius:3, fontSize:11, fontWeight:600 }}>
+                                      {FIELD_LABELS[e.field] || e.field}
+                                    </span>
+                                  </td>
+                                  <td style={{ padding:'5px 8px', color:'#94a3b8', fontStyle: e.oldValue == null ? 'italic' : 'normal' }}>{e.oldValue != null ? String(e.oldValue) : '—'}</td>
+                                  <td style={{ padding:'5px 8px', fontWeight:600, color:'#0f172a' }}>{e.newValue != null ? String(e.newValue) : '—'}</td>
+                                  <td style={{ padding:'5px 8px', color:'#64748b' }}>{e.who || 'BMT'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      )
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4669,6 +4707,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
+                  <button onClick={() => setShowPriceDetail(v => !v)}
+                    style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:11, fontWeight:600, cursor:'pointer',
+                      background: showPriceDetail ? '#eff6ff' : '#f8fafc', color: showPriceDetail ? '#1d4ed8' : '#64748b' }}>
+                    {showPriceDetail ? '▾ Hide detail' : '▸ Show min/max/variance'}
+                  </button>
                   <button onClick={() => exportAvgPriceReport()}
                     style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     📥 Avg Price Report
@@ -4712,7 +4755,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                           <thead>
                             <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                              {['Item','Supplier','Avg Buy Price (inc GST)','# Invoices','Min (inc GST)','Max (inc GST)','Variance','Current Hub Price','Action'].map(h => (
+                              {['Item','Supplier','Avg Buy Price (inc GST)','# Invoices',...(showPriceDetail?['Min (inc GST)','Max (inc GST)','Variance']:[]),'Current Hub Price','Action'].map(h => (
                                 <th key={h} style={{ padding:'8px 10px', textAlign: h.includes('Price')||h.includes('Min')||h.includes('Max')||h.includes('Var') ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
                               ))}
                             </tr>
@@ -4745,9 +4788,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     {row.is_spirit && <div style={{ fontSize:9, color:'#94a3b8', fontWeight:400 }}>{row.unit_label}</div>}
                                   </td>
                                   <td style={{ padding:'7px 10px', textAlign:'center', color:'#64748b' }}>{row.invoice_count}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{minIncGst != null ? `$${minIncGst.toFixed(3)}` : '—'}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{maxIncGst != null ? `$${maxIncGst.toFixed(3)}` : '—'}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', color: variance > 0.5 ? '#d97706' : '#64748b' }}>${variance.toFixed(3)}</td>
+                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{minIncGst != null ? `$${minIncGst.toFixed(3)}` : '—'}</td>}
+                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{maxIncGst != null ? `$${maxIncGst.toFixed(3)}` : '—'}</td>}
+                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color: variance > 0.5 ? '#d97706' : '#64748b' }}>${variance.toFixed(3)}</td>}
                                   <td style={{ padding:'7px 10px', textAlign:'right' }}>
                                     {currentBuy != null ? (
                                       <span style={{ color: diff > 0.02 ? '#dc2626' : diff < -0.02 ? '#16a34a' : '#64748b' }}>
