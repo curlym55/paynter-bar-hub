@@ -3264,57 +3264,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               </div>
             </div>
 
-
-
-                            <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
-                          </td>
-                          {!readOnly && (
-                            <td style={{ padding: '7px 12px', textAlign: 'center' }}>
-                              <button onClick={async () => {
-                                if (!confirm(`Remove ${item.name} from this order?`)) return
-                                const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                                  body: JSON.stringify({ action:'deleteItem', itemName: item.name }) })
-                                const d = await r.json()
-                                if (d.ok) {
-                                  setOrderedItems(d.ordered)
-                                  const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
-                                  if (!remaining.length) setViewOrderModal(null)
-                                  else { setViewOrderModal(prev => ({ ...prev, items: remaining })); resavePO(viewOrderModal.supplier, d.ordered) }
-                                }
-                              }} style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                                🗑 Remove
-                              </button>
-                            </td>
-                          )}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                  <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
-                    {!readOnly && (
-                      <button onClick={async () => {
-                        if (!confirm(`Delete the entire ${viewOrderModal.supplier} order? This cannot be undone.`)) return
-                        const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                          body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier }) })
-                        const d = await r.json()
-                        if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(null) }
-                      }} style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
-                        🗑 Delete Whole Order
-                      </button>
-                    )}
-                    <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                      <button onClick={() => setViewOrderModal(null)}
-                        style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
-                      {!readOnly && (
-                        <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
-                          style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
