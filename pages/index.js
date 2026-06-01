@@ -589,6 +589,15 @@ export default function Home() {
   }
 
 
+  async function resavePO(supplier, ordered) {
+    const updatedItems = Object.entries(ordered)
+      .filter(([, info]) => info.supplier === supplier)
+      .map(([name, info]) => ({ name, sku: info.sku||'', orderQty: info.orderQty, bottlesToOrder: info.bottlesToOrder||null, isSpirit: info.isSpirit||false }))
+    if (!updatedItems.length) return
+    const sampleInfo = Object.values(ordered).find(i => i.supplier === supplier)
+    const poRef = sampleInfo?.ref || supplier
+    const orderDate = sampleInfo?.date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
+    fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
       .then(r => r.json()).then(d => {
         if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
