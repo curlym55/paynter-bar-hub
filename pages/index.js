@@ -2563,7 +2563,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const suppliersToOrder = Object.keys(orderBySup)
               // Lock to the single supplier set when wizard was opened
               const activeSup = wiz.supplier || suppliersToOrder[0]
-              const supItems  = orderBySup[activeSup] || []
+              // Base items for this supplier with order qty > 0
+              const baseSupItems = orderBySup[activeSup] || []
+              // Also include any manually added items (in wizQtys but not in baseSupItems)
+              const baseNames = new Set(baseSupItems.map(i => i.name))
+              const addedSupItems = items.filter(i =>
+                i.supplier === activeSup &&
+                !baseNames.has(i.name) &&
+                wizQtys[i.name] != null &&
+                wizQtys[i.name] > 0
+              )
+              const supItems = [...baseSupItems, ...addedSupItems]
               // Single-supplier mode — only process the one supplier this wizard was opened for
 
               const STEPS = ['Review Quantities', 'Place Order', 'Record Confirmation', 'Done']
@@ -2634,6 +2644,52 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             </tbody>
                           </table>
                         </div>
+
+                        {/* Add extra item not flagged for ordering */}
+                        {(() => {
+                          const alreadyInList = new Set(supItems.map(i => i.name))
+                          const addableItems = items.filter(i =>
+                            i.supplier === activeSup &&
+                            !alreadyInList.has(i.name) &&
+                            !rundownItems[i.name]
+                          )
+                          if (addableItems.length === 0) return null
+                          return (
+                            <div style={{ marginBottom:16, padding:'10px 14px', background:'#f8fafc', border:'1px dashed #cbd5e1', borderRadius:8 }}>
+                              <div style={{ fontSize:12, fontWeight:600, color:'#374151', marginBottom:8 }}>+ Add item not flagged for ordering</div>
+                              <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
+                                <select id="wiz-add-item"
+                                  style={{ flex:1, minWidth:180, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, color:'#374151' }}>
+                                  <option value="">Select item…</option>
+                                  {addableItems.map(i => (
+                                    <option key={i.name} value={i.name}>{i.name} (on hand: {i.onHand ?? 0})</option>
+                                  ))}
+                                </select>
+                                <input type="number" id="wiz-add-qty" min={1} defaultValue={1}
+                                  placeholder="Qty"
+                                  style={{ width:70, padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, textAlign:'center' }} />
+                                <button onClick={() => {
+                                  const sel = document.getElementById('wiz-add-item')
+                                  const qtyEl = document.getElementById('wiz-add-qty')
+                                  const name = sel?.value
+                                  const qty = Number(qtyEl?.value) || 1
+                                  if (!name) return
+                                  const item = addableItems.find(i => i.name === name)
+                                  if (!item) return
+                                  // Add to wizQtys and to supItems via orderBySup
+                                  setWizQtys(prev => ({ ...prev, [name]: qty }))
+                                  // Force wizard supplier to re-evaluate supItems by touching state
+                                  setOrderWizard(prev => ({ ...prev, _addedItems: { ...(prev._addedItems || {}), [name]: true } }))
+                                  if (sel) sel.value = ''
+                                  if (qtyEl) qtyEl.value = '1'
+                                }}
+                                  style={{ padding:'6px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                                  Add
+                                </button>
+                              </div>
+                            </div>
+                          )
+                        })()}
 
                         <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center' }}>
 
