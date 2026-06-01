@@ -3023,11 +3023,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 </div>
               )}
 
-              <div style={{ display:'flex', gap:8 }}>
+              <div style={{ display:'flex', gap:8, alignItems:'center' }}>
                 <button onClick={() => setReceiptData(null)}
-                  style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, cursor:'pointer' }}>
-                  Close
+                  style={{ flex:1, padding:'9px 0', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
+                  ✓ Done
                 </button>
+                {/* Download locally — prominent only when OneDrive failed, otherwise subtle */}
                 <button onClick={async () => {
                     try {
                       const sup = receiptData.supplier
@@ -3105,8 +3106,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       setReceiptSaved(true)
                     } catch(e) { alert('Download failed: ' + e.message) }
                   }}
-                  style={{ flex:2, padding:'9px 0', background: receiptSaved ? '#16a34a' : '#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                  {receiptSaved ? '✓ Downloaded' : '📊 Download Receipt (Excel)'}
+                  style={{
+                    padding: receiptData.oneDriveResult?.error ? '9px 16px' : '6px 12px',
+                    background: receiptSaved ? '#16a34a' : receiptData.oneDriveResult?.error ? '#dc2626' : '#f1f5f9',
+                    color: receiptSaved ? '#fff' : receiptData.oneDriveResult?.error ? '#fff' : '#64748b',
+                    border: 'none', borderRadius: 6,
+                    fontSize: receiptData.oneDriveResult?.error ? 13 : 11,
+                    fontWeight: receiptData.oneDriveResult?.error ? 700 : 500,
+                    cursor: 'pointer'
+                  }}>
+                  {receiptSaved ? '✓ Downloaded' : receiptData.oneDriveResult?.error ? '📥 Download locally (OneDrive failed)' : '📥 Download locally'}
                 </button>
               </div>
             </div>
