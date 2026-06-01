@@ -3266,43 +3266,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
 
 
-            {/* View Order Modal */}
-
-            {/* ── VIEW ORDER MODAL ───────────────────────────────────────── */}
-            {viewOrderModal && (
-              <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
-                onClick={() => setViewOrderModal(null)}>
-                <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
-                  onClick={e => e.stopPropagation()}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>🛒 {viewOrderModal.supplier} — Current Order</div>
-                    <button onClick={() => setViewOrderModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>×</button>
-                  </div>
-                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
-                    <thead><tr style={{ background: '#1e3a5f', color: '#fff' }}>
-                      <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
-                      <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qty Ordered</th>
-                      {!readOnly && <th style={{ padding: '8px 12px', textAlign: 'center', width: 100 }}>Actions</th>}
-                    </tr></thead>
-                    <tbody>
-                      {viewOrderModal.items.map((item, i) => (
-                        <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
-                          <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
-                          <td style={{ padding: '7px 12px', textAlign: 'right' }}>
-                            {!readOnly ? (
-                              <input type="number" defaultValue={item.orderQty} min={1}
-                                style={{ width: 70, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 4, textAlign: 'right', fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}
-                                onBlur={async e => {
-                                  const newQty = Number(e.target.value)
-                                  if (!newQty || newQty === item.orderQty) return
-                                  const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                                    body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty }) })
-                                  const d = await r.json()
-                                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered) }
-                                }} />
-                            ) : (
-                              <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
-                            )}
                             <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
                           </td>
                           {!readOnly && (
@@ -5054,6 +5017,90 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         </footer>
       </div>{/* end main column */}
     </div>{/* end styles.page */}
+
+      {/* ── VIEW ORDER MODAL — global, works from any tab ── */}
+      {viewOrderModal && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
+          onClick={() => setViewOrderModal(null)}>
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>🛒 {viewOrderModal.supplier} — Current Order</div>
+              <button onClick={() => setViewOrderModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>×</button>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+              <thead><tr style={{ background: '#1e3a5f', color: '#fff' }}>
+                <th style={{ padding: '8px 12px', textAlign: 'left' }}>Item</th>
+                <th style={{ padding: '8px 12px', textAlign: 'right' }}>Qty Ordered</th>
+                {!readOnly && <th style={{ padding: '8px 12px', textAlign: 'center', width: 100 }}>Actions</th>}
+              </tr></thead>
+              <tbody>
+                {viewOrderModal.items.map((item, i) => (
+                  <tr key={item.name} style={{ background: i % 2 === 0 ? '#f8fafc' : '#fff' }}>
+                    <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
+                    <td style={{ padding: '7px 12px', textAlign: 'right' }}>
+                      {!readOnly ? (
+                        <input type="number" defaultValue={item.orderQty} min={1}
+                          style={{ width: 70, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 4, textAlign: 'right', fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}
+                          onBlur={async e => {
+                            const newQty = Number(e.target.value)
+                            if (!newQty || newQty === item.orderQty) return
+                            const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty }) })
+                            const d = await r.json()
+                            if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered) }
+                          }} />
+                      ) : (
+                        <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
+                      )}
+                      <span style={{ fontSize: 11, color: '#94a3b8', marginLeft: 4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
+                    </td>
+                    {!readOnly && (
+                      <td style={{ padding: '7px 12px', textAlign: 'center' }}>
+                        <button onClick={async () => {
+                          if (!confirm(`Remove ${item.name} from this order?`)) return
+                          const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ action:'deleteItem', itemName: item.name }) })
+                          const d = await r.json()
+                          if (d.ok) {
+                            setOrderedItems(d.ordered)
+                            const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
+                            if (!remaining.length) setViewOrderModal(null)
+                            else { setViewOrderModal(prev => ({ ...prev, items: remaining })); resavePO(viewOrderModal.supplier, d.ordered) }
+                          }
+                        }} style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
+                          🗑 Remove
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
+              {!readOnly && (
+                <button onClick={async () => {
+                  if (!confirm(`Delete the entire ${viewOrderModal.supplier} order? This cannot be undone.`)) return
+                  const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
+                    body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier }) })
+                  const d = await r.json()
+                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(null) }
+                }} style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
+                  🗑 Delete Whole Order
+                </button>
+              )}
+              <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                <button onClick={() => setViewOrderModal(null)}
+                  style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
+                {!readOnly && (
+                  <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
+                    style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
