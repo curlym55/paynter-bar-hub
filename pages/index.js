@@ -5016,9 +5016,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <button onClick={async () => {
                                 const warn = sentDate ? `\n\n⚠️ This record was already emailed to the Treasurer on ${sentDate}.` : ''
                                 if (!confirm(`Delete PO document for ${doc.po_ref}?${warn}\n\nThis cannot be undone.`)) return
-                                const r = await fetch('/api/documents/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
-                                  body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_path, invoice_path: doc.invoice_path }) })
-                                if ((await r.json()).ok) loadDocuments()
+                                setDocuments(prev => prev.filter(d => d.id !== doc.id))
+                                try {
+                                  const r = await fetch('/api/documents/delete', { method: 'DELETE', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ id: doc.id, receive_report_path: doc.receive_path, invoice_path: doc.invoice_path }) })
+                                  const d = await r.json()
+                                  if (!d.ok) { loadDocuments(); alert('Delete failed: ' + (d.error || 'Unknown error')) }
+                                } catch { loadDocuments() }
                               }} style={{ padding: '4px 10px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 6, fontSize: 11, fontWeight: 600, cursor: 'pointer' }}>
                                 🗑 Delete
                               </button>
@@ -5124,7 +5128,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
                     body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier }) })
                   const d = await r.json()
-                  if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(null) }
+                  if (d.ok) {
+                    setOrderedItems(d.ordered)
+                    setViewOrderModal(null)
+                    // Also remove the matching bar_documents record so it doesn't appear in PO Documents
+                    if (viewOrderModal.ref) {
+                      const docs = await fetch('/api/documents/list').then(r => r.json()).catch(() => ({ documents: [] }))
+                      const match = (docs.documents || []).find(doc => doc.po_ref === viewOrderModal.ref && doc.status === 'ordered')
+                      if (match) {
+                        await fetch('/api/documents/delete', { method:'DELETE', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ id: match.id }) }).catch(() => null)
+                        setDocuments(prev => prev.filter(d => d.id !== match.id))
+                      }
+                    }
+                  }
                 }} style={{ padding: '8px 16px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 7, fontWeight: 700, cursor: 'pointer', fontSize: 13 }}>
                   🗑 Delete Whole Order
                 </button>
