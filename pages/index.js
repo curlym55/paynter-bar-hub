@@ -3218,12 +3218,26 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
                 {view !== 'all' && !readOnly && (
                   <>
+                    <button onClick={() => {
+                      // Launch wizard pre-loaded for this supplier
+                      const q = {}
+                      for (const i of items) {
+                        if (rundownItems[i.name]) continue
+                        if (i.supplier !== view) continue
+                        q[i.name] = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : (i.isSpirit ? (i.nipsToOrder || i.orderQty) : i.orderQty)
+                      }
+                      setWizQtys(q)
+                      setOrderWizard({ step: 1, supplier: view, poRef: '', saving: false })
+                    }}
+                      style={{ ...styles.tab, color: '#fff', borderColor: '#1e3a5f', background: '#1e3a5f', fontWeight: 700 }}>
+                      📋 Start Order
+                    </button>
                     <button onClick={() => printOrderSheet(view)}
                       style={{ ...styles.tab, color: '#374151', borderColor: '#374151', background: '#f8fafc', fontWeight: 700 }}>
-                      📋 Order Sheet
+                      🖨️ Order Sheet
                     </button>
                     <button onClick={() => openRefModalWithNumber(view)}
-                      style={{ ...styles.tab, color: '#16a34a', borderColor: '#16a34a', background: '#f0fdf4', fontWeight: 700 }}>
+                      style={{ ...styles.tab, color: '#64748b', borderColor: '#cbd5e1', background: '#f8fafc', fontWeight: 500, fontSize: 11 }}>
                       ✓ Mark as Ordered
                     </button>
                   </>
@@ -3406,7 +3420,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ flex: 1, textAlign: 'center' }}>
                   <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
                   <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Select a supplier tab, click 📋 Order Sheet for a printable list. Click ✓ Mark as Ordered to record the PO.</div>
+                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Click 📋 Start Order in the toolbar to launch the order wizard — review quantities, place the order and record the PO reference in one flow.</div>
                 </div>
                 <div style={{ width: 1, background: '#bfdbfe' }} />
                 <div style={{ flex: 1, textAlign: 'center' }}>
