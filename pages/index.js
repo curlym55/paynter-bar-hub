@@ -151,7 +151,6 @@ export default function Home() {
     try { return localStorage.getItem('hubTheme') || 'navy' } catch { return 'navy' }
   })
   useEffect(() => { try { localStorage.setItem('hubTheme', hubTheme) } catch {} }, [hubTheme])
-  const [sidebarOpenGroups, setSidebarOpenGroups] = useState({ 'Stock': false, 'Sales & Analytics': false, 'Operations': false, 'Reports': false, 'Help': false })
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [orderedItems, setOrderedItems]   = useState({})
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
