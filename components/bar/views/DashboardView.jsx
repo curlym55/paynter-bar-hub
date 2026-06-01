@@ -22,7 +22,16 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
     { label: 'Critical',  value: critCount,    sub: 'below target',      color: '#dc2626', bg: '#fef2f2', action: () => onNav('reorder') },
     { label: 'Low Stock', value: lowCount,     sub: 'running low',       color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
     { label: 'To Order',  value: orderCount,   sub: 'need ordering',     color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
-    { label: 'On Order',  value: onOrderCount, sub: 'awaiting delivery', color: '#16a34a', bg: '#f0fdf4', action: () => onNav('reorder') },
+    { label: 'On Order',  value: onOrderCount, sub: 'click to view orders', color: '#16a34a', bg: '#f0fdf4', action: () => {
+      // Open the first pending order in the view modal
+      const entry = Object.entries(orderedItems).find(([, info]) => (info.orderQty || 0) > 0)
+      if (!entry) return
+      const firstSupplier = entry[1].supplier
+      const supplierItems = Object.entries(orderedItems)
+        .filter(([, info]) => info.supplier === firstSupplier && (info.orderQty || 0) > 0)
+        .map(([name, info]) => ({ name, ...info }))
+      onViewOrder(firstSupplier, supplierItems)
+    }},
     { label: 'Refreshed', value: refreshedAgo, sub: fromCache ? '📦 cached data' : '✅ live from Square', color: fromCache ? '#d97706' : '#475569', bg: fromCache ? '#fffbeb' : '#f8fafc', action: null },
   ]
 

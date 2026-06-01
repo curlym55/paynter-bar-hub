@@ -48,6 +48,9 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
+  const [docSupFilter, setDocSupFilter]   = useState('all')
+  const [docSearch, setDocSearch]         = useState('')
+  const [docStatusFilter, setDocStatusFilter] = useState('all')
   const [docInvoiceUploading, setDocInvoiceUploading] = useState({})
   const [docEmailSending,     setDocEmailSending]     = useState({})
   const [docEmailSent,        setDocEmailSent]        = useState({})
@@ -3277,7 +3280,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Pack</th>
                     <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Bottle Size</th>
                     <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Nip Size</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Order Qty</th>
+                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Order Qty</th>
                     <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Bottles</th>
                     <th style={{ ...styles.th, textAlign: 'center' }}>Priority</th>
                     <th style={{ ...styles.th, width: 180 }}>Notes</th>
@@ -3377,7 +3380,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               saving={saving[`${item.name}_nipML`]} readOnly={readOnly} />
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', fontSize: 15 }}>
+                        <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', fontSize: 15, display: showDetails ? '' : 'none' }}>
                           {dontOrder(item)
                             ? <span style={{ fontSize: 10, color: '#94a3b8', fontWeight: 400, fontStyle: 'italic' }}>Do not restock</span>
                             : readOnly
@@ -4757,13 +4760,47 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 🔄 Refresh
               </button>
             </div>
+            {/* Filter bar */}
+            {!docsLoading && documents.length > 0 && (
+              <div style={{ display: 'flex', gap: 8, marginBottom: 14, flexWrap: 'wrap', alignItems: 'center' }}>
+                <input value={docSearch} onChange={e => setDocSearch(e.target.value)}
+                  placeholder="Search PO ref…"
+                  style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12, width: 160 }} />
+                <select value={docSupFilter} onChange={e => setDocSupFilter(e.target.value)}
+                  style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 }}>
+                  <option value="all">All Suppliers</option>
+                  {[...new Set(documents.map(d => d.supplier).filter(Boolean))].sort().map(s => (
+                    <option key={s} value={s}>{s}</option>
+                  ))}
+                </select>
+                <select value={docStatusFilter} onChange={e => setDocStatusFilter(e.target.value)}
+                  style={{ padding: '6px 10px', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 12 }}>
+                  <option value="all">All Status</option>
+                  <option value="ordered">Ordered</option>
+                  <option value="received">Received</option>
+                </select>
+                {(docSearch || docSupFilter !== 'all' || docStatusFilter !== 'all') && (
+                  <button onClick={() => { setDocSearch(''); setDocSupFilter('all'); setDocStatusFilter('all') }}
+                    style={{ padding: '5px 10px', background: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: 6, fontSize: 11, cursor: 'pointer', color: '#64748b' }}>
+                    ✕ Clear
+                  </button>
+                )}
+              </div>
+            )}
             {docsLoading ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>Loading documents…</div>
             ) : documents.length === 0 ? (
               <div style={{ textAlign: 'center', padding: 40, color: '#64748b' }}>No documents yet. Documents are created automatically when orders are placed and received.</div>
             ) : (
               <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-                {documents.map((doc, i) => {
+                {documents
+                  .filter(doc => {
+                    if (docSupFilter !== 'all' && doc.supplier !== docSupFilter) return false
+                    if (docStatusFilter !== 'all' && doc.status !== docStatusFilter) return false
+                    if (docSearch && !doc.po_ref?.toLowerCase().includes(docSearch.toLowerCase())) return false
+                    return true
+                  })
+                  .map((doc, i) => {
                   const stColor = doc.status === 'received' ? '#16a34a' : doc.status === 'partial' ? '#d97706' : '#1d4ed8'
                   const stBg    = doc.status === 'received' ? '#f0fdf4'  : doc.status === 'partial' ? '#fffbeb'  : '#eff6ff'
                   const stBdr   = doc.status === 'received' ? '#86efac'  : doc.status === 'partial' ? '#fde68a'  : '#bfdbfe'
