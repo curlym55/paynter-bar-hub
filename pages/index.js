@@ -2645,38 +2645,67 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       </div>
                     )}
 
-                    {/* STEP 2: Place Order */}
+                    {/* STEP 2: Confirm & Adjust Order */}
                     {wiz.step === 2 && (
                       <div>
-                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Place your order</div>
-                        <div style={{ fontSize:13, color:'#64748b', marginBottom:20 }}>Use the order sheet below as a reference when placing the order on the supplier's website.</div>
+                        <div style={{ fontSize:18, fontWeight:800, color:'#0f172a', marginBottom:4 }}>Confirm your order</div>
+                        <div style={{ fontSize:13, color:'#64748b', marginBottom:12 }}>Place the order with <strong>{activeSup}</strong> then update quantities below to match what was actually ordered — remove unavailable items by setting qty to 0.</div>
 
-                        {/* Supplier tabs */}
-
-
-                        {/* Order summary */}
-                        <div style={{ background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:8, padding:16, marginBottom:16 }}>
-                          <div style={{ fontWeight:700, color:'#1e3a5f', marginBottom:10, fontSize:13 }}>📦 {activeSup} — {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).length} items</div>
-                          {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map(item => {
-                            const nips = wizQtys[item.name] ?? item.orderQty
-                            const btl = item.isSpirit && nips > 0 ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(nips / ((item.bottleML || 700) / (item.nipML || 30))) : null
-                            return (
-                              <div key={item.name} style={{ display:'flex', justifyContent:'space-between', padding:'5px 0', borderBottom:'1px solid #e2e8f0', fontSize:13 }}>
-                                <span style={{ color:'#374151' }}>{item.name}</span>
-                                <span style={{ fontWeight:700, color:'#1e3a5f' }}>
-                                  {item.isSpirit ? <>{nips} nips <span style={{ fontWeight:400, color:'#64748b' }}>({btl} btl)</span></> : <>{nips} units</>}
-                                </span>
-                              </div>
-                            )
-                          })}
-                        </div>
-
-                        <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:12, marginBottom:20, fontSize:13 }}>
-                          💡 <strong>Tip:</strong> Open the supplier's website in another tab and use this list as your guide.
-                          {activeSup === "Dan Murphy's" && ' Dan Murphy\'s: danmurphys.com.au → My Account → Order History'}
+                        <div style={{ background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8, padding:10, marginBottom:14, fontSize:12 }}>
+                          💡
+                          {activeSup === "Dan Murphy's" && " Dan Murphy's: danmurphys.com.au → My Account → Order History"}
                           {activeSup === 'Coles Woolies' && ' Coles: coles.com.au — Woolworths: woolworths.com.au'}
                           {activeSup === 'ACW' && ' ACW: phone or email your order to ACW directly.'}
+                          {!["Dan Murphy's",'Coles Woolies','ACW'].includes(activeSup) && ` Place your order with ${activeSup} then update quantities below.`}
                         </div>
+
+                        {/* Editable qty table — same as step 1 but framed as "confirm what you actually ordered" */}
+                        <div style={{ border:'1px solid #e2e8f0', borderRadius:8, overflow:'hidden', marginBottom:16 }}>
+                          <table style={{ width:'100%', borderCollapse:'collapse', fontSize:13 }}>
+                            <thead>
+                              <tr style={{ background:'#1e3a5f', color:'#fff' }}>
+                                <th style={{ padding:'8px 12px', textAlign:'left', fontWeight:600 }}>Item</th>
+                                <th style={{ padding:'8px 12px', textAlign:'right', fontWeight:600 }}>Suggested</th>
+                                <th style={{ padding:'8px 12px', textAlign:'right', fontWeight:600 }}>Qty Ordered</th>
+                                {supItems.some(i => i.isSpirit) && <th style={{ padding:'8px 12px', textAlign:'right', fontWeight:600 }}>Bottles</th>}
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {supItems.map((item, i) => {
+                                const suggested = item.isSpirit ? (item.nipsToOrder || item.orderQty) : item.orderQty
+                                const qty = wizQtys[item.name] ?? suggested
+                                const btl = item.isSpirit && qty > 0 ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(qty / ((item.bottleML || 700) / (item.nipML || 30))) : null
+                                const removed = qty === 0
+                                return (
+                                  <tr key={item.name} style={{ background: removed ? '#fef2f2' : i % 2 === 0 ? '#fff' : '#f8fafc', borderBottom:'1px solid #f1f5f9', opacity: removed ? 0.6 : 1 }}>
+                                    <td style={{ padding:'6px 12px', fontWeight:500, color: removed ? '#94a3b8' : '#0f172a', textDecoration: removed ? 'line-through' : 'none' }}>{item.name}</td>
+                                    <td style={{ padding:'6px 12px', textAlign:'right', color:'#94a3b8', fontSize:12 }}>
+                                      {item.isSpirit ? `${suggested} nips` : `${suggested} units`}
+                                    </td>
+                                    <td style={{ padding:'6px 12px', textAlign:'right' }}>
+                                      <input type="number" min={0} value={qty}
+                                        onChange={e => setWizQtys(prev => ({ ...prev, [item.name]: Math.max(0, Number(e.target.value)) }))}
+                                        style={{ width:70, padding:'3px 8px', border:'1px solid #cbd5e1', borderRadius:5, fontSize:13, textAlign:'right',
+                                          background: removed ? '#fef2f2' : qty !== suggested ? '#fffbeb' : '#fff',
+                                          color: removed ? '#dc2626' : qty !== suggested ? '#d97706' : '#0f172a', fontWeight:600 }} />
+                                      <span style={{ fontSize:11, color:'#94a3b8', marginLeft:4 }}>{item.isSpirit ? 'nips' : 'units'}</span>
+                                    </td>
+                                    {supItems.some(i2 => i2.isSpirit) && (
+                                      <td style={{ padding:'6px 12px', textAlign:'right', fontFamily:'monospace', color:'#64748b', fontSize:12 }}>
+                                        {btl != null ? `${btl} btl` : '—'}
+                                      </td>
+                                    )}
+                                  </tr>
+                                )
+                              })}
+                            </tbody>
+                          </table>
+                        </div>
+                        {supItems.some(i => (wizQtys[i.name] ?? (i.isSpirit ? i.nipsToOrder : i.orderQty)) !== (i.isSpirit ? i.nipsToOrder : i.orderQty)) && (
+                          <div style={{ fontSize:11, color:'#d97706', marginBottom:12 }}>
+                            ⚠️ Some quantities differ from suggestions — amber values will be recorded as ordered.
+                          </div>
+                        )}
 
                         <div style={{ display:'flex', justifyContent:'space-between' }}>
                           <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 1 }))}
