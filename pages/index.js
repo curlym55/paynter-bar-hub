@@ -2462,8 +2462,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <span style={{ ...styles.statNum, color: '#2563eb' }}>{orderCount}</span>
               <span style={styles.statLabel}>To Order</span>
             </div>
-            <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: 'pointer' }}
-              onClick={() => setMainTab('reorder')}>
+            <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: onOrderCount > 0 ? 'pointer' : 'default' }}
+              onClick={() => {
+                if (!onOrderCount) return
+                const entries = Object.entries(orderedItems).filter(([, info]) => (info.orderQty || 0) > 0)
+                if (!entries.length) return
+                const firstSupplier = entries[0][1].supplier
+                const supplierItems = entries
+                  .filter(([, info]) => info.supplier === firstSupplier)
+                  .map(([name, info]) => ({ name, ...info }))
+                setViewOrderModal({ supplier: firstSupplier, items: supplierItems })
+              }}>
               <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
               <span style={styles.statLabel}>On Order</span>
             </div>
