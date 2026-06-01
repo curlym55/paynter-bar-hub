@@ -41,7 +41,6 @@ export default function Home() {
   const [lastUpdated, setLastUpdated]   = useState(null)
   const [targetWeeks, setTargetWeeks]   = useState(6)
   const [view, setView]                 = useState('all')
-  const [filterOrder, setFilterOrder]   = useState(false)
   const [showDetails, setShowDetails]   = useState(false)
 
   const [saving, setSaving]             = useState({})
@@ -123,7 +122,6 @@ export default function Home() {
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
   const [addingSupplier, setAddingSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
-  const [printing, setPrinting]         = useState(null)
   const [daysBack, setDaysBack]         = useState(60)
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
@@ -139,7 +137,6 @@ export default function Home() {
   const [salesPdfLoading, setSalesPdfLoading] = useState(false)
   const [salesPeriod, setSalesPeriod]   = useState('month')
   const [salesCustom, setSalesCustom]   = useState({ start: '', end: '' })
-  const [salesDay, setSalesDay]         = useState('')
   const [salesReport, setSalesReport]   = useState(null)
   const [salesLoading, setSalesLoading] = useState(false)
   const [salesError, setSalesError]     = useState(null)
@@ -163,7 +160,6 @@ export default function Home() {
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
   const [plSaving, setPlSaving]         = useState({})
-  const [settingsAudit, setSettingsAudit] = useState({}) // { "ItemName__field": { ts, who } }
 
   useEffect(() => {
     if (sessionStorage.getItem('bar_authed') === 'yes') {
@@ -676,9 +672,7 @@ export default function Home() {
       }))
       const auditKey = itemName + '__' + field
       if (value === null || value === '' || value === false) {
-        setSettingsAudit(prev => { const n = { ...prev }; delete n[auditKey]; return n })
       } else {
-        setSettingsAudit(prev => ({ ...prev, [auditKey]: { ts: new Date().toISOString(), who: readOnly ? 'volunteer' : 'BMT' } }))
       }
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
@@ -787,7 +781,6 @@ export default function Home() {
           fetch('/api/settings?action=getAudit'),
         ])
         if (plRes.ok)    { const d = await plRes.json();    setPriceListSettings(d.priceList || {}) }
-        if (auditRes.ok) { const d = await auditRes.json(); setSettingsAudit(d.audit || {}) }
       } catch(e) { /* silent */ }
     }
     if (authed) loadPriceListSettings()
@@ -2200,7 +2193,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
     .filter(item => {
-    if (!filterOrder) return true
     const onOrder = !!orderedItems[item.name]
     const orderAgain = orderAgainItems.has(item.name)
     // If on order and not flagged to order again — suppress from order filter

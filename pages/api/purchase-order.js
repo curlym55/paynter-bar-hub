@@ -37,6 +37,7 @@ async function set(key, value) {
 
 
 export default async function handler(req, res) {
+  try {
   if (req.method === 'GET') {
     const { action } = req.query
     // Preview next PO number without incrementing
@@ -150,4 +151,8 @@ export default async function handler(req, res) {
   }
 
   return res.status(405).json({ error: 'Method not allowed' })
+  } catch (err) {
+    console.error('[purchase-order]', err.message)
+    return res.status(500).json({ ok: false, error: err.message })
+  }
 }
