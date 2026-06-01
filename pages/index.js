@@ -3264,47 +3264,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               </div>
             </div>
 
-            {/* On Order banner */}
-            {onOrderCount > 0 && (() => {
-              const byRef = {}
-              for (const [name, info] of Object.entries(orderedItems)) {
-                const key = info.ref || info.supplier || 'Unknown'
-                if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
-                // Skip zero-qty items — they were excluded from the order
-                if ((info.orderQty || 0) > 0) byRef[key].items.push({ name, ...info })
-              }
-              return (
-                <div style={{ marginBottom: 12, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                  {Object.entries(byRef).map(([refKey, { supplier, ref, items: supplierItems }]) => (
-                    <div key={refKey} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 8, padding: '8px 14px', display: 'flex', alignItems: 'center', gap: 10 }}>
-                      <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
-                      {ref && (
-                        <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '1px 7px', borderRadius: 4, fontWeight: 700 }}>{ref}</span>
-                      )}
-                      <span style={{ fontSize: 12, color: '#64748b' }}>{supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
-                      <button onClick={() => setViewOrderModal({ supplier, items: supplierItems })}
-                        style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
-                        View
-                      </button>
-                      {!readOnly && (
-                        <button onClick={() => printDeliverySheet(supplier, supplierItems, ref)}
-                          style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
-                          📋 Delivery List
-                        </button>
-                      )}
 
-                      {!readOnly && (
-                        <button onClick={() => openReceiveModal(supplier, supplierItems, ref)}
-                          disabled={poReceiving === refKey}
-                          style={{ fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 12px', cursor: 'pointer' }}>
-                          {poReceiving === refKey ? '...' : 'Receive'}
-                        </button>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )
-            })()}
 
             {/* View Order Modal */}
 
@@ -3767,6 +3727,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               setMainTab(tab)
               if (tab === 'sales' && !salesReport) loadSalesReport(salesPeriod, salesCustom)
             }}
+            readOnly={readOnly}
+            poReceiving={poReceiving}
+            onViewOrder={(supplier, items) => setViewOrderModal({ supplier, items })}
+            onReceive={(supplier, supplierItems, ref) => openReceiveModal(supplier, supplierItems, ref)}
+            onPrintDelivery={(supplier, supplierItems, ref) => printDeliverySheet(supplier, supplierItems, ref)}
           />
         )}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}

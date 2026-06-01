@@ -1,7 +1,7 @@
 // DashboardView.jsx — extracted from pages/index.js
 import React from 'react'
 
-export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp }) {
+export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp, readOnly, poReceiving, onViewOrder, onReceive, onPrintDelivery }) {
   const onOrderCount = onOrderCountProp ?? Object.keys(orderedItems).length
   const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
   const isRundown    = item => !!rundownItems[item.name]
@@ -50,6 +50,50 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
 
       <div style={{ flex: 1, overflowY: 'auto' }}>
         <div style={{ padding: '20px 32px', maxWidth: 1100, margin: '0 auto' }}>
+
+          {/* On Order banner */}
+          {onOrderCount > 0 && (() => {
+            const byRef = {}
+            for (const [name, info] of Object.entries(orderedItems)) {
+              const key = info.ref || info.supplier || 'Unknown'
+              if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
+              if ((info.orderQty || 0) > 0) byRef[key].items.push({ name, ...info })
+            }
+            return (
+              <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                {Object.entries(byRef).map(([refKey, { supplier, ref, items: supplierItems }]) => (
+                  <div key={refKey} style={{ background: '#f0fdf4', border: '1px solid #86efac', borderRadius: 10, padding: '10px 16px', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontSize: 13, fontWeight: 700, color: '#16a34a' }}>🛒 {supplier}</span>
+                      <span style={{ fontSize: 11, color: '#64748b' }}>{supplierItems.length} item{supplierItems.length !== 1 ? 's' : ''} on order</span>
+                    </div>
+                    {ref && (
+                      <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{ref}</span>
+                    )}
+                    <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
+                      <button onClick={() => onViewOrder(supplier, supplierItems)}
+                        style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '4px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
+                        View
+                      </button>
+                      {!readOnly && onPrintDelivery && (
+                        <button onClick={() => onPrintDelivery(supplier, supplierItems, ref)}
+                          style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '4px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
+                          📋 Delivery List
+                        </button>
+                      )}
+                      {!readOnly && (
+                        <button onClick={() => onReceive(supplier, supplierItems, ref)}
+                          disabled={poReceiving === refKey}
+                          style={{ fontSize: 11, fontWeight: 700, background: '#16a34a', color: '#fff', border: 'none', borderRadius: 5, padding: '4px 14px', cursor: 'pointer' }}>
+                          {poReceiving === refKey ? '...' : '✓ Receive'}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
 
           {/* Stat cards */}
           <div className="dash-stats" style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: 10, marginBottom: 20 }}>
