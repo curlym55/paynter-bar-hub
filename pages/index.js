@@ -2659,15 +2659,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <div style={{ fontSize:12, fontWeight:600, color:'#374151', marginBottom:8 }}>+ Add item not flagged for ordering</div>
                               <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap' }}>
                                 <select id="wiz-add-item"
+                                  onChange={e => {
+                                    const name = e.target.value
+                                    const item = addableItems.find(i => i.name === name)
+                                    const qtyEl = document.getElementById('wiz-add-qty')
+                                    const unitEl = document.getElementById('wiz-add-unit')
+                                    if (item?.isSpirit) {
+                                      if (qtyEl) qtyEl.value = '1'
+                                      if (unitEl) unitEl.textContent = 'btl'
+                                    } else {
+                                      if (qtyEl) qtyEl.value = '1'
+                                      if (unitEl) unitEl.textContent = 'units'
+                                    }
+                                  }}
                                   style={{ flex:1, minWidth:180, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, color:'#374151' }}>
                                   <option value="">Select item…</option>
                                   {addableItems.map(i => (
-                                    <option key={i.name} value={i.name}>{i.name} (on hand: {i.onHand ?? 0})</option>
+                                    <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
                                   ))}
                                 </select>
                                 <input type="number" id="wiz-add-qty" min={1} defaultValue={1}
                                   placeholder="Qty"
                                   style={{ width:70, padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, textAlign:'center' }} />
+                                <span id="wiz-add-unit" style={{ fontSize:11, color:'#94a3b8', minWidth:28 }}>units</span>
                                 <button onClick={() => {
                                   const sel = document.getElementById('wiz-add-item')
                                   const qtyEl = document.getElementById('wiz-add-qty')
@@ -2676,12 +2690,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   if (!name) return
                                   const item = addableItems.find(i => i.name === name)
                                   if (!item) return
-                                  // Add to wizQtys and to supItems via orderBySup
-                                  setWizQtys(prev => ({ ...prev, [name]: qty }))
-                                  // Force wizard supplier to re-evaluate supItems by touching state
+                                  // For spirits, qty input is bottles — convert to nips
+                                  const nipsPerBottle = item.isSpirit ? Math.round((item.bottleML || 700) / (item.nipML || 30)) : null
+                                  const finalQty = item.isSpirit ? qty * nipsPerBottle : qty
+                                  setWizQtys(prev => ({ ...prev, [name]: finalQty }))
                                   setOrderWizard(prev => ({ ...prev, _addedItems: { ...(prev._addedItems || {}), [name]: true } }))
                                   if (sel) sel.value = ''
                                   if (qtyEl) qtyEl.value = '1'
+                                  const unitEl = document.getElementById('wiz-add-unit')
+                                  if (unitEl) unitEl.textContent = 'units'
                                 }}
                                   style={{ padding:'6px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                                   Add
