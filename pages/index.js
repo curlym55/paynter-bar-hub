@@ -48,6 +48,7 @@ export default function Home() {
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
   const [docsLoading, setDocsLoading]     = useState(false)
+  const [lastOrderSummary, setLastOrderSummary] = useState(null)
   const [docSupFilter, setDocSupFilter]   = useState('all')
   const [docSearch, setDocSearch]         = useState('')
   const [docStatusFilter, setDocStatusFilter] = useState('all')
@@ -257,7 +258,7 @@ export default function Home() {
     }
   }, [daysBack])
 
-  useEffect(() => { loadItems() }, [loadItems])
+  useEffect(() => { loadItems(); loadLastOrderSummary() }, [loadItems])
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
@@ -2897,7 +2898,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
               <div style={{ border: '1px solid #e2e8f0', borderTop: 'none', borderRadius: '0 0 8px 8px', overflow: 'hidden', marginBottom: 14 }}>
                 {/* Select all row */}
-                <div style={{ padding: '8px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{ padding: '8px 10px', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                   <input type="checkbox"
                     checked={receiveModal.items.every(i => receiveChecked[i.name])}
                     onChange={e => {
@@ -2907,6 +2908,31 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     }}
                     style={{ width: 15, height: 15, cursor: 'pointer' }} />
                   <span style={{ fontSize: 11, fontWeight: 700, color: '#475569' }}>Select All</span>
+                  <div style={{ display: 'flex', gap: 6, marginLeft: 8 }}>
+                    <button onClick={() => {
+                      const next = {}; const qtys = {}
+                      receiveModal.items.forEach(i => {
+                        next[i.name] = true
+                        const override = orderQtyOverrides[i.name]
+                        qtys[i.name] = override !== undefined ? override : (i.orderQty || 0)
+                      })
+                      setReceiveChecked(next); setReceiveQtys(qtys)
+                    }} style={{ padding:'2px 8px', background:'#f0fdf4', border:'1px solid #86efac', borderRadius:4, fontSize:10, fontWeight:700, color:'#16a34a', cursor:'pointer' }}>
+                      ✓ All Full
+                    </button>
+                    <button onClick={() => {
+                      const next = {}; const qtys = {}
+                      receiveModal.items.forEach(i => {
+                        next[i.name] = true
+                        const override = orderQtyOverrides[i.name]
+                        const ordered = override !== undefined ? override : (i.orderQty || 0)
+                        qtys[i.name] = Math.max(0, Math.floor(ordered * 0.5))
+                      })
+                      setReceiveChecked(next); setReceiveQtys(qtys)
+                    }} style={{ padding:'2px 8px', background:'#fffbeb', border:'1px solid #fde68a', borderRadius:4, fontSize:10, fontWeight:700, color:'#d97706', cursor:'pointer' }}>
+                      ½ All Partial
+                    </button>
+                  </div>
                   <span style={{ marginLeft: 'auto', fontSize: 11, color: '#94a3b8' }}>
                     {Object.values(receiveChecked).filter(Boolean).length} of {receiveModal.items.length} selected
                   </span>
@@ -3656,6 +3682,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onViewOrder={(supplier, items) => setViewOrderModal({ supplier, items })}
             onReceive={(supplier, supplierItems, ref) => openReceiveModal(supplier, supplierItems, ref)}
             onPrintDelivery={(supplier, supplierItems, ref) => printDeliverySheet(supplier, supplierItems, ref)}
+            lastOrderSummary={lastOrderSummary}
           />
         )}
         {mainTab === 'wastage' && <WastageView items={items} log={wastageLog} readOnly={readOnly} onRefresh={loadWastageLog} />}
@@ -4037,8 +4064,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <thead>
                                 <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
                                   <th style={{ padding:'5px 8px', width:32 }}></th>
-                                  {['Invoice Description','Hub Name','Qty','Units/Pack','Invoice Price','Per Unit ex GST'].map(h => (
-                                    <th key={h} style={{ padding:'5px 8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11 }}>{h}</th>
+                                  {['Invoice Description','Hub Name','Match','Qty','Units/Pack','Invoice Price','Per Unit ex GST'].map(h => (
+                                    <th key={h} style={{ padding:'5px 8px', textAlign: h==='Match'?'center':'left', fontWeight:700, color:'#374151', fontSize:11 }}>{h}</th>
                                   ))}
                                 </tr>
                               </thead>
@@ -4057,7 +4084,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                       <td style={{ padding:'4px 8px' }}>
                                         <input value={item.item_name_hub}
                                           onChange={e => setPhExtracted(prev => ({ ...prev, invoices: prev.invoices.map((inv2,ii) => ii!==invIdx ? inv2 : { ...inv2, items: inv2.items.map((it,j) => j===i ? {...it, item_name_hub: e.target.value} : it) }) }))}
-                                          style={{ width:'100%', minWidth:160, padding:'2px 5px', border:'1px solid #cbd5e1', borderRadius:4, fontSize:11 }} />
+                                          style={{ width:'100%', minWidth:160, padding:'2px 5px', border: items.some(it => it.name === item.item_name_hub) ? '1px solid #86efac' : '1px solid #fca5a5', borderRadius:4, fontSize:11, background: items.some(it => it.name === item.item_name_hub) ? '#f0fdf4' : '#fef2f2' }} />
+                                      </td>
+                                      <td style={{ padding:'4px 8px', textAlign:'center' }}>
+                                        {items.some(it => it.name === item.item_name_hub)
+                                          ? <span title="Matched to Hub item" style={{ color:'#16a34a', fontSize:14 }}>✓</span>
+                                          : <span title="No Hub item match — check Hub Name" style={{ color:'#dc2626', fontSize:14 }}>✗</span>}
                                       </td>
                                       <td style={{ padding:'4px 8px', textAlign:'center' }}>{item.invoice_qty}</td>
                                       <td style={{ padding:'4px 8px', textAlign:'center' }}>

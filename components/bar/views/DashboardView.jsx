@@ -1,7 +1,7 @@
 // DashboardView.jsx — extracted from pages/index.js
 import React from 'react'
 
-export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp, readOnly, poReceiving, onViewOrder, onReceive, onPrintDelivery }) {
+export default function DashboardView({ items, lastUpdated, onNav, onStartOrder, orderedItems = {}, rundownItems = {}, fromCache = false, orderCount: orderCountProp, critCount: critCountProp, onOrderCount: onOrderCountProp, readOnly, poReceiving, onViewOrder, onReceive, onPrintDelivery, lastOrderSummary }) {
   const onOrderCount = onOrderCountProp ?? Object.keys(orderedItems).length
   const dontOrderRe  = /do\s*n'?t\s+order|do\s+not\s+order|do\s+not\s+restock|do\s*n'?t\s+restock/i
   const isRundown    = item => !!rundownItems[item.name]
@@ -34,6 +34,8 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
     }},
     { label: 'Refreshed', value: refreshedAgo, sub: fromCache ? '📦 cached data' : '✅ live from Square', color: fromCache ? '#d97706' : '#475569', bg: fromCache ? '#fffbeb' : '#f8fafc', action: null },
   ]
+
+  const fmtD = iso => iso ? new Date(iso + 'T00:00:00').toLocaleDateString('en-AU', { day: '2-digit', month: 'short' }) : '—'
 
   const alertItems = items
     .filter(i => (i.priority === 'CRITICAL' || i.priority === 'LOW') && !isRundown(i) && !dontOrderRe.test(i.notes || ''))
@@ -117,6 +119,23 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
               </div>
             ))}
           </div>
+
+          {/* Last Order Summary */}
+          {lastOrderSummary && (
+            <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 16px', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap' }}>
+              <div style={{ fontSize: 9, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.08em', flexShrink: 0 }}>Last Delivery</div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, flexWrap: 'wrap' }}>
+                <span style={{ fontWeight: 700, fontSize: 13, color: '#0f172a' }}>{lastOrderSummary.supplier}</span>
+                <span style={{ fontFamily: 'monospace', fontSize: 11, color: '#64748b', background: '#f1f5f9', padding: '1px 6px', borderRadius: 4 }}>{lastOrderSummary.po_ref}</span>
+                <span style={{ fontSize: 12, color: '#64748b' }}>{lastOrderSummary.item_count} items</span>
+                <span style={{ fontSize: 12, color: '#94a3b8' }}>Received {fmtD(lastOrderSummary.receive_date)}</span>
+              </div>
+              <button onClick={() => onNav('documents')}
+                style={{ fontSize: 11, color: '#0ea5e9', background: 'none', border: '1px solid #bae6fd', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', fontWeight: 600, flexShrink: 0 }}>
+                View Documents →
+              </button>
+            </div>
+          )}
 
           {/* Stock Alerts */}
           {alertItems.length === 0
