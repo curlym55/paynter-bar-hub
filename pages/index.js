@@ -267,6 +267,18 @@ export default function Home() {
     }).catch(() => {})
   }, [])
 
+  async function loadLastOrderSummary() {
+    try {
+      const r = await fetch('/api/documents/list')
+      const d = await r.json()
+      const docs = (d.documents || []).filter(doc => doc.status === 'received' && doc.receive_date)
+      if (docs.length) {
+        const last = docs.sort((a, b) => new Date(b.receive_date) - new Date(a.receive_date))[0]
+        setLastOrderSummary(last)
+      }
+    } catch {}
+  }
+
   async function loadSalesReport(period, custom) {
     setSalesLoading(true)
     setSalesError(null)
