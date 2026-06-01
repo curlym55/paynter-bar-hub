@@ -106,7 +106,7 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
                 </table>
                 <div style={{ padding: '8px 12px', borderTop: '1px solid #e2e8f0' }}>
                   <button onClick={() => onNav('reorder')} style={{ padding: '6px 14px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
-                    📦 Open Reorder Planner
+                    📦 Open Stock Items
                   </button>
                 </div>
               </div>

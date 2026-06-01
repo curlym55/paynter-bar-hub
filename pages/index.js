@@ -2293,7 +2293,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     { icon: '❓', label: 'Help & Guide',     tab: 'help',         topLevel: true, action: () => setMainTab(t => t==='help'?'reorder':'help') },
     { divider: true, section: null },
     { icon: '🏠', label: 'Dashboard',        tab: 'home',         topLevel: true, action: () => { setMainTab('home'); setMenuOpen(false) } },
-    { icon: '📦', label: 'Reorder & Orders', tab: 'reorder',      topLevel: true, action: () => setMainTab('reorder') },
+    { icon: '📦', label: 'Stock Items', tab: 'reorder',      topLevel: true, action: () => setMainTab('reorder') },
     { icon: '🗑️', label: 'Wastage Log',      tab: 'wastage',      topLevel: true, action: () => { const n=mainTab==='wastage'?'reorder':'wastage'; setMainTab(n); if(n==='wastage') loadWastageLog() } },
     { divider: true, section: 'Stock' },
     { icon: '📋', label: 'Stocktake',        tab: 'stocktake',    action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
@@ -2466,7 +2466,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <div>
                 {readOnly && <span style={{ fontSize: 10, background: '#fef9c3', color: '#854d0e', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 7px', fontWeight: 700, letterSpacing: '0.05em', marginRight: 8 }}>READ ONLY</span>}
                 <h1 style={{ fontSize: 18, fontWeight: 700, margin: 0, color: '#ffffff', letterSpacing: '-0.01em' }}>
-                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'pricing' ? '💲 Pricing' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Reorder Planner'}
+                  {mainTab === 'sales' ? '📊 Sales Report' : mainTab === 'help' ? '❓ Help & Guide' : mainTab === 'pricelist' ? '🏷️ Price List' : mainTab === 'pricing' ? '💲 Pricing' : mainTab === 'home' ? '🏠 Dashboard' : mainTab === 'stocktake' ? '📋 Stocktake' : mainTab === 'wastage' ? '🗑️ Wastage Log' : mainTab === 'notes' ? '📝 Notes' : mainTab === 'specials' ? '⭐ Specials Display' : mainTab === 'documents' ? '📁 PO Documents' : mainTab === 'settings' ? '⚙️ Settings' : mainTab === 'pricehistory' ? '📄 Price History' :'📦 Stock Items'}
                 </h1>
               </div>
             </div>
@@ -4994,7 +4994,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:24, marginBottom:16 }}>
                   <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>$ Markup & Sell Price Analysis</div>
                   <div style={{ fontSize:12, color:'#64748b', marginBottom:20 }}>
-                    Full pricing analysis with buy prices, markup %, sell prices and margin. Opens in the Reorder Planner pricing view.
+                    Full pricing analysis with buy prices, markup %, sell prices and margin. Opens in the Stock Items pricing view.
                   </div>
                   <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
                     <button onClick={() => { setMainTab('reorder'); setViewMode('pricing') }}

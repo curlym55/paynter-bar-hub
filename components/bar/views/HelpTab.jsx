@@ -8,7 +8,7 @@ export default function HelpTab() {
       title: 'Getting Started',
       items: [
         { q: 'Logging in', a: 'Enter your PIN on the login screen. The BMT PIN gives full access. The read-only PIN gives view-only access. Your session stays active until you close the browser tab.' },
-        { q: 'Navigation', a: 'The sidebar organises features into groups — Stock, Analytics, Manage and Records. Dashboard, Reorder & Orders and Wastage Log are pinned at the top. Click any item to navigate directly.' },
+        { q: 'Navigation', a: 'The sidebar organises features into groups — Stock, Analytics, Manage and Records. Dashboard, Stock Items and Wastage Log are pinned at the top. Click any item to navigate directly.' },
         { q: 'Sales period', a: 'The 30d / 60d / 90d buttons set how many days of Square sales history are used to calculate weekly averages and order quantities. 90 days is the most stable; 30 days is more responsive to recent changes.' },
         { q: 'Refreshing data', a: 'Click Refresh from Square in the top-right header to pull the latest stock levels, prices and sales data from Square POS.' },
       ]
@@ -18,21 +18,21 @@ export default function HelpTab() {
       title: 'Dashboard',
       items: [
         { q: 'Home screen', a: 'The Dashboard shows live stock status — Critical items, Low Stock count, items to order, items on order, and when Square data was last refreshed.' },
-        { q: 'Status cards', a: 'The Critical, Low Stock and To Order cards are clickable — tap any of them to jump straight to the Reorder Planner filtered to those items.' },
+        { q: 'Status cards', a: 'The Critical, Low Stock and To Order cards are clickable — tap any of them to jump straight to Stock Items filtered to those items.' },
         { q: 'Feature tiles', a: 'All major app features are accessible as clickable tiles from the Dashboard.' },
       ]
     },
     {
       icon: '📦',
-      title: 'Reorder Planner',
+      title: 'Stock Items',
       items: [
         { q: 'Reading the table', a: 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.' },
         { q: 'Order Qty vs Bottles', a: 'For spirits and fortified wines, Order Qty shows nips needed and Bottles shows full bottles to buy (rounded up). For all other items, Order Qty shows units to order.' },
         { q: 'Target Weeks', a: 'The default target weeks is set in ⚙️ Settings. You can override it per item using the Target Wks column in Show Details mode. Default is 6 weeks.' },
         { q: 'Filtering to order items', a: 'Tick "Order items only" in the controls bar to hide items that don\'t need ordering — useful when preparing orders.' },
         { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. When a supplier is selected, 📋 Order Sheet and ✓ Mark as Ordered buttons appear in the toolbar.' },
-        { q: 'Order Sheet', a: 'Select a supplier tab then click 📋 Order Sheet to open a formatted printable order list for that supplier. Use the Print this sheet button on the page.' },
-        { q: 'Mark as Ordered', a: 'Select a supplier tab then click ✓ Mark as Ordered to record that an order has been placed. Enter a PO reference number — this links the order to its receive report and invoice in Documents.' },
+        { q: 'Order Sheet', a: 'Select a supplier tab then click 🖨️ Order Sheet to open a formatted printable order list for that supplier.' },
+        { q: 'Starting an order', a: 'Click 📋 Start Order in the Stock Items toolbar (select a supplier tab first) or click 📋 Start Weekly Order on the Dashboard. The order wizard guides you through reviewing quantities, adjusting for availability, and recording the PO reference.' },
         { q: 'Receiving an order', a: 'When stock arrives, click the Receive banner that appears for the pending order. Enter the quantities received and optionally attach the supplier invoice PDF. Square inventory updates automatically on confirm.' },
         { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all BMT members.' },
         { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average markup in the pricing export.' },
@@ -58,7 +58,7 @@ export default function HelpTab() {
         { q: 'Average Prices tab', a: 'Shows the weighted average buy price per item calculated from your actual supplier invoices over the last 90 days. Compare against the current Hub buy price — red means the Hub price is higher than you\'re actually paying.' },
         { q: 'Loading the report', a: 'Click 📊 Load Report to fetch the data, or click one of the supplier buttons (Dan Murphy\'s, Coles Woolies, ACW) to open a detailed price review modal for that supplier.' },
         { q: 'Updating buy prices', a: 'Click ↑ Update next to any item to set the Hub buy price to the 90-day average. Click ↑ Update All Buy Prices to update all matched items at once. This is the recommended way to keep buy prices accurate.' },
-        { q: 'Markup / Sell Prices tab', a: 'Click $ Open Pricing View to open the Reorder Planner in Pricing mode, which reveals Buy Price, Sell Price and Markup % columns for all items. Also has Print and Excel export buttons.' },
+        { q: 'Markup / Sell Prices tab', a: 'Click $ Open Pricing View to open Stock Items in Pricing mode, which reveals Buy Price, Sell Price and Markup % columns for all items. Also has Print and Excel export buttons.' },
         { q: 'Markup calculation', a: 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. Requires both buy and sell price to be set.' },
         { q: 'Sell prices from Square', a: 'Sell prices are pulled directly from your Square catalogue. All price changes must be made in Square — the Hub always reflects current Square prices.' },
         { q: 'Buy prices', a: 'Click the Buy Price cell for any item in Pricing view and type the cost price (inc GST). Saved to the cloud and shared across all management sessions.' },
@@ -132,7 +132,7 @@ export default function HelpTab() {
       title: 'Price List',
       items: [
         { q: 'Opening', a: 'Click 🏷️ Price List under Manage. Shows a formatted customer-facing price list drawn from your Square catalogue.' },
-        { q: 'Visibility', a: 'Individual items can be hidden from the public price list by toggling visibility in the Price List view. Hidden items still appear in the Reorder Planner.' },
+        { q: 'Visibility', a: 'Individual items can be hidden from the public price list by toggling visibility in the Price List view. Hidden items still appear in Stock Items.' },
         { q: 'Printing', a: 'Click 🖨️ Print to open a formatted A4 price list suitable for posting at the bar.' },
       ]
     },
@@ -159,7 +159,7 @@ export default function HelpTab() {
       title: 'Settings & Administration',
       items: [
         { q: 'Settings panel', a: 'Click ⚙️ Settings in the sidebar (BMT access only). Manage suppliers, Square vendor name mappings, default target weeks, revenue target, and app PIN management.' },
-        { q: 'Suppliers', a: 'Add or remove suppliers in the Settings panel. Assign items to suppliers by clicking the Supplier column inline in the Reorder Planner.' },
+        { q: 'Suppliers', a: 'Add or remove suppliers in the Settings panel. Assign items to suppliers by clicking the Supplier column inline in Stock Items.' },
         { q: 'Square vendor names', a: 'Map each Hub supplier name to its Square vendor name — used to match invoices in Price History and filter Square reports.' },
         { q: 'Recent Changes audit', a: 'The Settings panel shows the last 30 setting changes — item name, field changed, old value, new value and date. Useful for tracking who changed what.' },
         { q: 'Shared settings', a: 'All settings (categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks) are saved to the cloud and shared instantly across all management sessions.' },
