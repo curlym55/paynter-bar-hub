@@ -27,10 +27,11 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
       const entries = Object.entries(orderedItems).filter(([, info]) => (info.orderQty || 0) > 0)
       if (!entries.length) { onNav('reorder'); return }
       const firstSupplier = entries[0][1].supplier
+      const firstRef = entries[0][1].ref || ''
       const supplierItems = entries
         .filter(([, info]) => info.supplier === firstSupplier)
         .map(([name, info]) => ({ name, ...info }))
-      onViewOrder(firstSupplier, supplierItems)
+      onViewOrder(firstSupplier, supplierItems, firstRef)
     }},
     { label: 'Refreshed', value: refreshedAgo, sub: fromCache ? '📦 cached data' : '✅ live from Square', color: fromCache ? '#d97706' : '#475569', bg: fromCache ? '#fffbeb' : '#f8fafc', action: null },
   ]
@@ -82,7 +83,7 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
                       <span style={{ fontSize: 11, fontFamily: 'monospace', background: '#dcfce7', color: '#166534', padding: '2px 8px', borderRadius: 4, fontWeight: 700 }}>{ref}</span>
                     )}
                     <div style={{ display: 'flex', gap: 6, marginLeft: 4 }}>
-                      <button onClick={() => onViewOrder(supplier, supplierItems)}
+                      <button onClick={() => onViewOrder(supplier, supplierItems, ref)}
                         style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '4px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
                         View
                       </button>

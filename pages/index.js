@@ -2484,7 +2484,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 const supplierItems = entries
                   .filter(([, info]) => info.supplier === firstSupplier)
                   .map(([name, info]) => ({ name, ...info }))
-                setViewOrderModal({ supplier: firstSupplier, items: supplierItems })
+                const firstRef = entries[0][1].ref || ''
+                setViewOrderModal({ supplier: firstSupplier, items: supplierItems, ref: firstRef })
               }}>
               <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
               <span style={styles.statLabel}>On Order</span>
@@ -3691,7 +3692,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             }}
             readOnly={readOnly}
             poReceiving={poReceiving}
-            onViewOrder={(supplier, items) => setViewOrderModal({ supplier, items })}
+            onViewOrder={(supplier, items, ref) => setViewOrderModal({ supplier, items, ref: ref || '' })}
             onReceive={(supplier, supplierItems, ref) => openReceiveModal(supplier, supplierItems, ref)}
             onPrintDelivery={(supplier, supplierItems, ref) => printDeliverySheet(supplier, supplierItems, ref)}
             lastOrderSummary={lastOrderSummary}
@@ -5132,7 +5133,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button onClick={() => setViewOrderModal(null)}
                   style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
                 {!readOnly && (
-                  <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items); setViewOrderModal(null) }}
+                  <button onClick={() => { openReceiveModal(viewOrderModal.supplier, viewOrderModal.items, viewOrderModal.ref); setViewOrderModal(null) }}
                     style={{ padding: '8px 20px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 7, fontWeight: 700, cursor: 'pointer' }}>Receive This Order</button>
                 )}
               </div>
