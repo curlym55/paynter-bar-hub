@@ -10,6 +10,12 @@ export default async function handler(req, res) {
   const { filename, base64, mimeType, supplier } = req.body
   if (!filename || !base64) return res.status(400).json({ error: 'filename and base64 required' })
 
+  // Reject files over 8MB (base64 is ~33% larger than binary)
+  const estimatedBytes = Math.ceil(base64.length * 0.75)
+  if (estimatedBytes > 8 * 1024 * 1024) {
+    return res.status(413).json({ error: `File too large (${(estimatedBytes / 1024 / 1024).toFixed(1)}MB). Maximum is 8MB.` })
+  }
+
   try {
     const token = await getAccessToken()
     const buffer = Buffer.from(base64, 'base64')

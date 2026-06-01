@@ -137,6 +137,13 @@ export default async function handler(req, res) {
           newValue: value
         }
       }
+      // Trim audit log to last 200 entries by timestamp
+      const auditEntries = Object.entries(audit)
+      if (auditEntries.length > 200) {
+        const trimmed = auditEntries.sort((a, b) => new Date(b[1].ts) - new Date(a[1].ts)).slice(0, 200)
+        Object.keys(audit).forEach(k => delete audit[k])
+        trimmed.forEach(([k, v]) => { audit[k] = v })
+      }
       await set('settingsAudit', audit)
 
       await set('itemSettings', allSettings)

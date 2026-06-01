@@ -122,7 +122,7 @@ export default function Home() {
   const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
   const [addingSupplier, setAddingSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
-  const [daysBack, setDaysBack]         = useState(60)
+  const [daysBack, setDaysBack]         = useState(90)
   const [viewMode, setViewMode]         = useState('reorder')
   const [mainTab, setMainTab]           = useState('home')
   const [orderQtyOverrides, setOrderQtyOverrides] = useState({}) // { itemName: qty } — session only

@@ -5,7 +5,7 @@ export default async function handler(req, res) {
 
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-  const { data, error } = await sb.from('bar_documents').select('*').order('created_at', { ascending: false })
+  const { data, error } = await sb.from('bar_documents').select('*').order('created_at', { ascending: false }).limit(100)
   if (error) return res.status(500).json({ error: error.message })
 
   // Generate 1-hour signed download URLs for Supabase Storage files
