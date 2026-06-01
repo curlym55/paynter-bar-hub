@@ -1971,7 +1971,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Buy ($/btl·unit)',  key: 'buy',        width: 16 },
       { header: 'Sell (glass/unit)', key: 'sellGlass',  width: 14 },
       { header: 'Sell (bottle)',     key: 'sellBottle', width: 12 },
-      { header: 'Markup % (glass)',  key: 'markup',     width: 13 },
+      { header: 'Markup % (glass/unit)', key: 'markup', width: 15 },
       { header: 'Markup % (btl)',   key: 'markupBtl',  width: 13 },
       { header: 'Sugg Sell (glass)', key: 'suggSell',   width: 13 },
       { header: 'Sugg Sell (btl)',  key: 'suggBtl',    width: 13 },
