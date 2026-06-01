@@ -41,7 +41,7 @@ export default function Home() {
   const [lastUpdated, setLastUpdated]   = useState(null)
   const [targetWeeks, setTargetWeeks]   = useState(6)
   const [view, setView]                 = useState('all')
-  const [filterOrder, setFilterOrder]   = useState(true)
+  const [filterOrder, setFilterOrder]   = useState(false)
   const [showDetails, setShowDetails]   = useState(false)
 
   const [saving, setSaving]             = useState({})
@@ -127,8 +127,6 @@ export default function Home() {
   const [poReceiving, setPoReceiving]         = useState(null)
   const [receiveModal, setReceiveModal]       = useState(null) // { supplier, items: [{name,...}] }
   const [invoiceFile, setInvoiceFile]         = useState(null) // { name, base64, mimeType }
-  const [refModal, setRefModal]               = useState(null) // { supplier } — order ref prompt
-  const [refInput, setRefInput]               = useState('')
   const [receiveChecked, setReceiveChecked]   = useState({})   // { itemName: bool }
   const [receiveQtys, setReceiveQtys]         = useState({})   // { itemName: number } actual received qty
   const [squareReceiveResult, setSquareReceiveResult] = useState(null) // { ok, changes, error }
@@ -590,79 +588,7 @@ export default function Home() {
     reader.readAsText(file)
   }
 
-  async function openRefModalWithNumber(supplier) {
-    // Warn if supplier already has items on order
-    const existingCount = Object.values(orderedItems).filter(i => i.supplier === supplier).length
-    if (existingCount > 0) {
-      const ok = window.confirm(
-        `${supplier} already has ${existingCount} item${existingCount !== 1 ? 's' : ''} on order awaiting receipt.\n\nCreating a new order will add to the existing order. Continue?`
-      )
-      if (!ok) return
-    }
-    try {
-      const r = await fetch('/api/purchase-order?action=previewNumber')
-      const d = await r.json()
-      const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
-      const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g,'').slice(0,4).toUpperCase()
-      const brisDate = new Intl.DateTimeFormat('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'2-digit', year:'numeric' }).format(new Date()).replace(/\//g,' ')
-      setRefInput(`${abbr}-PO-${d.num}-${brisDate}`)
-    } catch(e) {
-      const ABBR = { 'Dan Murphy': 'DAN', 'Coles Woolies': 'COLE', 'ACW': 'ACW' }
-      const abbr = ABBR[supplier] || supplier.replace(/[^a-zA-Z]/g,'').slice(0,4).toUpperCase()
-      setRefInput(`${abbr}-PO-???`)
-    }
-    setRefModal({ supplier })
-  }
 
-
-  async function markAsOrdered(supplier, ref) {
-    const poItems = items.filter(i =>
-      i.supplier === supplier &&
-      (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
-      !dontOrder(i)
-    ).map(i => ({
-      name: i.name,
-      sku: i.sku || '',
-      orderQty: orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : (i.isSpirit ? i.nipsToOrder : i.orderQty),
-      bottlesToOrder: i.bottlesToOrder || null,
-      isSpirit: i.isSpirit || false,
-      hasOverride: orderQtyOverrides[i.name] !== undefined,  // explicitly re-ordered
-    }))
-    if (!poItems.length) { alert('No items to order for ' + supplier); return }
-    const r = await fetch('/api/purchase-order', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ action: 'place', supplier, ref: ref || '', items: poItems })
-    })
-    const d = await r.json()
-    if (d.ok) {
-      // Create document record for this PO
-      const poDocRef = d.ref || ref
-      const poOrderDate = new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'})
-      fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier, order_date: poOrderDate, item_count: poItems.length }) }).catch(()=>null)
-      // Save PO Excel to OneDrive, then update document record with URL
-      fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ po_ref: poDocRef, supplier, order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
-          items: poItems.map(i => ({ name: i.name, sku: i.sku||'', orderQty: i.orderQty, bottlesToOrder: i.bottlesToOrder||null, isSpirit: i.isSpirit||false })) }) })
-        .then(r => r.json()).then(d => {
-          if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: d.webUrl }) })
-        }).catch(()=>null)
-      setOrderedItems(d.ordered)
-      setPrinting(null)
-    }
-  }
-
-  async function resavePO(supplier, ordered) {
-    const updatedItems = Object.entries(ordered)
-      .filter(([, info]) => info.supplier === supplier)
-      .map(([name, info]) => ({ name, sku: info.sku||'', orderQty: info.orderQty, bottlesToOrder: info.bottlesToOrder||null, isSpirit: info.isSpirit||false }))
-    if (!updatedItems.length) return
-    const sampleInfo = Object.values(ordered).find(i => i.supplier === supplier)
-    const poRef = sampleInfo?.ref || supplier
-    const orderDate = sampleInfo?.date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
-    fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
       .then(r => r.json()).then(d => {
         if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
@@ -2857,7 +2783,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               return
                             }
                             setOrderedItems(d.ordered)
-                            // Create document record + save PO to OneDrive (same as markAsOrdered)
+                            // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
                             fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
@@ -3225,29 +3151,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           </div>
         )}
         {/* Order Ref Prompt Modal */}
-        {refModal && (
-          <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.45)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-            <div style={{ background:'#fff', borderRadius:10, padding:24, width:'100%', maxWidth:360, boxShadow:'0 16px 48px rgba(0,0,0,0.25)' }}>
-              <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>Order Reference — {refModal.supplier}</div>
-              <p style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>Auto-generated from today's date. Edit if you have a supplier order number.</p>
-              <input
-                value={refInput}
-                onChange={e => setRefInput(e.target.value)}
-                style={{ width:'100%', padding:'9px 12px', fontSize:15, fontWeight:700, fontFamily:'monospace', border:'2px solid #86efac', borderRadius:7, outline:'none', boxSizing:'border-box', letterSpacing:'0.05em' }}
-                autoFocus
-                onKeyDown={e => { if (e.key === 'Enter') { markAsOrdered(refModal.supplier, refInput); setRefModal(null) } if (e.key === 'Escape') setRefModal(null) }}
-              />
-              <div style={{ display:'flex', gap:8, marginTop:14 }}>
-                <button onClick={() => setRefModal(null)}
-                  style={{ flex:1, padding:'9px 0', background:'#f1f5f9', color:'#475569', border:'none', borderRadius:6, fontSize:13, cursor:'pointer' }}>Cancel</button>
-                <button onClick={() => { markAsOrdered(refModal.supplier, refInput); setRefModal(null) }}
-                  style={{ flex:2, padding:'9px 0', background:'#16a34a', color:'#fff', border:'none', borderRadius:6, fontSize:13, fontWeight:700, cursor:'pointer' }}>
-                  ✓ Mark as Ordered
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {error && items.length === 0 && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
         {error && items.length > 0 && (
@@ -3319,38 +3222,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
                   onClick={() => setViewMode(v => v === 'pricing' ? 'reorder' : 'pricing')}>$ Pricing</button>
-                {view !== 'all' && !readOnly && (
-                  <>
-                    <button onClick={() => {
-                      // Launch wizard pre-loaded for this supplier
-                      const q = {}
-                      for (const i of items) {
-                        if (rundownItems[i.name]) continue
-                        if (i.supplier !== view) continue
-                        q[i.name] = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : (i.isSpirit ? (i.nipsToOrder || i.orderQty) : i.orderQty)
-                      }
-                      setWizQtys(q)
-                      setOrderWizard({ step: 1, supplier: view, poRef: '', saving: false })
-                    }}
-                      style={{ ...styles.tab, color: '#fff', borderColor: '#1e3a5f', background: '#1e3a5f', fontWeight: 700 }}>
-                      📋 Start Order
-                    </button>
-                    <button onClick={() => printOrderSheet(view)}
-                      style={{ ...styles.tab, color: '#374151', borderColor: '#374151', background: '#f8fafc', fontWeight: 700 }}>
-                      🖨️ Order Sheet
-                    </button>
-                    <button onClick={() => openRefModalWithNumber(view)}
-                      style={{ ...styles.tab, color: '#64748b', borderColor: '#cbd5e1', background: '#f8fafc', fontWeight: 500, fontSize: 11 }}>
-                      ✓ Mark as Ordered
-                    </button>
-                  </>
-                )}
+
               </div>
               <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                <label style={styles.filterCheck}>
-                  <input type="checkbox" checked={filterOrder} onChange={e => setFilterOrder(e.target.checked)} style={{ marginRight: 6 }} />
-                  Order items only
-                </label>
+
                 {(() => {
                   const missingBuy = items.filter(i => i.buyPrice == null).length
                   return missingBuy > 0 ? (
@@ -3408,12 +3283,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           📋 Delivery List
                         </button>
                       )}
-                      {!readOnly && (
-                        <button onClick={() => openRefModalWithNumber(supplier)}
-                          style={{ fontSize: 11, background: 'none', border: '1px solid #86efac', borderRadius: 5, padding: '2px 10px', color: '#16a34a', fontWeight: 600, cursor: 'pointer' }}>
-                          ✓ Mark Ordered
-                        </button>
-                      )}
+
                       {!readOnly && (
                         <button onClick={() => openReceiveModal(supplier, supplierItems, ref)}
                           disabled={poReceiving === refKey}
@@ -3512,33 +3382,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 </div>
               </div>
             )}
-            {viewMode !== 'pricing' && (
-              <div style={{ display: 'flex', gap: 8, marginBottom: 14, padding: '12px 16px', background: 'linear-gradient(135deg, #eff6ff, #f0fdf4)', border: '1px solid #bfdbfe', borderRadius: 10 }}>
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>📋</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 1 — Review</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Check suggested quantities. Adjust Order Qty if needed. Select a supplier tab to focus on one supplier.</div>
-                </div>
-                <div style={{ width: 1, background: '#bfdbfe' }} />
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>🛒</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 2 — Order</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Click 📋 Start Order in the toolbar to launch the order wizard — review quantities, place the order and record the PO reference in one flow.</div>
-                </div>
-                <div style={{ width: 1, background: '#bfdbfe' }} />
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>📦</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 3 — Receive</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>When delivery arrives, click Receive on the order banner. Enter quantities and attach the supplier invoice.</div>
-                </div>
-                <div style={{ width: 1, background: '#bfdbfe' }} />
-                <div style={{ flex: 1, textAlign: 'center' }}>
-                  <div style={{ fontSize: 18, marginBottom: 4 }}>✅</div>
-                  <div style={{ fontSize: 12, fontWeight: 700, color: '#1e3a5f' }}>Step 4 — Done</div>
-                  <div style={{ fontSize: 11, color: '#475569', marginTop: 2 }}>Square inventory updates automatically. Receipt and invoice saved to Documents and OneDrive. Invoice prices extracted to Price History. Click 📧 Email Treasurer in Documents to notify the Treasurer.</div>
-                </div>
-              </div>
-            )}
+
             <div style={styles.tableWrap}>
               <table style={styles.table}>
                 <thead>
@@ -3569,7 +3413,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <tbody>
                   {displayed.length === 0 && (
                     <tr><td colSpan={viewMode === 'pricing' ? 18 : 13} style={{ textAlign: 'center', padding: '48px 24px', color: '#64748b' }}>
-                      {filterOrder ? 'No items to order this week.' : 'No items found.'}
+                      'No items found.'
                     </td></tr>
                   )}
                   {displayed.map((item, idx) => {
