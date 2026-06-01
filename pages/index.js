@@ -53,6 +53,7 @@ export default function Home() {
   const [docEmailSent,        setDocEmailSent]        = useState({})
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsSubTab, setSettingsSubTab] = useState('suppliers')
+  const [oneDriveStatus, setOneDriveStatus] = useState(null) // null=unchecked, {ok,name,email,error}
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
@@ -4034,6 +4035,54 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {/* ── APP ACCESS ─────────────────────────────────────────── */}
             {settingsSubTab === 'access' && (
               <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
+                {/* OneDrive Connection Status */}
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>OneDrive Connection</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ display:'flex', alignItems:'center', gap:12, flexWrap:'wrap' }}>
+                      {oneDriveStatus === null && (
+                        <span style={{ fontSize:13, color:'#64748b' }}>Not checked yet</span>
+                      )}
+                      {oneDriveStatus?.ok === true && (
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontSize:18 }}>✅</span>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#16a34a' }}>Connected</div>
+                            {oneDriveStatus.email && <div style={{ fontSize:11, color:'#64748b' }}>{oneDriveStatus.email}</div>}
+                          </div>
+                        </div>
+                      )}
+                      {oneDriveStatus?.ok === false && (
+                        <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                          <span style={{ fontSize:18 }}>❌</span>
+                          <div>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#dc2626' }}>Not connected</div>
+                            <div style={{ fontSize:11, color:'#64748b' }}>{oneDriveStatus.error || 'Token expired or missing'}</div>
+                          </div>
+                        </div>
+                      )}
+                      <div style={{ display:'flex', gap:8, marginLeft:'auto' }}>
+                        <button onClick={async () => {
+                          setOneDriveStatus(null)
+                          const r = await fetch('/api/onedrive/status').catch(() => null)
+                          const d = r ? await r.json().catch(() => ({ ok: false, error: 'Request failed' })) : { ok: false, error: 'Request failed' }
+                          setOneDriveStatus(d)
+                        }} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                          🔍 Check Status
+                        </button>
+                        <a href="/api/onedrive/auth" target="_blank" rel="noreferrer"
+                          style={{ padding:'6px 14px', background:'#1e3a5f', color:'#fff', borderRadius:6, fontSize:12, fontWeight:700, textDecoration:'none', display:'inline-flex', alignItems:'center' }}>
+                          🔗 Reconnect OneDrive
+                        </a>
+                      </div>
+                    </div>
+                    {oneDriveStatus?.ok === false && (
+                      <div style={{ marginTop:10, padding:'8px 12px', background:'#fef2f2', border:'1px solid #fca5a5', borderRadius:6, fontSize:12, color:'#dc2626' }}>
+                        Click <strong>Reconnect OneDrive</strong> and sign in with <strong>paynterbar@gemwoods.com.au</strong> to restore OneDrive saves and email attachments.
+                      </div>
+                    )}
+                  </div>
+                </div>
                 <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
                   <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>App PIN Management</div>
                   <div style={{ padding:16 }}>
@@ -5052,6 +5101,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <div style={{ fontSize: 12, fontWeight: 600, color: doc.receive_date ? '#374151' : '#cbd5e1' }}>{fmtD(doc.receive_date) || '—'}</div>
                             </div>
                           </div>
+                          {/* OneDrive warning — invoice saved to Supabase but not OneDrive */}
+                          {doc.invoice_url && !doc.invoice_onedrive_url && (
+                            <div style={{ fontSize:10, color:'#d97706', fontWeight:600, background:'#fffbeb', border:'1px solid #fde68a', borderRadius:4, padding:'3px 8px', marginBottom:6 }}>
+                              ⚠️ Invoice not on OneDrive — email attachment may fail
+                            </div>
+                          )}
                           {/* Document links — show all available links */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: '1 1 200px' }}>
                             {/* PO */}
@@ -5092,13 +5147,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'invoice', po_ref:poRef, supplier:doc.supplier, file_base64:base64, file_name:invName, file_mime:file.type }) }).catch(()=>null)
                                         const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier:doc.supplier }) }).catch(()=>null)
                                         const odData = odRes ? await odRes.json().catch(()=>({})) : {}
-                                        if (odData.webUrl) await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
+                                        if (odData.webUrl) {
+                                          await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
+                                        }
                                         if (file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')) {
                                           const dateStr = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
                                           fetch('/api/invoices/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdf_base64:base64})})
                                             .then(r=>r.ok?r.json():null).then(d=>{if(!d?.items?.length)return;fetch('/api/invoices/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({supplier:doc.supplier,invoice_ref:d.invoice_ref||poRef,invoice_date:d.invoice_date||dateStr,gst_included:d.gst_included??true,items:d.items.map(i=>({...i,include:true,item_name_hub:i.item_name_raw}))})}).catch(()=>null)}).catch(()=>null)
                                         }
-                                        loadDocuments()
+                                        // loadDocuments AFTER all saves complete so OneDrive URL is reflected
+                                        await loadDocuments()
                                       } finally { setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false })) }
                                     }} />
                                   <span style={{ fontSize: 11, color: '#3b82f6', fontWeight: 600, textDecoration: 'underline', cursor: 'pointer' }}>📎 Upload Invoice</span>
