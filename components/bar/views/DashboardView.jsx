@@ -23,12 +23,12 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
     { label: 'Low Stock', value: lowCount,     sub: 'running low',       color: '#d97706', bg: '#fffbeb', action: () => onNav('reorder') },
     { label: 'To Order',  value: orderCount,   sub: 'need ordering',     color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
     { label: 'On Order',  value: onOrderCount, sub: 'click to view orders', color: '#16a34a', bg: '#f0fdf4', action: () => {
-      // Open the first pending order in the view modal
-      const entry = Object.entries(orderedItems).find(([, info]) => (info.orderQty || 0) > 0)
-      if (!entry) return
-      const firstSupplier = entry[1].supplier
-      const supplierItems = Object.entries(orderedItems)
-        .filter(([, info]) => info.supplier === firstSupplier && (info.orderQty || 0) > 0)
+      if (!onViewOrder) { onNav('reorder'); return }
+      const entries = Object.entries(orderedItems).filter(([, info]) => (info.orderQty || 0) > 0)
+      if (!entries.length) { onNav('reorder'); return }
+      const firstSupplier = entries[0][1].supplier
+      const supplierItems = entries
+        .filter(([, info]) => info.supplier === firstSupplier)
         .map(([name, info]) => ({ name, ...info }))
       onViewOrder(firstSupplier, supplierItems)
     }},
