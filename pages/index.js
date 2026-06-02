@@ -1741,7 +1741,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     // Fetch avg prices (all time, all suppliers)
     let avgPriceMap = {}
     try {
-      const r = await fetch('/api/invoices/avg-prices?days=730')
+      const r = await fetch('/api/invoices/avg-prices?days=90')
       const d = await r.json()
       for (const row of d.items || [])
         avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price, nips: row.nips_per_bottle }
@@ -1792,13 +1792,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const bottleML = item.bottleML || 700
       const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
 
-      // Avg buy price inc GST (per bottle/unit)
+      // Avg buy price inc GST (per nip for spirits, per unit for others)
+      // avg.avg is per-bottle ex GST — divide by nipsPerBtl for spirits to get per-nip
       const avgBuyExGst = avg?.avg != null
-        ? (item.isSpirit ? avg.avg / nipsPerBtl : avg.avg)
+        ? (item.isSpirit && nipsPerBtl ? avg.avg / nipsPerBtl : avg.avg)
         : null
       const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
-      const minBuyIncGst = avg?.min != null ? Math.round((item.isSpirit ? avg.min / nipsPerBtl : avg.min) * 1.10 * 1000) / 1000 : null
-      const maxBuyIncGst = avg?.max != null ? Math.round((item.isSpirit ? avg.max / nipsPerBtl : avg.max) * 1.10 * 1000) / 1000 : null
+      const minBuyIncGst = avg?.min != null ? Math.round((item.isSpirit && nipsPerBtl ? avg.min / nipsPerBtl : avg.min) * 1.10 * 1000) / 1000 : null
+      const maxBuyIncGst = avg?.max != null ? Math.round((item.isSpirit && nipsPerBtl ? avg.max / nipsPerBtl : avg.max) * 1.10 * 1000) / 1000 : null
 
       // Current manual buy price
       const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
