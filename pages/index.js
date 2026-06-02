@@ -1710,8 +1710,28 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
       </tr>`
     }).join('')
     const html = `<!DOCTYPE html><html><head><title>Delivery Checklist - ${supplier} - ${date}</title>
-<style>body{font-family:Arial,sans-serif;font-size:13px;margin:20px}h1{font-size:18px;margin-bottom:4px}.sub{color:#666;font-size:12px;margin-bottom:16px}.ref{display:inline-block;background:#dcfce7;color:#166534;font-weight:700;font-family:monospace;padding:2px 10px;border-radius:4px;font-size:13px;margin-bottom:12px}table{width:100%;border-collapse:collapse}th{background:#1f2937;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}td{padding:8px 10px;border-bottom:1px solid #e5e7eb}tr:nth-child(even) td{background:#f9fafb}.footer{margin-top:24px;font-size:11px;color:#9ca3af}@media print{body{margin:10px}input[type=checkbox]{-webkit-print-color-adjust:exact}}</style>
+<style>
+  body{font-family:Arial,sans-serif;font-size:13px;margin:20px}
+  h1{font-size:18px;margin-bottom:4px}
+  .sub{color:#666;font-size:12px;margin-bottom:16px}
+  .ref{display:inline-block;background:#dcfce7;color:#166534;font-weight:700;font-family:monospace;padding:2px 10px;border-radius:4px;font-size:13px;margin-bottom:12px}
+  table{width:100%;border-collapse:collapse}
+  th{background:#1f2937;color:#fff;padding:8px 10px;text-align:left;font-size:11px;text-transform:uppercase}
+  td{padding:8px 10px;border-bottom:1px solid #e5e7eb}
+  tr:nth-child(even) td{background:#f9fafb}
+  .footer{margin-top:24px;font-size:11px;color:#9ca3af}
+  .toolbar{display:flex;gap:10px;margin-bottom:16px;align-items:center;flex-wrap:wrap}
+  .btn{padding:10px 20px;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer}
+  .btn-print{background:#1e3a5f;color:#fff}
+  .btn-close{background:#f1f5f9;color:#374151;border:1px solid #e2e8f0}
+  @media print{.toolbar{display:none}body{margin:10px}input[type=checkbox]{-webkit-print-color-adjust:exact}}
+</style>
 </head><body>
+<div class="toolbar">
+  <button class="btn btn-print" onclick="window.print()">🖨️ Print</button>
+  <button class="btn btn-close" onclick="window.close()">✕ Close</button>
+  <span style="font-size:12px;color:#666">Tip: tap Close to return to the app</span>
+</div>
 <h1>Delivery Checklist — ${supplier}</h1>
 ${ref ? `<div class="ref">${ref}</div>` : ''}
 <div class="sub">Paynter Bar, GemLife Palmwoods | ${date} | ${supplierItems.length} item(s) on order</div>
@@ -1723,7 +1743,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     w.document.write(html)
     w.document.close()
     w.focus()
-    setTimeout(() => w.print(), 500)
   }
 
   async function exportAvgPriceReport() {
