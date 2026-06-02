@@ -1912,6 +1912,163 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     URL.revokeObjectURL(url)
   }
 
+  async function exportBelow40Report() {
+    if (!window.ExcelJS) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+    const ExcelJS = window.ExcelJS
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Below 40% Markup')
+
+    const NAVY='0F172A', WHITE='FFFFFFFF', RED='991B1B', AMBER='92400E', GREEN='166534'
+    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
+    const mceil = (v, m) => Math.ceil(v / m) * m
+    const mColor = p => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
+    const mFont  = p => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
+
+    // Fetch avg prices
+    let avgPriceMap = {}
+    try {
+      const r = await fetch('/api/invoices/avg-prices?days=90')
+      const d = await r.json()
+      for (const row of d.items || [])
+        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, nips: row.nips_per_bottle }
+    } catch { alert('Failed to load invoice data'); return }
+
+    ws.columns = [
+      { header: 'Item',               key: 'name',         width: 38 },
+      { header: 'Category',           key: 'cat',          width: 16 },
+      { header: 'Supplier',           key: 'sup',          width: 14 },
+      { header: 'Buy Price',          key: 'curBuy',       width: 14 },
+      { header: 'Avg Invoice Price',  key: 'avgBuy',       width: 16 },
+      { header: 'Sell Price',         key: 'sell',         width: 12 },
+      { header: 'Sell Unit',          key: 'sellUnit',     width: 12 },
+      { header: 'Markup %',           key: 'markup',       width: 13 },
+      { header: 'Avg Markup %',       key: 'avgMarkup',    width: 13 },
+      { header: 'Sugg Sell (40%)',    key: 'suggSell',     width: 14 },
+      { header: 'Issue',              key: 'issue',        width: 28 },
+    ]
+
+    const hRow = ws.getRow(1)
+    hRow.eachCell(cell => {
+      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
+      cell.font = { bold:true, color:{ argb:WHITE }, size:11 }
+      cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true }
+    })
+    hRow.height = 32
+
+    const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
+      const co = { Beer:0,Cider:1,PreMix:2,'White Wine':3,'Red Wine':4,Rose:5,Sparkling:6,'Fortified & Liqueurs':7,Spirits:8,'Soft Drinks':9,Snacks:10 }
+      return ((co[a.category]??99)-(co[b.category]??99)) || a.name.localeCompare(b.name)
+    })
+
+    let rNum = 1
+    for (const item of allItems) {
+      const isWine   = WINE_C.includes(item.category)
+      const avg      = avgPriceMap[item.name] || null
+      const vars     = item.variations || []
+      const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
+      const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
+      const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip'))
+
+      const nipML    = item.nipML || 30
+      const bottleML = item.bottleML || 700
+      const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
+
+      const avgBuyExGst = avg?.avg != null
+        ? (item.isSpirit && nipsPerBtl ? avg.avg / nipsPerBtl : avg.avg)
+        : null
+      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
+
+      const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
+
+      // Build sell scenarios to check
+      const scenarios = []
+
+      if (item.isSpirit) {
+        const nipPrice = (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice ? Number(item.sellPrice) : null)
+        if (nipPrice != null) scenarios.push({ sell: nipPrice, unit: 'nip', serves: 1 })
+      } else if (isWine) {
+        if (glassVar?.price != null) scenarios.push({ sell: Number(glassVar.price), unit: 'glass ×5', serves: 5 })
+        if (bottleVar?.price != null) scenarios.push({ sell: Number(bottleVar.price), unit: 'bottle', serves: 1 })
+      } else {
+        const unitPrice = glassVar?.price ?? bottleVar?.price ?? item.squareSellPrice
+        if (unitPrice != null) scenarios.push({ sell: Number(unitPrice), unit: 'unit', serves: 1 })
+      }
+
+      for (const sc of scenarios) {
+        const revenue    = sc.sell * sc.serves
+        const curMarkup  = curBuy != null && curBuy > 0 ? Math.round((revenue - curBuy) / curBuy * 1000) / 10 : null
+        const avgMarkup  = avgBuyIncGst != null && avgBuyIncGst > 0 ? Math.round((revenue - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
+        const below = (curMarkup != null && curMarkup < 40) || (avgMarkup != null && avgMarkup < 40)
+        if (!below) continue
+
+        const suggSell = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / sc.serves, 0.25) : null
+        const issue = curMarkup != null && curMarkup < 40
+          ? `Current markup ${curMarkup.toFixed(1)}% below 40% target`
+          : `Avg invoice markup ${avgMarkup?.toFixed(1)}% below 40% target`
+
+        rNum++
+        const row = ws.addRow({
+          name:      item.name,
+          cat:       item.category,
+          sup:       item.supplier || '',
+          curBuy:    curBuy ?? '',
+          avgBuy:    avgBuyIncGst ?? '',
+          sell:      sc.sell,
+          sellUnit:  sc.unit,
+          markup:    curMarkup ?? '',
+          avgMarkup: avgMarkup ?? '',
+          suggSell:  suggSell ?? '',
+          issue,
+        })
+
+        const fmt3 = '"$"#,##0.000', fmt2 = '"$"#,##0.00', fmtPct = '0.0"%"'
+        if (curBuy != null)       row.getCell('curBuy').numFmt   = fmt3
+        if (avgBuyIncGst != null) row.getCell('avgBuy').numFmt   = fmt3
+        row.getCell('sell').numFmt     = fmt2
+        if (suggSell != null)     row.getCell('suggSell').numFmt = fmt2
+        if (curMarkup != null) {
+          row.getCell('markup').numFmt = fmtPct
+          const mc = mColor(curMarkup); if (mc) row.getCell('markup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+          const mf = mFont(curMarkup); if (mf) row.getCell('markup').font = { bold:true, color:{ argb:'FF'+mf } }
+        }
+        if (avgMarkup != null) {
+          row.getCell('avgMarkup').numFmt = fmtPct
+          const mc = mColor(avgMarkup); if (mc) row.getCell('avgMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+          const mf = mFont(avgMarkup); if (mf) row.getCell('avgMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
+        }
+
+        const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
+        row.eachCell({ includeEmpty:true }, cell => {
+          if (!cell.fill?.fgColor || cell.fill.fgColor.argb === rowBg)
+            cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:rowBg } }
+          cell.alignment = { vertical:'middle' }
+        })
+      }
+    }
+
+    // Summary row
+    const total = rNum - 1
+    ws.addRow([])
+    const sumRow = ws.addRow({ name: `${total} items / scenarios below 40% markup target`, issue: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}` })
+    sumRow.getCell('name').font = { bold:true, color:{ argb:'FF'+RED }, size:11 }
+
+    ws.views = [{ state:'frozen', ySplit:1 }]
+    ws.autoFilter = { from:'A1', to:'K1' }
+
+    const buf  = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    const date = new Date().toLocaleDateString('en-AU', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g,'-')
+    a.href = url; a.download = `Below40Markup-${date}.xlsx`; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   async function exportPricingExcel(markupTarget = 40) {
     if (!window.ExcelJS) {
       const s = document.createElement('script')
@@ -4681,6 +4838,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <button onClick={() => exportAvgPriceReport()}
                     style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     📥 Avg Price Report
+                  </button>
+                  <button onClick={() => exportBelow40Report()}
+                    style={{ padding:'5px 14px', background:'#dc2626', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                    🚨 Below 40% Report
                   </button>
                   {phAvgData?.items?.length > 0 && !readOnly && (
                     <button onClick={async () => {
