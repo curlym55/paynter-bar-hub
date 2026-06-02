@@ -1754,19 +1754,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     } catch { alert('Failed to load invoice data'); return }
 
     ws.columns = [
-      { header: 'Item',              key: 'name',       width: 38 },
-      { header: 'Category',          key: 'cat',        width: 16 },
-      { header: 'Supplier',          key: 'sup',        width: 14 },
-      { header: 'Current Buy Price', key: 'curBuy',     width: 16 },
-      { header: 'Avg Invoice Price', key: 'avgBuy',     width: 16 },
-      { header: '# Invoices',        key: 'invCount',   width: 12 },
-      { header: 'Min Buy',           key: 'minBuy',     width: 12 },
-      { header: 'Max Buy',           key: 'maxBuy',     width: 12 },
-      { header: 'Current Sell',      key: 'sell',       width: 12 },
-      { header: 'Curr Markup %',     key: 'curMarkup',  width: 14 },
-      { header: 'Avg Markup %',      key: 'avgMarkup',  width: 14 },
-      { header: 'Sugg Sell (40%)',   key: 'suggSell',   width: 14 },
-      { header: 'Notes',             key: 'notes',      width: 32 },
+      { header: 'Item',                  key: 'name',         width: 38 },
+      { header: 'Category',              key: 'cat',          width: 16 },
+      { header: 'Supplier',              key: 'sup',          width: 14 },
+      { header: 'Current Buy Price',     key: 'curBuy',       width: 16 },
+      { header: 'Avg Invoice Price',     key: 'avgBuy',       width: 16 },
+      { header: '# Invoices',            key: 'invCount',     width: 12 },
+      { header: 'Min Buy',               key: 'minBuy',       width: 12 },
+      { header: 'Max Buy',               key: 'maxBuy',       width: 12 },
+      { header: 'Sell (glass/unit)',     key: 'sell',         width: 13 },
+      { header: 'Markup % (glass/unit)', key: 'curMarkup',    width: 15 },
+      { header: 'Avg Markup % (glass)',  key: 'avgMarkup',    width: 15 },
+      { header: 'Sell (bottle)',         key: 'sellBtl',      width: 13 },
+      { header: 'Markup % (bottle)',     key: 'curMarkupBtl', width: 15 },
+      { header: 'Avg Markup % (bottle)', key: 'avgMarkupBtl', width: 15 },
+      { header: 'Sugg Sell (40%)',       key: 'suggSell',     width: 14 },
+      { header: 'Notes',                 key: 'notes',        width: 32 },
     ]
 
     const hRow = ws.getRow(1)
@@ -1823,21 +1826,31 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const avgMarkup  = avgBuyIncGst != null && avgBuyIncGst > 0 && revenue != null ? Math.round((revenue - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
       const suggSell   = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / serves, 0.25) : null
 
+      // Bottle sell price & markup — for wines that also have a bottle variation
+      const bottleSellPrice = bottleVar?.price != null ? Number(bottleVar.price) : (item.sellPriceBottle ? Number(item.sellPriceBottle) : null)
+      const curMarkupBtl  = isWine && bottleSellPrice != null && curBuy != null && curBuy > 0
+        ? Math.round((bottleSellPrice - curBuy) / curBuy * 1000) / 10 : null
+      const avgMarkupBtl  = isWine && bottleSellPrice != null && avgBuyIncGst != null && avgBuyIncGst > 0
+        ? Math.round((bottleSellPrice - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
+
       rNum++
       const row = ws.addRow({
-        name:      item.name,
-        cat:       item.category,
-        sup:       item.supplier || '',
-        curBuy:    curBuy ?? '',
-        avgBuy:    avgBuyIncGst ?? '',
-        invCount:  avg?.count ?? '',
-        minBuy:    minBuyIncGst ?? '',
-        maxBuy:    maxBuyIncGst ?? '',
-        sell:      sellPrice ?? '',
-        curMarkup: curMarkup ?? '',
-        avgMarkup: avgMarkup ?? '',
-        suggSell:  suggSell ?? '',
-        notes:     '',
+        name:         item.name,
+        cat:          item.category,
+        sup:          item.supplier || '',
+        curBuy:       curBuy ?? '',
+        avgBuy:       avgBuyIncGst ?? '',
+        invCount:     avg?.count ?? '',
+        minBuy:       minBuyIncGst ?? '',
+        maxBuy:       maxBuyIncGst ?? '',
+        sell:         sellPrice ?? '',
+        curMarkup:    curMarkup ?? '',
+        avgMarkup:    avgMarkup ?? '',
+        sellBtl:      bottleSellPrice ?? '',
+        curMarkupBtl: curMarkupBtl ?? '',
+        avgMarkupBtl: avgMarkupBtl ?? '',
+        suggSell:     suggSell ?? '',
+        notes:        '',
       })
 
       const fmt3 = '"$"#,##0.000'
@@ -1858,6 +1871,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         row.getCell('avgMarkup').numFmt = fmtPct
         const mc = mColor(avgMarkup); if (mc) row.getCell('avgMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
         const mf = mFont(avgMarkup); if (mf) row.getCell('avgMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+      if (bottleSellPrice != null) row.getCell('sellBtl').numFmt = fmt2
+      if (curMarkupBtl != null) {
+        row.getCell('curMarkupBtl').numFmt = fmtPct
+        const mc = mColor(curMarkupBtl); if (mc) row.getCell('curMarkupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+        const mf = mFont(curMarkupBtl); if (mf) row.getCell('curMarkupBtl').font = { bold:true, color:{ argb:'FF'+mf } }
+      }
+      if (avgMarkupBtl != null) {
+        row.getCell('avgMarkupBtl').numFmt = fmtPct
+        const mc = mColor(avgMarkupBtl); if (mc) row.getCell('avgMarkupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc }
+        const mf = mFont(avgMarkupBtl); if (mf) row.getCell('avgMarkupBtl').font = { bold:true, color:{ argb:'FF'+mf } }
       }
       // Highlight if avg buy differs from current buy by >10%
       if (curBuy != null && avgBuyIncGst != null) {
