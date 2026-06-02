@@ -1949,7 +1949,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Markup %',           key: 'markup',       width: 13 },
       { header: 'Avg Markup %',       key: 'avgMarkup',    width: 13 },
       { header: 'Sugg Sell (40%)',    key: 'suggSell',     width: 14 },
-      { header: 'Issue',              key: 'issue',        width: 28 },
     ]
 
     const hRow = ws.getRow(1)
@@ -2007,10 +2006,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         if (!below) continue
 
         const suggSell = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / sc.serves, 0.25) : null
-        const issue = curMarkup != null && curMarkup < 40
-          ? `Current markup ${curMarkup.toFixed(1)}% below 40% target`
-          : `Avg invoice markup ${avgMarkup?.toFixed(1)}% below 40% target`
-
         rNum++
         const row = ws.addRow({
           name:      item.name,
@@ -2023,7 +2018,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           markup:    curMarkup ?? '',
           avgMarkup: avgMarkup ?? '',
           suggSell:  suggSell ?? '',
-          issue,
         })
 
         const fmt3 = '"$"#,##0.000', fmt2 = '"$"#,##0.00', fmtPct = '0.0"%"'
@@ -2054,11 +2048,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     // Summary row
     const total = rNum - 1
     ws.addRow([])
-    const sumRow = ws.addRow({ name: `${total} items / scenarios below 40% markup target`, issue: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}` })
+    const sumRow = ws.addRow({ name: `${total} items / scenarios below 40% markup target — Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}` })
     sumRow.getCell('name').font = { bold:true, color:{ argb:'FF'+RED }, size:11 }
 
     ws.views = [{ state:'frozen', ySplit:1 }]
-    ws.autoFilter = { from:'A1', to:'K1' }
+    ws.autoFilter = { from:'A1', to:'J1' }
 
     const buf  = await wb.xlsx.writeBuffer()
     const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
