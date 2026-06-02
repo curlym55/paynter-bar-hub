@@ -33,10 +33,17 @@ Return ONLY valid JSON with no markdown or explanation:
       "invoice_qty": numeric quantity ordered,
       "pack_type": "Bottle/Case/Block/Pack/Each",
       "units_per_pack": integer units per pack,
-      "invoice_unit_price": numeric price per invoice unit (ex GST if shown separately)
+      "invoice_unit_price": numeric price per invoice unit as shown on the invoice (include GST if the line item price includes it)
     }
   ]
 }
+
+Rules for gst_included:
+- Dan Murphy's invoices: line item prices INCLUDE GST — set gst_included: true
+- Coles/Woolworths invoices: line item prices INCLUDE GST — set gst_included: true
+- ACW invoices: line item prices are typically EX GST — set gst_included: false, but check the invoice
+- If GST is shown as a separate line at the bottom and line prices are ex GST: set gst_included: false
+- When in doubt: check if line_total = qty × price, if yes and a GST line exists separately, prices are ex GST
 
 Rules for units_per_pack:
 - Single spirit/wine bottle: 1
