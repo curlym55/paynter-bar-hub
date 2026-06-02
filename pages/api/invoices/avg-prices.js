@@ -16,7 +16,7 @@ function normalizeSupplier(s) {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { days = '180', supplier = 'all' } = req.query
+  const { days = '90', supplier = 'all' } = req.query
   const daysInt = Math.min(parseInt(days) || 180, 730)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - daysInt)

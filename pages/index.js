@@ -1814,7 +1814,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
 
       // Sell price
-      const serves = isWine && glassVar ? 5 : 1
+      const serves = isWine && glassVar ? (item.servesPerBottle || 5) : 1
       const sellPrice = item.isSpirit
         ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice ? Number(item.sellPrice) : null)
         : glassVar?.price != null ? Number(glassVar.price)
@@ -1990,7 +1990,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         const nipPrice = (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice ? Number(item.sellPrice) : null)
         if (nipPrice != null) scenarios.push({ sell: nipPrice, unit: 'nip', serves: 1 })
       } else if (isWine) {
-        if (glassVar?.price != null) scenarios.push({ sell: Number(glassVar.price), unit: 'glass ×5', serves: 5 })
+        const servesGlass = item.servesPerBottle || 5
+        if (glassVar?.price != null) scenarios.push({ sell: Number(glassVar.price), unit: `glass ×${servesGlass}`, serves: servesGlass })
         if (bottleVar?.price != null) scenarios.push({ sell: Number(bottleVar.price), unit: 'bottle', serves: 1 })
       } else {
         const unitPrice = glassVar?.price ?? bottleVar?.price ?? item.squareSellPrice
