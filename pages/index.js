@@ -1947,7 +1947,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Sell Price',         key: 'sell',         width: 12 },
       { header: 'Sell Unit',          key: 'sellUnit',     width: 12 },
       { header: 'Markup %',           key: 'markup',       width: 13 },
-      { header: 'Avg Markup %',       key: 'avgMarkup',    width: 13 },
       { header: 'Sugg Sell (40%)',    key: 'suggSell',     width: 14 },
     ]
 
@@ -2016,7 +2015,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           sell:      sc.sell,
           sellUnit:  sc.unit,
           markup:    curMarkup ?? '',
-          avgMarkup: avgMarkup ?? '',
           suggSell:  suggSell ?? '',
         })
 
@@ -2029,11 +2027,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           row.getCell('markup').numFmt = fmtPct
           const mc = mColor(curMarkup); if (mc) row.getCell('markup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
           const mf = mFont(curMarkup); if (mf) row.getCell('markup').font = { bold:true, color:{ argb:'FF'+mf } }
-        }
-        if (avgMarkup != null) {
-          row.getCell('avgMarkup').numFmt = fmtPct
-          const mc = mColor(avgMarkup); if (mc) row.getCell('avgMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
-          const mf = mFont(avgMarkup); if (mf) row.getCell('avgMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
         }
 
         const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
@@ -2052,7 +2045,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     sumRow.getCell('name').font = { bold:true, color:{ argb:'FF'+RED }, size:11 }
 
     ws.views = [{ state:'frozen', ySplit:1 }]
-    ws.autoFilter = { from:'A1', to:'J1' }
+    ws.autoFilter = { from:'A1', to:'I1' }
 
     const buf  = await wb.xlsx.writeBuffer()
     const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
