@@ -77,7 +77,13 @@ export default function Home() {
       if (!updatable.length) return 0
       let updated = 0
       for (const row of updatable) {
-        const nipsPerBtl = row.nips_per_bottle ?? null
+        // Use nips_per_bottle from API, or detect from item name (e.g. "30ml Nip"), or fall back to item settings
+        const nipMLMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
+        const nipMLFromName = nipMLMatch ? Number(nipMLMatch[1]) : null
+        const hubItem = items.find(i => i.name === row.matched_hub_key)
+        const bottleMLFallback = hubItem?.bottleML || null
+        const nipMLFallback = nipMLFromName || hubItem?.nipML || null
+        const nipsPerBtl = row.nips_per_bottle ?? (bottleMLFallback && nipMLFallback ? bottleMLFallback / nipMLFallback : null)
         const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
         const r2 = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: avgIncGst }) }).catch(() => null)
@@ -4655,7 +4661,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   {phAvgData?.items?.length > 0 && !readOnly && (
                     <button onClick={async () => {
                       const updatable = phAvgData.items.filter(row => {
-                        const nipsPerBtl = row.nips_per_bottle ?? null
+                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
+                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
+                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
                         const avgIncGst = row.avg_unit_price_ex_gst != null
                           ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
                           : null
@@ -4665,7 +4673,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
-                        const nipsPerBtl = row.nips_per_bottle ?? null
+                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
+                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
+                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
                         const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
                         try {
                           const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
@@ -4702,7 +4712,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               if (!row.matched_hub_key) return false
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
-                              const nipsPerBottle = row.nips_per_bottle ?? null
+                              const _nm = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
+                              const _hi = items.find(i => i.name === row.matched_hub_key)
+                              const nipsPerBottle = row.nips_per_bottle ?? (_hi?.bottleML && (_nm ? Number(_nm[1]) : _hi?.nipML) ? _hi.bottleML / (_nm ? Number(_nm[1]) : _hi.nipML) : null)
                               const avgIncGst = row.avg_unit_price_ex_gst != null
                                 ? Math.round((nipsPerBottle ? row.avg_unit_price_ex_gst / nipsPerBottle : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
                                 : null
