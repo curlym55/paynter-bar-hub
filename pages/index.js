@@ -2192,15 +2192,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   const displayed = items
     .filter(item => view === 'all' || item.supplier === view)
-    .filter(item => {
-    const onOrder = !!orderedItems[item.name]
-    const orderAgain = orderAgainItems.has(item.name)
-    // If on order and not flagged to order again — suppress from order filter
-    if (onOrder && !orderAgain) return false
-    // Rundown items stay visible in the planner (so they can be unmarked)
-    if (dontOrder(item)) return onOrder
-    return (item.orderQty > 0) || onOrder || (orderQtyOverrides[item.name] > 0)
-  })
 
 
   const onOrderCount = Object.keys(orderedItems).length
