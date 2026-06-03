@@ -2710,6 +2710,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const addedSupItems = items.filter(i =>
                 i.supplier === activeSup &&
                 !baseNames.has(i.name) &&
+                !orderedItems[i.name] &&
                 wizQtys[i.name] != null &&
                 wizQtys[i.name] > 0
               )
