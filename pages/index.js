@@ -946,6 +946,7 @@ export default function Home() {
 </script>
 </body></html>`
     const w = window.open('', '_blank')
+    if (!w) { alert('Popup blocked — please allow popups for this site and try again.'); return }
     w.document.write(html)
     w.document.close()
     w.focus()
@@ -2458,7 +2459,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
           .mobile-backdrop { display: none !important; }
           .dash-stats   { grid-template-columns: repeat(5, 1fr) !important; }
           .dash-features { grid-template-columns: repeat(4, 1fr) !important; }
-          @media (max-width: 768px) {
+          @media (max-width: 900px) {
             .sidebar      { display: none  !important; }
             .mobile-menu-btn { display: block !important; }
             .mobile-drawer {
@@ -2471,6 +2472,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               flex-direction: column;
             }
             .mobile-drawer.open { transform: translateX(0); }
+            /* Tablet touch targets */
+            @media (max-width: 900px) {
+              input[type=number], input[type=text], select {
+                min-height: 44px;
+                font-size: 16px !important;
+              }
+              .stat-cell { min-width: 70px; }
+            }
             .mobile-backdrop {
               display: none !important; position: fixed; inset: 0;
               background: rgba(0,0,0,0.5); z-index: 999;
@@ -2721,7 +2730,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
               return (
                 <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.6)', zIndex:3000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-                  <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:640, maxHeight:'90vh', overflowY:'auto', boxShadow:'0 24px 80px rgba(0,0,0,0.4)' }}>
+                  <div style={{ background:'#fff', borderRadius:16, width:'100%', maxWidth:640, maxHeight:'90vh', overflowY:'auto', WebkitOverflowScrolling:'touch', boxShadow:'0 24px 80px rgba(0,0,0,0.4)' }}>
 
                     {/* Header */}
                     <div style={{ background:'linear-gradient(135deg,#1e3a5f,#0e7490)', borderRadius:'16px 16px 0 0', padding:'20px 24px' }}>
@@ -2820,7 +2829,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
                                   ))}
                                 </select>
-                                <input type="number" id="wiz-add-qty" min={1} defaultValue={1}
+                                <input type="number" inputMode="numeric" id="wiz-add-qty" min={1} defaultValue={1}
                                   placeholder="Qty"
                                   style={{ width:70, padding:'6px 8px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, textAlign:'center' }} />
                                 <span id="wiz-add-unit" style={{ fontSize:11, color:'#94a3b8', minWidth:28 }}>units</span>
@@ -3057,7 +3066,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {/* Receive Stock Modal — with per-item quantity inputs */}
         {receiveModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.55)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-            <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto' }}>
+            <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 560, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '90vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>📦 Receive from {receiveModal.supplier}</div>
                 <button onClick={() => setReceiveModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
@@ -3227,7 +3236,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {/* RECEIPT MODAL — shown after confirming stock received */}
         {receiptData && (
           <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:1000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}>
-            <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto' }}>
+            <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:520, boxShadow:'0 20px 60px rgba(0,0,0,0.3)', maxHeight:'90vh', overflowY:'auto', WebkitOverflowScrolling:'touch' }}>
               <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
                 <div>
                   <div style={{ fontSize:16, fontWeight:800, color:'#0f172a' }}>✅ Stock Received — {receiptData.supplier}</div>
@@ -5256,7 +5265,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       {viewOrderModal && (
         <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.4)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}
           onClick={() => setViewOrderModal(null)}>
-          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto' }}
+          <div style={{ background: '#fff', borderRadius: 12, padding: 24, width: '100%', maxWidth: 580, boxShadow: '0 20px 60px rgba(0,0,0,0.3)', maxHeight: '80vh', overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}
             onClick={e => e.stopPropagation()}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
               <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>🛒 {viewOrderModal.supplier} — Current Order</div>
@@ -5274,7 +5283,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <td style={{ padding: '7px 12px', color: '#0f172a' }}>{item.name}</td>
                     <td style={{ padding: '7px 12px', textAlign: 'right' }}>
                       {!readOnly ? (
-                        <input type="number" defaultValue={item.orderQty} min={1}
+                        <input type="number" inputMode="numeric" defaultValue={item.orderQty} min={1}
                           style={{ width: 70, padding: '3px 6px', border: '1px solid #cbd5e1', borderRadius: 4, textAlign: 'right', fontWeight: 600, fontFamily: 'IBM Plex Mono, monospace' }}
                           onBlur={async e => {
                             const newQty = Number(e.target.value)
@@ -5338,7 +5347,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
                         ))}
                       </select>
-                      <input type="number" id="vom-add-qty" min={1} defaultValue={1}
+                      <input type="number" inputMode="numeric" id="vom-add-qty" min={1} defaultValue={1}
                         style={{ width: 64, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
                       <span id="vom-add-unit" style={{ fontSize: 11, color: '#94a3b8', minWidth: 28 }}>units</span>
                       <button onClick={async () => {
