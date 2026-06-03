@@ -2791,7 +2791,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const addableItems = items.filter(i =>
                             i.supplier === activeSup &&
                             !alreadyInList.has(i.name) &&
-                            !rundownItems[i.name]
+                            !rundownItems[i.name] &&
+                            !orderedItems[i.name]
                           )
                           if (addableItems.length === 0) return null
                           return (
