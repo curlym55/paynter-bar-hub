@@ -2472,21 +2472,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               flex-direction: column;
             }
             .mobile-drawer.open { transform: translateX(0); }
-            /* Tablet touch targets & font sizes */
-            @media (max-width: 900px) {
-              input[type=number], input[type=text], input[type=date], input[type=password], select, textarea {
-                min-height: 44px !important;
-                font-size: 16px !important;
-              }
-              .stat-cell { min-width: 70px; }
-            }
             .mobile-backdrop {
               display: none !important; position: fixed; inset: 0;
               background: rgba(0,0,0,0.5); z-index: 999;
             }
             .mobile-backdrop.open { display: block !important; }
             .stats-bar    { padding: 0 16px !important; }
-            .stat-cell    { padding: 10px 14px !important; }
+            .stat-cell    { padding: 10px 14px !important; min-width: 70px; }
             .stat-num     { font-size: 18px !important; }
             .dash-stats   { grid-template-columns: repeat(2, 1fr) !important; }
             .dash-features { grid-template-columns: repeat(2, 1fr) !important; }
@@ -2494,6 +2486,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             .view-wrap  { padding: 12px 12px !important; }
             .two-col-grid { grid-template-columns: 1fr !important; }
             .form-two-col { grid-template-columns: 1fr !important; }
+            input[type=number], input[type=text], input[type=date], input[type=password], select, textarea {
+              min-height: 44px !important;
+              font-size: 16px !important;
+            }
           }
         `}</style>
       </Head>
@@ -2590,7 +2586,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         })()}
 
         {/* ── MAIN COLUMN ─────────────────────────────────────── */}
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', overflow: 'hidden' }}>
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minHeight: '100vh', minWidth: 0, overflowX: 'hidden', overflowY: 'visible' }}>
 
         {/* Top bar */}
         <header style={{ background: '#0f172a', color: '#fff', flexShrink: 0, display: publicMode ? 'none' : undefined }}>
