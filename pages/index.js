@@ -3433,25 +3433,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 ))}
 
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
-                {/* Square vendor name mapping — small ✎ per supplier */}
-                {showDetails && !readOnly && suppliers.map(s => {
-                  const mapped = supplierVendorNames[s]
-                  return (
-                    <span key={s} title={`Square vendor name for ${s}: ${mapped || 'not set'}`}
-                      style={{ fontSize: 11, color: mapped ? '#16a34a' : '#f59e0b', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: 2 }}
-                      onClick={() => {
-                        const v = prompt(`Square vendor name for "${s}"\n(must match exactly in Square Dashboard)`, mapped || s)
-                        if (v === null) return
-                        const updated = { ...supplierVendorNames, [s]: v.trim() }
-                        setSupplierVendorNames(updated)
-                        fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-                          body: JSON.stringify({ itemName: '_global', field: 'supplierVendorNames', value: updated }) })
-                      }}>
-                      <span style={{ fontSize: 10 }}>✎</span>
-                      <span style={{ fontFamily: 'IBM Plex Mono, monospace' }}>{s.split(' ')[0]}</span>
-                    </span>
-                  )
-                })}
+
                 <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
                 {viewMode === 'pricing' && (
                   <>
