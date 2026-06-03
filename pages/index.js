@@ -5311,6 +5311,67 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 ))}
               </tbody>
             </table>
+              {/* Add item to existing order */}
+              {!readOnly && (() => {
+                const existingNames = new Set(viewOrderModal.items.map(i => i.name))
+                const addable = items.filter(i =>
+                  i.supplier === viewOrderModal.supplier &&
+                  !existingNames.has(i.name) &&
+                  !rundownItems[i.name]
+                )
+                if (!addable.length) return null
+                return (
+                  <div style={{ marginTop: 14, padding: '10px 14px', background: '#f8fafc', border: '1px dashed #cbd5e1', borderRadius: 8 }}>
+                    <div style={{ fontSize: 12, fontWeight: 600, color: '#374151', marginBottom: 8 }}>+ Add item to this order</div>
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <select id="vom-add-item" style={{ flex: 1, minWidth: 180, padding: '6px 10px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12 }}
+                        onChange={e => {
+                          const name = e.target.value
+                          const item = addable.find(i => i.name === name)
+                          const qtyEl = document.getElementById('vom-add-qty')
+                          const unitEl = document.getElementById('vom-add-unit')
+                          if (item?.isSpirit) { if (qtyEl) qtyEl.value = '1'; if (unitEl) unitEl.textContent = 'btl' }
+                          else { if (qtyEl) qtyEl.value = '1'; if (unitEl) unitEl.textContent = 'units' }
+                        }}>
+                        <option value="">Select item…</option>
+                        {addable.map(i => (
+                          <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
+                        ))}
+                      </select>
+                      <input type="number" id="vom-add-qty" min={1} defaultValue={1}
+                        style={{ width: 64, padding: '6px 8px', border: '1px solid #cbd5e1', borderRadius: 6, fontSize: 12, textAlign: 'center' }} />
+                      <span id="vom-add-unit" style={{ fontSize: 11, color: '#94a3b8', minWidth: 28 }}>units</span>
+                      <button onClick={async () => {
+                        const sel = document.getElementById('vom-add-item')
+                        const qtyEl = document.getElementById('vom-add-qty')
+                        const name = sel?.value
+                        const qty = Number(qtyEl?.value) || 1
+                        if (!name) return
+                        const item = addable.find(i => i.name === name)
+                        if (!item) return
+                        const nipsPerBottle = item.isSpirit ? Math.round((item.bottleML || 700) / (item.nipML || 30)) : null
+                        const finalQty = item.isSpirit ? qty * nipsPerBottle : qty
+                        const r = await fetch('/api/purchase-order', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({ action: 'addItem', itemName: name, supplier: viewOrderModal.supplier,
+                            ref: viewOrderModal.ref, orderQty: finalQty, isSpirit: item.isSpirit || false,
+                            bottlesToOrder: item.isSpirit ? qty : null }) })
+                        const d = await r.json()
+                        if (d.ok) {
+                          setOrderedItems(d.ordered)
+                          setViewOrderModal(prev => ({ ...prev, items: [...prev.items, { name, orderQty: finalQty, isSpirit: item.isSpirit || false, bottleML: item.bottleML, nipML: item.nipML }] }))
+                          resavePO(viewOrderModal.supplier, d.ordered)
+                          if (sel) sel.value = ''
+                          if (qtyEl) qtyEl.value = '1'
+                          const unitEl = document.getElementById('vom-add-unit')
+                          if (unitEl) unitEl.textContent = 'units'
+                        } else { alert('Failed to add item: ' + (d.error || 'Unknown error')) }
+                      }} style={{ padding: '6px 14px', background: '#1e3a5f', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: 'pointer' }}>
+                        Add
+                      </button>
+                    </div>
+                  </div>
+                )
+              })()}
             <div style={{ display: 'flex', gap: 8, marginTop: 16, justifyContent: 'space-between', alignItems: 'center' }}>
               {!readOnly && (
                 <button onClick={async () => {
