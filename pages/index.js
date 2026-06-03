@@ -2472,10 +2472,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               flex-direction: column;
             }
             .mobile-drawer.open { transform: translateX(0); }
-            /* Tablet touch targets */
+            /* Tablet touch targets & font sizes */
             @media (max-width: 900px) {
-              input[type=number], input[type=text], select {
-                min-height: 44px;
+              input[type=number], input[type=text], input[type=date], input[type=password], select, textarea {
+                min-height: 44px !important;
                 font-size: 16px !important;
               }
               .stat-cell { min-width: 70px; }
@@ -2578,8 +2578,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </div>
                 )}
                 <button onClick={() => setSidebarCollapsed(c => !c)}
-                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '10px 0' : '6px 14px 10px', background: 'none', border: 'none', cursor: 'pointer', color: T.navMuted, justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
-                  <span style={{ fontSize: 14, width: 18, textAlign: 'center' }}>{SC ? '»' : '«'}</span>
+                  style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '12px 0' : '10px 14px', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', color: T.navMuted, justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
+                  <span style={{ fontSize: 16, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>{SC ? '»' : '«'}</span>
                   {!SC && <span>Collapse</span>}
                 </button>
                 {readOnly && !SC && <div style={{ padding: '0 14px 10px', fontSize: 10, color: T.navMuted, textAlign: 'center' }}>👁 Read only</div>}
