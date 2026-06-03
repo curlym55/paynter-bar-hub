@@ -140,9 +140,10 @@ export default async function handler(req, res) {
     if (action === 'addItem') {
       const { itemName, supplier, ref, orderQty, isSpirit, bottlesToOrder } = req.body
       if (!itemName) return res.json({ ok: false, error: 'itemName required' })
-      ordered[itemName] = { supplier, ref: ref || '', date: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }), orderQty: Number(orderQty), isSpirit: !!isSpirit, bottlesToOrder: bottlesToOrder || null }
-      await set('orderedItems', ordered)
-      return res.json({ ok: true, ordered })
+      const ordered2 = await get('orderedItems', {})
+      ordered2[itemName] = { supplier, ref: ref || '', date: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }), orderQty: Number(orderQty), isSpirit: !!isSpirit, bottlesToOrder: bottlesToOrder || null }
+      await set('orderedItems', ordered2)
+      return res.json({ ok: true, ordered: ordered2 })
     }
 
     if (action === 'updateItem') {
