@@ -3504,26 +3504,26 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               <table style={styles.table}>
                 <thead>
                   <tr style={styles.thead}>
-                    <th style={{ ...styles.th, width: 240 }}>Item</th>
-                    <th style={{ ...styles.th, display: showDetails ? '' : 'none' }}>Category</th>
-                    <th style={styles.th}>Supplier</th>
-                    <th style={{ ...styles.th, textAlign: 'right' }}>On Hand</th>
-                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Wkly Avg</th>
-                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Target</th>
-                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Pack</th>
-                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Bottle Size</th>
-                    <th style={{ ...styles.th, textAlign: 'center', display: showDetails ? '' : 'none' }}>Nip Size</th>
-                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Order Qty</th>
-                    <th style={{ ...styles.th, textAlign: 'right', display: showDetails ? '' : 'none' }}>Bottles</th>
-                    <th style={{ ...styles.th, textAlign: 'center' }}>Priority</th>
-                    <th style={{ ...styles.th, width: 180 }}>Notes</th>
+                    <th style={{ ...styles.th, width: 200, minWidth: 140 }}>Item</th>
+                    <th style={{ ...styles.th, width: 90, display: showDetails ? '' : 'none' }}>Category</th>
+                    <th style={{ ...styles.th, width: 90, minWidth: 70 }}>Supplier</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 68 }}>On Hand</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Avg</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Target</th>
+                    <th style={{ ...styles.th, textAlign: 'center', width: 50, display: showDetails ? '' : 'none' }}>Pack</th>
+                    <th style={{ ...styles.th, textAlign: 'center', width: 60, display: showDetails ? '' : 'none' }}>Btl mL</th>
+                    <th style={{ ...styles.th, textAlign: 'center', width: 52, display: showDetails ? '' : 'none' }}>Nip mL</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 68, display: showDetails ? '' : 'none' }}>Order Qty</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 52, display: showDetails ? '' : 'none' }}>Btls</th>
+                    <th style={{ ...styles.th, textAlign: 'center', width: 90 }}>Priority</th>
+                    <th style={{ ...styles.th, width: 120 }}>Notes</th>
                     {viewMode === 'pricing' && <>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Buy Price</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sell/Serve</th>
-                      <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed' }}>Serve Size</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Serves/Btl</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Markup</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed' }}>Sugg Sell</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 72, minWidth: 72 }}>Buy</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 68, minWidth: 68 }}>Sell</th>
+                      <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 58, minWidth: 58 }}>Unit</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 48, minWidth: 48 }}>×</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 68, minWidth: 68 }}>Markup</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 72, minWidth: 72 }}>Sugg</th>
                     </>}
                   </tr>
                 </thead>
