@@ -143,8 +143,8 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     )
   }
 
-  const PAGE_CSS = (leftMargin, largeTitles = false) => `
-    @page{size:A4 landscape;margin:5mm 6mm 5mm ${leftMargin};}
+  const PAGE_CSS = (largeTitles = false) => `
+    @page{size:A4 landscape;margin:5mm 6mm 5mm 6mm;}
     html,body{height:100%;margin:0;padding:0;font-family:Arial,sans-serif;}
     .bc-page{height:100%;display:flex;flex-direction:column;}
     .bc-hdr{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;background:#1A2F45;color:#fff;padding:2px 8px;margin-bottom:3px;font-size:11px;font-weight:800;}
@@ -155,7 +155,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
   `
 
-  function printWindow(pages, leftMargin = '14mm', largeTitles = false) {
+  function printWindow(pages, _unused, largeTitles = false) {
     const w = window.open('', '_blank')
     const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     const pageBlocks = pages.map((p, idx) => `
@@ -164,7 +164,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
         <div class="bc-cols">${p.html}</div>
       </div>`).join('')
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet</title>
-<style>${PAGE_CSS(leftMargin, largeTitles)}</style></head><body>${pageBlocks}</body></html>`)
+<style>${PAGE_CSS(largeTitles)}</style></head><body>${pageBlocks}</body></html>`)
     w.document.close()
     setTimeout(() => { w.focus(); w.print() }, 900)
   }
@@ -264,7 +264,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     printWindow([
       { subtitle: 'Spirits & Fortified — Barcodes', html: p1Ref.current?.innerHTML || '' },
       { subtitle: 'Wines — By the Glass Barcodes',  html: p2Ref.current?.innerHTML || '' },
-    ], '14mm', true)
+    ], null, true)
   }
 
   // Normalise Square variation names for display and sort Glass before Bottle
@@ -274,7 +274,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     const w = window.open('', '_blank')
     const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet — Laminate</title>
-<style>${PAGE_CSS('14mm', true)}</style></head><body>
+<style>${PAGE_CSS(true)}</style></head><body>
   <div class="bc-page" style="page-break-after:always;">
     <div class="bc-hdr"><span>🍺 Paynter Bar — Spirits &amp; Fortified</span><span class="bc-hdr-date">${dateStr}</span></div>
     <div class="bc-cols">${p1}</div>
