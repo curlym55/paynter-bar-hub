@@ -3186,7 +3186,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
               {/* Invoice file picker */}
               <div style={{ marginBottom: 12, border: '1px solid #e2e8f0', borderRadius: 8, padding: '10px 14px', background: invoiceFile ? '#f0fdf4' : '#fafafa' }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 6 }}>📎 Attach Supplier Invoice (optional)</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#475569', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: 4 }}>📎 Attach Supplier Invoice</div>
+                <div style={{ fontSize: 11, color: '#d97706', marginBottom: 6 }}>⚠️ Recommended — needed to email the treasurer and extract pricing data</div>
                 {invoiceFile ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
@@ -5183,10 +5184,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   </button>
                                 </div>
                               ) : (
-                                <button onClick={doSend} disabled={sending}
-                                  style={{ padding: '5px 12px', background: sending ? '#e2e8f0' : '#eff6ff', color: sending ? '#94a3b8' : '#1d4ed8', border: '1px solid #bfdbfe', borderRadius: 6, fontSize: 12, fontWeight: 700, cursor: sending ? 'default' : 'pointer', whiteSpace: 'nowrap' }}>
-                                  {sending ? '⏳ Sending…' : '📧 Email Treasurer'}
-                                </button>
+                                <div style={{ display:'flex', flexDirection:'column', gap:3 }}>
+                                  {!doc.invoice_onedrive_url && !doc.invoice_url && (
+                                    <span style={{ fontSize:10, color:'#d97706', fontWeight:600 }}>⚠️ No invoice attached</span>
+                                  )}
+                                  <button onClick={() => {
+                                    if (!doc.invoice_onedrive_url && !doc.invoice_url) {
+                                      if (!confirm('No invoice is attached to this delivery.\n\nThe treasurer email will be sent without an invoice attachment.\n\nSend anyway?')) return
+                                    }
+                                    doSend()
+                                  }} disabled={sending}
+                                    style={{ padding:'5px 12px', background: sending?'#e2e8f0':'#eff6ff', color: sending?'#94a3b8':'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:6, fontSize:12, fontWeight:700, cursor:sending?'default':'pointer', whiteSpace:'nowrap' }}>
+                                    {sending ? '⏳ Sending…' : '📧 Email Treasurer'}
+                                  </button>
+                                </div>
                               )
                             )}
                             {!readOnly && (
