@@ -144,7 +144,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
   }
 
   const PAGE_CSS = (largeTitles = false) => `
-    @page{size:A4 landscape;margin:5mm 6mm 5mm 6mm;}
+    @page{size:A4 landscape;margin:5mm 6mm 5mm 2mm;}
     html,body{height:100%;margin:0;padding:0;font-family:Arial,sans-serif;}
     .bc-page{height:100%;display:flex;flex-direction:column;}
     .bc-hdr{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;background:#1A2F45;color:#fff;padding:2px 8px;margin-bottom:3px;font-size:11px;font-weight:800;}
