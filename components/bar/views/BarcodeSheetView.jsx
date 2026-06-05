@@ -220,7 +220,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     const red     = redItems
 
     const page = (cols, pg) =>
-      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:7mm 8mm 7mm 12mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
+      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:7mm 8mm 7mm 8mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
       + `<div style='flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:2.5px solid ${ROYAL}'>`
       + `<div style='font-size:22px;font-weight:900;color:${ROYAL}'>Paynter Bar — GemLife Palmwoods</div>`
       + `<div style='font-size:15px;font-weight:700;color:#64748b'>Barcode Reference Sheet &nbsp;·&nbsp; Page ${pg} of 2 &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})}</div>`
@@ -232,7 +232,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
       + `<script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>`
       + `<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}@page{size:A3 landscape;margin:0}@media print{body{width:420mm;height:297mm}}</style>`
       + `</head><body>`
-      + `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:6mm 7mm 6mm 11mm;box-sizing:border-box;background:#fff'>`
+      + `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:6mm 7mm 6mm 7mm;box-sizing:border-box;background:#fff'>`
       + `<div style='flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;padding-bottom:4px;border-bottom:2.5px solid ${ROYAL}'>`
       + `<div style='font-size:20px;font-weight:900;color:${ROYAL}'>Paynter Bar — GemLife Palmwoods</div>`
       + `<div style='font-size:13px;font-weight:700;color:#64748b'>Barcode Reference Sheet &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})}</div>`
