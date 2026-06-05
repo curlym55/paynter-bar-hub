@@ -3,11 +3,11 @@ import React, { useState, useEffect, useRef } from 'react'
 
 export default function BarcodeSheetView({ items, settings = {} }) {
   const [loaded, setLoaded] = useState(false)
-  const allRef   = useRef(null)  // wrapper for all previews - used for SVG rasterisation
-  const sheetRef = useRef(null)  // single-page 3-col
-  const p1Ref    = useRef(null)  // 2-page: page 1 (Spirits + Fortified)
-  const p2Ref      = useRef(null)  // 2-page: page 2 (White + Red/Rose)
-  const p2NoHdrRef = useRef(null)  // 2-page: page 2 without column headers (for laminate)
+  const allRef   = useRef(null)
+  const sheetRef = useRef(null)
+  const p1Ref    = useRef(null)
+  const p2Ref      = useRef(null)
+  const p2NoHdrRef = useRef(null)
 
   const isPrintVisible = (item) => {
     const pl = settings[item.name] || {}
@@ -143,20 +143,23 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     )
   }
 
+  // Single consistent margin for all A4 landscape prints
+  // 5mm top/bottom, 8mm left/right — equal left and right
   const PAGE_CSS = (largeTitles = false) => `
-    @page{size:A4 landscape;margin:5mm 6mm 5mm 2mm;}
-    html,body{height:100%;margin:0;padding:0;font-family:Arial,sans-serif;}
-    .bc-page{height:100%;display:flex;flex-direction:column;}
-    .bc-hdr{flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;background:#1A2F45;color:#fff;padding:2px 8px;margin-bottom:3px;font-size:11px;font-weight:800;}
-    .bc-hdr-date{font-size:10px;color:#cbd5e1;}
-    .bc-cols{flex:1;display:flex;gap:4px;min-height:0;}
+    @page { size: A4 landscape; margin: 5mm 8mm 5mm 8mm; }
+    html, body { height: 100%; margin: 0; padding: 0; font-family: Arial, sans-serif; }
+    .bc-page { height: 100%; display: flex; flex-direction: column; }
+    .bc-hdr { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; background: #1A2F45; color: #fff; padding: 2px 8px; margin-bottom: 3px; font-size: 11px; font-weight: 800; }
+    .bc-hdr-date { font-size: 10px; color: #cbd5e1; }
+    .bc-cols { flex: 1; display: flex; gap: 4px; min-height: 0; }
     ${COL_CSS}
     ${largeTitles ? '.bc-col-hdr{font-size:20px!important;padding:5px 8px!important;}' : ''}
-    @media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact;}}
+    @media print { * { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
   `
 
-  function printWindow(pages, _unused, largeTitles = false) {
+  function printWindow(pages, largeTitles = false) {
     const w = window.open('', '_blank')
+    if (!w) { alert('Popup blocked — please allow popups for this site and try again.'); return }
     const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     const pageBlocks = pages.map((p, idx) => `
       <div class="bc-page" style="${idx < pages.length - 1 ? 'page-break-after:always;' : ''}">
@@ -170,7 +173,6 @@ export default function BarcodeSheetView({ items, settings = {} }) {
   }
 
   async function printA3PDF() {
-    // Ensure JsBarcode is loaded
     if (!window.JsBarcode) {
       const s = document.createElement('script')
       s.src = 'https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'
@@ -178,7 +180,7 @@ export default function BarcodeSheetView({ items, settings = {} }) {
       await new Promise(r => { s.onload = r })
     }
 
-    const ROYAL   = '#1E3A5F', WHITE = '#fff', CREAM = '#fafaf7'
+    const ROYAL = '#1E3A5F'
     const C_SP    = { hdr: '#2d4a70', alt: '#f0f4f8' }
     const C_FORT  = { hdr: '#7c3a7c', alt: '#fdf0fd' }
     const C_WHITE = { hdr: '#2d6a3f', alt: '#f0fdf4' }
@@ -213,14 +215,14 @@ export default function BarcodeSheetView({ items, settings = {} }) {
            + `</div>`
     }
 
-    // Use same pre-computed arrays as the 2-page sheet
     const spL     = spiritsLeft
     const spRFort = col2p1
     const wht     = [...whiteItems, ...(roseItems.length ? [{ _div:true, name:'ROSÉ', _hdr:C_ROSE.hdr }, ...roseItems] : [])]
     const red     = redItems
 
+    // A3 landscape: 420mm × 297mm, equal 8mm padding all sides
     const page = (cols, pg) =>
-      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:7mm 8mm 7mm 8mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
+      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:8mm;box-sizing:border-box;background:#fff;page-break-after:${pg<2?'always':'avoid'}'>`
       + `<div style='flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:2.5px solid ${ROYAL}'>`
       + `<div style='font-size:22px;font-weight:900;color:${ROYAL}'>Paynter Bar — GemLife Palmwoods</div>`
       + `<div style='font-size:15px;font-weight:700;color:#64748b'>Barcode Reference Sheet &nbsp;·&nbsp; Page ${pg} of 2 &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})}</div>`
@@ -228,11 +230,8 @@ export default function BarcodeSheetView({ items, settings = {} }) {
       + `<div style='flex:1;display:flex;gap:8px;min-height:0;overflow:hidden'>${cols}</div>`
       + `</div>`
 
-    const html = `<!DOCTYPE html><html><head><meta charset='utf-8'>`
-      + `<script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>`
-      + `<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}@page{size:A3 landscape;margin:0}@media print{body{width:420mm;height:297mm}}</style>`
-      + `</head><body>`
-      + `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:6mm 7mm 6mm 7mm;box-sizing:border-box;background:#fff'>`
+    const singlePage =
+      `<div style='width:420mm;height:297mm;display:flex;flex-direction:column;padding:8mm;box-sizing:border-box;background:#fff'>`
       + `<div style='flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;margin-bottom:5px;padding-bottom:4px;border-bottom:2.5px solid ${ROYAL}'>`
       + `<div style='font-size:20px;font-weight:900;color:${ROYAL}'>Paynter Bar — GemLife Palmwoods</div>`
       + `<div style='font-size:13px;font-weight:700;color:#64748b'>Barcode Reference Sheet &nbsp;·&nbsp; ${new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane'})}</div>`
@@ -243,17 +242,22 @@ export default function BarcodeSheetView({ items, settings = {} }) {
       + colHtml('White Wine & Rosé', wht, C_WHITE.hdr, C_WHITE.alt)
       + colHtml('Red Wine & Sparkling', red, C_RED.hdr, C_RED.alt)
       + `</div></div>`
+
+    const html = `<!DOCTYPE html><html><head><meta charset='utf-8'>`
+      + `<script src='https://cdn.jsdelivr.net/npm/jsbarcode@3.11.6/dist/JsBarcode.all.min.js'></script>`
+      + `<style>*{margin:0;padding:0;box-sizing:border-box}body{font-family:Arial,sans-serif}@page{size:A3 landscape;margin:0}@media print{body{width:420mm}}</style>`
+      + `</head><body>`
+      + page(colHtml('Spirits', spL, C_SP.hdr, C_SP.alt) + colHtml('Spirits (cont.)', spRFort, C_SP.hdr, C_SP.alt) + colHtml('White Wine & Rosé', wht, C_WHITE.hdr, C_WHITE.alt) + colHtml('Red Wine & Sparkling', red, C_RED.hdr, C_RED.alt), 1)
+      + singlePage
       + `<script>document.querySelectorAll('svg[data-sku]').forEach(s=>{try{JsBarcode(s,s.dataset.sku,{format:'CODE128',width:3,height:90,displayValue:false,margin:12})}catch{}})</script>`
       + `</body></html>`
 
     const w = window.open('', '_blank')
+    if (!w) { alert('Popup blocked — please allow popups for this site and try again.'); return }
     w.document.write(html)
     w.document.close()
     w.focus()
-    // Wait for JsBarcode to load then print
-    setTimeout(() => {
-      w.print()
-    }, 1200)
+    setTimeout(() => { w.print() }, 1200)
   }
 
   function doPrint1Page() {
@@ -264,14 +268,14 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     printWindow([
       { subtitle: 'Spirits & Fortified — Barcodes', html: p1Ref.current?.innerHTML || '' },
       { subtitle: 'Wines — By the Glass Barcodes',  html: p2Ref.current?.innerHTML || '' },
-    ], null, true)
+    ], true)
   }
 
-  // Normalise Square variation names for display and sort Glass before Bottle
   function doPrint2PageLaminate() {
     const p1 = p1Ref.current?.innerHTML || ''
     const p2 = p2Ref.current?.innerHTML || ''
     const w = window.open('', '_blank')
+    if (!w) { alert('Popup blocked — please allow popups for this site and try again.'); return }
     const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
     w.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Barcode Sheet — Laminate</title>
 <style>${PAGE_CSS(true)}</style></head><body>
@@ -286,7 +290,6 @@ export default function BarcodeSheetView({ items, settings = {} }) {
     w.document.close()
     setTimeout(() => { w.focus(); w.print() }, 900)
   }
-
 
   const btnStyle = (active) => ({
     background: active ? '#1A2F45' : '#94a3b8', color:'#fff', border:'none',
@@ -309,7 +312,6 @@ export default function BarcodeSheetView({ items, settings = {} }) {
       </div>
 
       <div ref={allRef}>
-        {/* Single-page preview */}
         <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>1-page layout</div>
         <div ref={sheetRef} style={{ display:'flex', gap:8, height:640, minHeight:0, marginBottom:20 }}>
           <ColDiv title="Spirits"    colItems={spiritsItems} colours={C.spirits} isWine={false} />
@@ -317,7 +319,6 @@ export default function BarcodeSheetView({ items, settings = {} }) {
           <ColDiv title="Red Wine"   colItems={redItems}     colours={C.red}     isWine={true}  />
         </div>
 
-        {/* 2-page preview */}
         <div style={{ fontSize:11, fontWeight:700, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', marginBottom:4 }}>2-page layout — page 1: Spirits & Fortified</div>
         <div ref={p1Ref} style={{ display:'flex', gap:8, height:580, minHeight:0, marginBottom:12 }}>
           <ColDiv title="Spirits"              colItems={col1p1}  colours={C.spirits}   isWine={false} />
@@ -329,7 +330,6 @@ export default function BarcodeSheetView({ items, settings = {} }) {
           <ColDiv title="White Wine" colItems={whiteItems} colours={C.white} isWine={true} />
           <ColDiv title="Red Wine"   colItems={col2wines}  colours={C.red}   isWine={true} />
         </div>
-        {/* Hidden no-header page 2 for laminate printing */}
         <div ref={p2NoHdrRef} style={{ display:'flex', gap:8, height:580, minHeight:0, position:'absolute', left:'-9999px', top:0 }}>
           <ColDiv title="White Wine" colItems={whiteItems} colours={C.white} isWine={true} showHeader={false} />
           <ColDiv title="Red Wine"   colItems={col2wines}  colours={C.red}   isWine={true} showHeader={false} />
