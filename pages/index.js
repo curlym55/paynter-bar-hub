@@ -399,7 +399,7 @@ export default function Home() {
             const override = orderQtyOverrides[i.name]
             const nips = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (override !== undefined ? override : i.orderQty)
             const btl  = i.isSpirit ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(nips / ((i.bottleML || 700) / (i.nipML || 30))) : null
-            return { name: i.name, sku: i.sku || '', qty: i.isSpirit ? nips + ' nips (' + btl + ' btl)' : nips + ' units', unitCost: i.buyPrice || '' }
+            return { name: i.name, sku: i.sku || '', qty: i.isSpirit ? nips + ' nips (' + btl + ' btl)' : nips + ' units', unitCost: i.buyPrice || '', orderQty: i.orderQty || 0 }
           })
 
         // ── 3. Update Square inventory ───────────────────────────────────
@@ -430,8 +430,8 @@ export default function Home() {
         // ── 4. Auto-save report to OneDrive ──────────────────────────────
         const odItems = receiveModal.items.map(i => ({
           name: i.name,
-          orderedQty: i.orderQty || 0,
-          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0)) : 0,
+          orderedQty: (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0,
+          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : ((orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0)) : 0,
           unit: i.isSpirit ? 'nip' : 'each',
           note: receiveChecked[i.name] ? '' : 'Not received this delivery',
         }))
