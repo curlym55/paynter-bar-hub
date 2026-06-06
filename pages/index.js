@@ -5129,6 +5129,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>Invoice</span>
                                 {DocLink({ href: doc.invoice_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
                                 {DocLink({ href: doc.invoice_url,          icon: '🗄️', label: 'Supabase', color: '#7c3aed' })}
+                                {!readOnly && (
+                                  <button onClick={async () => {
+                                    if (!confirm(`Remove invoice from ${doc.po_ref}?\n\nThis only removes the link — the file on OneDrive is not deleted.`)) return
+                                    const r = await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ action: 'clear_invoice', po_ref: doc.po_ref }) })
+                                    if ((await r.json()).ok) {
+                                      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, invoice_url: null, invoice_onedrive_url: null } : d))
+                                    }
+                                  }} style={{ padding: '1px 6px', background: '#fef2f2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 10, fontWeight: 600, cursor: 'pointer' }}>
+                                    ✕ Remove
+                                  </button>
+                                )}
                               </div>
                             )}
                             {!doc.invoice_onedrive_url && !doc.invoice_url && (() => {

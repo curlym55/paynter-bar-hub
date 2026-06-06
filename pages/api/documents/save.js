@@ -80,6 +80,10 @@ export default async function handler(req, res) {
       if (invoice_onedrive_url) urlUpdates.invoice_onedrive_url = invoice_onedrive_url
       if (Object.keys(urlUpdates).length) await upsertDoc(client, po_ref, urlUpdates)
     }
+    else if (action === 'clear_invoice') {
+      // Remove invoice links (file on OneDrive/Supabase storage is NOT deleted)
+      await upsertDoc(client, po_ref, { invoice_url: null, invoice_onedrive_url: null })
+    }
 
     return res.json({ ok: true })
   } catch (e) {
