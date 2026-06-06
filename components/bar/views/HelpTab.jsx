@@ -1,240 +1,403 @@
 // HelpTab.jsx
-import React from 'react'
+import React, { useState } from 'react'
+
+const STEP = ({ n, title, children }) => (
+  <div style={{ display: 'flex', gap: 14, marginBottom: 14 }}>
+    <div style={{ width: 28, height: 28, borderRadius: '50%', background: '#1e3a5f', color: '#fff', fontWeight: 800, fontSize: 13, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>{n}</div>
+    <div>
+      <div style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', marginBottom: 3 }}>{title}</div>
+      <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.7 }}>{children}</div>
+    </div>
+  </div>
+)
+
+const Note = ({ children, type = 'info' }) => {
+  const colors = {
+    info:    { bg: '#eff6ff', border: '#bfdbfe', color: '#1d4ed8', icon: '💡' },
+    warn:    { bg: '#fffbeb', border: '#fde68a', color: '#d97706', icon: '⚠️' },
+    success: { bg: '#f0fdf4', border: '#86efac', color: '#166534', icon: '✅' },
+  }
+  const c = colors[type]
+  return (
+    <div style={{ background: c.bg, border: `1px solid ${c.border}`, borderRadius: 6, padding: '8px 12px', marginTop: 8, fontSize: 12, color: c.color, lineHeight: 1.6 }}>
+      {c.icon} {children}
+    </div>
+  )
+}
 
 export default function HelpTab() {
+  const [open, setOpen] = useState(null)
+
   const sections = [
+    {
+      icon: '🛒',
+      title: 'Weekly Ordering — Full Workflow',
+      highlight: true,
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            The ordering workflow runs entirely through the Order Wizard. Follow these steps each week when stock needs replenishing.
+          </p>
+
+          <STEP n="1" title="Check what needs ordering — Dashboard">
+            The Dashboard shows <strong>To Order</strong> (items below target) and <strong>Critical</strong> (≤2 weeks stock). The <strong>📋 Start Weekly Order</strong> button appears when items need ordering.
+          </STEP>
+
+          <STEP n="2" title="Launch the Order Wizard">
+            Click <strong>📋 Start Weekly Order</strong> on the Dashboard. The wizard opens full-screen.
+            <Note>You can also launch the wizard from Stock Items — select a supplier tab and any items already on order will be automatically excluded.</Note>
+          </STEP>
+
+          <STEP n="3" title="Step 1 — Select supplier and review quantities">
+            Choose the supplier from the dropdown. The wizard shows all items for that supplier that need ordering with suggested quantities pre-filled.<br /><br />
+            <strong>Adjust quantities</strong> if needed — set to 0 to remove an item. For spirits, quantities are in <strong>nips</strong> (the bottle count shown alongside is for reference).<br /><br />
+            Use <strong>+ Add item not flagged for ordering</strong> at the bottom to include any item not at its threshold. For spirits, enter bottles — the wizard converts to nips automatically.
+          </STEP>
+
+          <STEP n="4" title="Step 2 — Place the order with the supplier then confirm quantities">
+            Open the supplier website (Dan Murphy's, Coles, etc.) and place the order using the quantities shown.<br /><br />
+            <strong>Update the quantities in Step 2</strong> to match what you actually ordered — some items may be out of stock or available in different quantities. Set any unavailable item to 0 to remove it.<br /><br />
+            Items showing in <strong>amber</strong> differ from the suggestion. Items set to <strong>0 show with strikethrough</strong> — they will be excluded from the PO.
+            <Note type="warn">Always update Step 2 to match exactly what was ordered before proceeding — this is what gets recorded on the PO document.</Note>
+          </STEP>
+
+          <STEP n="5" title="Step 3 — Record the PO reference number">
+            Enter the order or confirmation number from the supplier (e.g. DAN-PO-001-06Jun). This links the order to the receive report and invoice.<br /><br />
+            Click <strong>✓ Mark as Ordered & Save PO</strong>. The Hub:
+            <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
+              <li>Records the order in the on-order list</li>
+              <li>Creates a formatted Excel PO document</li>
+              <li>Saves the PO to OneDrive automatically</li>
+              <li>Creates a record in PO Documents</li>
+            </ul>
+          </STEP>
+
+          <STEP n="6" title="Managing an existing order">
+            Once placed, open the <strong>View Order</strong> modal from the Dashboard on-order banner or the On Order stat card. From here you can:
+            <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
+              <li>Edit individual item quantities</li>
+              <li>Add forgotten items using the + Add item section (spirits default to bottles)</li>
+              <li>Remove items with 🗑 Remove</li>
+              <li>Delete the whole order with 🗑 Delete Whole Order</li>
+            </ul>
+          </STEP>
+
+          <Note type="success">
+            The Dashboard on-order banner shows all pending orders. Tap <strong>View</strong> to manage, <strong>📋 Delivery List</strong> to print a checklist, or <strong>✓ Receive</strong> when the delivery arrives.
+          </Note>
+        </div>
+      )
+    },
+    {
+      icon: '📦',
+      title: 'Receiving a Delivery',
+      highlight: true,
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            When stock arrives, receive it through the Hub so Square inventory updates automatically and all documents are filed.
+          </p>
+
+          <STEP n="1" title="Open the Receive modal">
+            On the Dashboard, click <strong>✓ Receive</strong> on the on-order banner for the relevant supplier. You can also click <strong>View</strong> → <strong>Receive This Order</strong> from the View Order modal.
+          </STEP>
+
+          <STEP n="2" title="Check items and enter quantities received">
+            All ordered items appear with their ordered quantities pre-filled.<br /><br />
+            Use <strong>✓ All Full</strong> if everything arrived as ordered, or <strong>½ All Partial</strong> as a starting point for a partial delivery.<br /><br />
+            <strong>Uncheck any items</strong> that did not arrive — they stay on order and you can receive them later. Adjust quantities for items that arrived short.
+          </STEP>
+
+          <STEP n="3" title="Attach the supplier invoice">
+            Click <strong>📎 Attach Supplier Invoice</strong> and select the PDF from your device. This is needed to:
+            <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
+              <li>Include as an attachment in the treasurer email</li>
+              <li>Automatically extract line item prices into Price History</li>
+            </ul>
+            <Note type="warn">Without an invoice attached, the treasurer email will be sent without an attachment and buy prices won't update from this delivery.</Note>
+          </STEP>
+
+          <STEP n="4" title="Confirm the delivery">
+            Click <strong>✓ Confirm Delivery</strong>. The Hub automatically:
+            <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
+              <li>Updates Square inventory for all received items</li>
+              <li>Saves a receive report (CSV) to OneDrive</li>
+              <li>Saves the invoice to OneDrive (if attached)</li>
+              <li>Extracts invoice line item prices to Price History</li>
+              <li>Updates the PO Documents record to Received</li>
+              <li>Removes items from the on-order list</li>
+            </ul>
+            <Note type="success">If Square inventory update fails, it can be retried — the receive report and invoice are already saved.</Note>
+          </STEP>
+
+          <STEP n="5" title="Download the receipt (if needed)">
+            The receipt modal shows what was received. If OneDrive is connected, the report is already saved automatically. Use <strong>📥 Download locally</strong> only if OneDrive was unavailable.
+          </STEP>
+        </div>
+      )
+    },
+    {
+      icon: '📧',
+      title: 'Emailing the Treasurer',
+      highlight: true,
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            After each delivery is received and the invoice is attached, email the Treasurer from PO Documents.
+          </p>
+
+          <STEP n="1" title="Go to PO Documents">
+            Click <strong>📁 PO Documents</strong> under Records in the sidebar. Find the received delivery — it will show ✓ Received status.
+          </STEP>
+
+          <STEP n="2" title="Check the invoice is attached">
+            Confirm the ☁️ OneDrive and/or 🗄️ Supabase invoice links are showing on the card. If the ⚠️ "Invoice not on OneDrive" warning appears, the attachment may be missing — upload it first using 📎 Upload Invoice.
+            <Note type="warn">If no invoice is attached, the email sends without an attachment. You'll be warned before sending.</Note>
+          </STEP>
+
+          <STEP n="3" title="Click 📧 Email Treasurer">
+            Click the button on the received delivery card. The Hub sends an email from <strong>paynterbar@gemwoods.com.au</strong> to <strong>treasurer@gemwoods.com.au</strong> with the receive report and invoice attached.<br /><br />
+            On success the button changes to <strong>✅ Treasurer notified</strong> with the date and time. A <strong>🔁 Resend</strong> option is available if needed.
+          </STEP>
+
+          <Note>The receive report is saved as a CSV (Excel-compatible). The invoice is the original PDF you attached during receive. Both are sourced from OneDrive — make sure OneDrive is connected in Settings → App Access.</Note>
+        </div>
+      )
+    },
+    {
+      icon: '📁',
+      title: 'PO Documents',
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 12, lineHeight: 1.7 }}>
+            Every order placed through the Hub creates a record in PO Documents. Use the search and filter bar to find specific orders by PO ref, supplier or status.
+          </p>
+          {[
+            ['PO link ☁️', 'Opens the formatted Excel PO document on OneDrive. Created automatically when the order is placed.'],
+            ['Receipt link 📄', 'Opens the receive report CSV on OneDrive. Created automatically when the delivery is confirmed.'],
+            ['Invoice link 📎', 'Opens the invoice PDF. Attach in the receive modal or via 📎 Upload Invoice on the card.'],
+            ['✕ Remove invoice', 'Removes the invoice link from this record (file on OneDrive is not deleted). Use if the wrong invoice was attached — then upload the correct one.'],
+            ['🗑 Delete', 'Deletes the PO record. Only possible for Ordered status records — received records are permanent for audit purposes.'],
+          ].map(([q, a]) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
+    },
     {
       icon: '🔐',
       title: 'Getting Started',
-      items: [
-        { q: 'Logging in', a: 'Enter your PIN on the login screen. The BMT PIN gives full access. The read-only PIN gives view-only access. Your session stays active until you close the browser tab.' },
-        { q: 'Navigation', a: 'The sidebar organises features into groups — Stock, Analytics, Manage and Records. Dashboard, Stock Items and Wastage Log are pinned at the top. Click any item to navigate directly.' },
-        { q: 'Sales period', a: 'The 30d / 60d / 90d buttons set how many days of Square sales history are used to calculate weekly averages and order quantities. 90 days is the most stable; 30 days is more responsive to recent changes.' },
-        { q: 'Refreshing data', a: 'Click Refresh from Square in the top-right header to pull the latest stock levels, prices and sales data from Square POS.' },
-      ]
-    },
-    {
-      icon: '🏠',
-      title: 'Dashboard',
-      items: [
-        { q: 'Home screen', a: 'The Dashboard shows live stock status — Critical items, Low Stock count, items to order, items on order, and when Square data was last refreshed.' },
-        { q: 'Status cards', a: 'The Critical, Low Stock and To Order cards are clickable — tap any of them to jump straight to Stock Items filtered to those items.' },
-        { q: 'Feature tiles', a: 'All major app features are accessible as clickable tiles from the Dashboard.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['Logging in', 'Enter your PIN on the login screen. The BMT PIN gives full access. The read-only PIN gives view-only access (stock levels and sales visible, no editing). Your session stays active until you close the browser tab.'],
+            ['Navigation', 'The sidebar organises features into groups — Stock, Analytics, Manage and Records. Use the hamburger menu on tablets. Tap the sidebar icon to collapse it on desktop.'],
+            ['Sales period', 'The 30d / 60d / 90d buttons set how many days of Square sales history are used to calculate weekly averages and order quantities. 60 days is the default — a good balance between stability and responsiveness.'],
+            ['Refreshing data', 'Click Refresh from Square in the top-right header to pull the latest stock levels, prices and sales from Square POS.'],
+            ['OneDrive connection', 'Go to ⚙️ Settings → App Access → Check Status to verify OneDrive is connected. Must be authenticated as paynterbar@gemwoods.com.au. Click Reconnect OneDrive if it shows ❌ Not connected.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '📦',
       title: 'Stock Items',
-      items: [
-        { q: 'Reading the table', a: 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.' },
-        { q: 'Order Qty vs Bottles', a: 'For spirits and fortified wines, Order Qty shows nips needed and Bottles shows full bottles to buy (rounded up). For all other items, Order Qty shows units to order.' },
-        { q: 'Target Weeks', a: 'The default target weeks is set in ⚙️ Settings. You can override it per item using the Target Wks column in Show Details mode. Default is 6 weeks.' },
-        { q: 'Filtering to order items', a: 'Tick "Order items only" in the controls bar to hide items that don\'t need ordering — useful when preparing orders.' },
-        { q: 'Supplier tabs', a: 'Click a supplier name to filter the table to just that supplier. When a supplier is selected, 📋 Order Sheet and ✓ Mark as Ordered buttons appear in the toolbar.' },
-        { q: 'Order Sheet', a: 'Select a supplier tab then click 🖨️ Order Sheet to open a formatted printable order list for that supplier.' },
-        { q: 'Starting an order', a: 'Click 📋 Start Order in the Stock Items toolbar (select a supplier tab first) or click 📋 Start Weekly Order on the Dashboard. The order wizard guides you through reviewing quantities, adjusting for availability, and recording the PO reference.' },
-        { q: 'Receiving an order', a: 'When stock arrives, click the Receive banner that appears for the pending order. Enter the quantities received and optionally attach the supplier invoice PDF. Square inventory updates automatically on confirm.' },
-        { q: 'Editing item settings', a: 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and are shared with all BMT members.' },
-        { q: 'Rundown items', a: 'Tick the Rundown checkbox on any item to flag it as being run down — it will be excluded from order calculations and the average markup in the pricing export.' },
-        { q: 'Missing buy prices', a: 'A red ⚠️ warning appears in the toolbar if any items are missing a buy price. Click it to jump to the Pricing tab.' },
-        { q: 'Adding or removing suppliers', a: 'Suppliers are managed in ⚙️ Settings. Add or remove suppliers there, and assign items to suppliers by clicking the Supplier column inline.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['Reading the table', 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.'],
+            ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns. Hidden by default to keep the view clean.'],
+            ['Supplier tabs', 'Click a supplier name to filter the table to just that supplier.'],
+            ['Pricing view', 'Click 💲 Pricing to switch to pricing mode — shows Buy Price, Sell Price and Markup % for all items. Export to Excel from here.'],
+            ['Editing inline', 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically.'],
+            ['Rundown items', 'Tick the Rundown checkbox on any item to flag it for running down — excluded from order calculations and pricing exports.'],
+            ['Order Again', 'Items that are on order are hidden from the main list. Click + Order Again on any on-order item to bring it back into view if you need to order more.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '🥃',
       title: 'Spirits & Fortified Wines',
-      items: [
-        { q: 'How spirits are tracked', a: 'Square tracks spirits in nips (30ml standard; 60ml for Baileys, Galway Pipe Port and Penfolds Club Port). All calculations — weekly average, target stock, order quantities — stay in nips throughout.' },
-        { q: 'Bottle Size column', a: 'Set to 700ml, 750ml or 1000ml per item. Determines how many nips per bottle (e.g. 700ml ÷ 30ml = 23.3 nips). Affects order quantities and stocktake calculations.' },
-        { q: 'Nip Size column', a: 'Most spirits are 30ml. Baileys Irish Cream, Galway Pipe Port and Penfolds Club Port are served as 60ml nips. Must be set correctly for accurate order quantities.' },
-        { q: 'Order quantities', a: 'Shows nips needed to reach target stock. Bottles column shows full bottles to buy (always rounded up). Example: need 70 nips from a 700ml bottle → Order Qty 70 nips, Bottles 3.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['How spirits are tracked', 'Square tracks spirits in nips. All calculations — weekly average, target stock, order quantities — stay in nips throughout. Buy prices are stored per nip inc GST.'],
+            ['Bottle Size', 'Set to 700ml, 750ml or 1000ml per item. Determines nips per bottle (e.g. 1000ml ÷ 30ml = 33 nips). Affects order quantities and buy price calculations.'],
+            ['Nip Size', 'Most spirits are 30ml. Baileys, Galway Pipe Port and Penfolds Club Port are served as 60ml nips. Must be set correctly for accurate ordering.'],
+            ['Order quantities', 'Order Qty shows nips needed. Bottles shows full bottles to buy. Smart rounding: if the calculated bottles is within 5% of a whole number, it rounds down (e.g. 2.01 → 2 bottles).'],
+            ['Buy prices', 'Spirit buy prices are stored per nip inc GST. When Update Buy Prices runs, it converts the per-bottle invoice price to per-nip automatically using the Bottle Size and Nip Size settings.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '💲',
       title: 'Pricing',
-      items: [
-        { q: 'Opening Pricing', a: 'Click 💲 Pricing in the sidebar under Manage. It has two sub-tabs: Average Prices and Markup / Sell Prices.' },
-        { q: 'Average Prices tab', a: 'Shows the weighted average buy price per item calculated from your actual supplier invoices over the last 90 days. Compare against the current Hub buy price — red means the Hub price is higher than you\'re actually paying.' },
-        { q: 'Loading the report', a: 'Click 📊 Load Report to fetch the data, or click one of the supplier buttons (Dan Murphy\'s, Coles Woolies, ACW) to open a detailed price review modal for that supplier.' },
-        { q: 'Updating buy prices', a: 'Click ↑ Update next to any item to set the Hub buy price to the 90-day average. Click ↑ Update All Buy Prices to update all matched items at once. This is the recommended way to keep buy prices accurate.' },
-        { q: 'Markup / Sell Prices tab', a: 'Click $ Open Pricing View to open Stock Items in Pricing mode, which reveals Buy Price, Sell Price and Markup % columns for all items. Also has Print and Excel export buttons.' },
-        { q: 'Markup calculation', a: 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. Requires both buy and sell price to be set.' },
-        { q: 'Sell prices from Square', a: 'Sell prices are pulled directly from your Square catalogue. All price changes must be made in Square — the Hub always reflects current Square prices.' },
-        { q: 'Buy prices', a: 'Click the Buy Price cell for any item in Pricing view and type the cost price (inc GST). Saved to the cloud and shared across all management sessions.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['Average Prices tab', 'Shows the 90-day weighted average buy price per item from actual invoices. Compare against current Hub buy price — use ↑ Update All Buy Prices to sync them.'],
+            ['Markup calculation', 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. For wines, glass markup uses 5 glasses per bottle.'],
+            ['Sell prices', 'All sell prices come directly from Square. Changes must be made in Square — the Hub reflects current Square prices on every Refresh.'],
+            ['Below 40% Report', 'Click 🚨 Below 40% Report to export an Excel list of all items below the 40% markup target, with suggested sell prices. Wines show both glass and bottle markup separately.'],
+            ['Avg Price Report', 'Click 📥 Avg Price Report for a full Excel export of all items with average buy prices, current Hub prices, markup % and suggested sell prices.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '📄',
       title: 'Price History',
-      items: [
-        { q: 'What is Price History?', a: 'Price History records the actual buy prices from supplier invoices over time. It lives under Records → Price History and has two sub-tabs: Import Invoice and Manage History.' },
-        { q: 'Importing invoices', a: 'Go to Price History → Import Invoice tab. Select one or more supplier PDF invoices. Claude AI automatically extracts all line items and prices. Review the extracted items, adjust Hub Name and Units/Pack if needed, then click Save to History.' },
-        { q: 'Automatic import on receive', a: 'When you attach a supplier invoice PDF in the receive modal and confirm a delivery, the Hub automatically extracts and saves the line items to Price History in the background — no manual import needed.' },
-        { q: 'Manage History tab', a: 'Use the Manage History tab to fix item name mappings between invoice descriptions and Hub item names, and to correct Units/Pack values. Saving a row recalculates all historical per-unit prices automatically.' },
-        { q: 'Spirits pricing', a: 'Spirit items are automatically converted from per-bottle invoice prices to per-nip prices using the bottle and nip sizes stored in the Hub, so the comparison to Hub buy prices (which are per nip) is meaningful.' },
-      ]
-    },
-    {
-      icon: '📁',
-      title: 'Documents',
-      items: [
-        { q: 'What is Documents?', a: 'PO Documents (under Records) tracks all purchase orders, receive reports and supplier invoices in one place. Every order placed through the Hub creates a record here.' },
-        { q: 'Purchase Orders', a: 'When you click Mark as Ordered, a formatted Excel PO is saved automatically to OneDrive under POs Invoices and Receive Reports → Purchase Orders → {Supplier}.' },
-        { q: 'Receive Reports', a: 'When you confirm a delivery, a receive report is saved to OneDrive under Receive Reports → {Supplier} and linked to the PO record.' },
-        { q: 'Supplier Invoices', a: 'Attach a supplier invoice PDF in the receive modal before confirming. It is saved to OneDrive under Invoices → {Supplier} and linked to the PO record. The Hub also extracts the line item prices automatically for Price History.' },
-        { q: 'Email Treasurer', a: 'After a delivery is received, click 📧 Email Treasurer on any row in Documents. This sends an email to treasurer@gemwoods.com.au from paynterbar@gemwoods.com.au with the receive report and invoice attached (sourced from OneDrive). A ✅ Sent indicator confirms the email was delivered.' },
-        { q: 'OneDrive links', a: 'Each row in Documents shows direct links to view the PO, receive report and invoice in OneDrive. Click any link to open the document directly.' },
-      ]
-    },
-    {
-      icon: '🗓️',
-      title: 'SOH History',
-      items: [
-        { q: 'What is SOH History?', a: 'SOH History (under Stock) shows monthly stock-on-hand snapshots. Snapshots are taken automatically at 2am AEST on the 1st of each month.' },
-        { q: 'Manual snapshot', a: 'Click 📸 Snapshot Now to generate a snapshot immediately — useful before a stocktake or at end of financial year.' },
-        { q: 'Exporting a snapshot', a: 'Click 📊 Excel on any row to download a formatted Excel spreadsheet for that snapshot, with category groupings and per-item buy prices and total values.' },
-        { q: 'Current SOH export', a: 'Click 🖨️ Print / PDF or 📊 Export Excel in the header to export the current live SOH (not a saved snapshot) — this calls the same report as the old SOH Report button.' },
-        { q: 'Deleting a snapshot', a: 'Click 🗑️ on any row to permanently delete that snapshot. A confirmation prompt appears first.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['What is Price History?', 'Records actual buy prices from supplier invoices over time. Lives under Records → Price History. Two sub-tabs: Import Invoice and Manage History.'],
+            ['Automatic import', 'When you attach a PDF invoice in the receive modal and confirm a delivery, price history is updated automatically in the background — no manual import needed.'],
+            ['Manual import', 'Go to Price History → Import Invoice. Select one or more supplier PDFs. Claude AI extracts line items — review, check Hub Name matches (green ✓ = matched, red ✗ = fix the name), then Save to History.'],
+            ['Manage History tab', 'Fix item name mappings and Units/Pack values. Saving recalculates all historical per-unit prices.'],
+            ['GST handling', 'Dan Murphy\'s and Coles/Woolies invoice prices include GST — the Hub divides by 1.10 automatically when saving. ACW invoices are typically ex GST.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '📊',
       title: 'Sales Report',
-      items: [
-        { q: 'Opening', a: 'Click 📊 Sales Report under Analytics in the sidebar. Data is fetched live from Square\'s Orders API — allow a few seconds to load.' },
-        { q: 'Period selector', a: 'Five periods available: This Month, Last Month, Last 3 Months, Financial Year (May 1 – Apr 30), and Custom Range. Each period automatically compares against the equivalent prior period.' },
-        { q: 'Category breakdown', a: 'The category bar shows units and revenue per category. Click any tile to filter the item table to that category.' },
-        { q: 'Excel export', a: 'Click 📊 Excel to download a formatted spreadsheet with category breakdown, % of total, change % and revenue columns.' },
-      ]
-    },
-    {
-      icon: '📋',
-      title: 'Stocktake',
-      items: [
-        { q: 'Opening', a: 'Click 📋 Stocktake under Stock in the sidebar. Use this for quarterly physical stock counts.' },
-        { q: 'Counting', a: 'Enter physical counts in the Cool Room, Store Room and Bar columns for each item. For spirits, enter bottle counts (including decimals for part bottles) — the sheet calculates nips automatically.' },
-        { q: 'Excel export', a: 'Click 📊 Excel to download the stocktake sheet with formulas for totals and variance against Square. Freeze pane keeps the header visible while scrolling.' },
-      ]
-    },
-    {
-      icon: '⭐',
-      title: 'Specials',
-      items: [
-        { q: 'Opening', a: 'Click ⭐ Specials under Manage in the sidebar. Manage tonight\'s special offers — add items with a name, price, optional description and a product image from the Square catalogue.' },
-        { q: 'Adding a special', a: 'Click + Add Special, enter the name and price, optionally a description, then pick an image from your Square catalogue. Click Save to publish.' },
-        { q: 'Display screen', a: 'Active specials rotate automatically on the bar tablet at /roster/display/specials — full-screen cards with product image, name and price on a dark background.' },
-        { q: 'Print sheet', a: 'Click 🖨️ Print Sheet to open a formatted A4 printout of active specials.' },
-      ]
-    },
-    {
-      icon: '🏷️',
-      title: 'Price List',
-      items: [
-        { q: 'Opening', a: 'Click 🏷️ Price List under Manage. Shows a formatted customer-facing price list drawn from your Square catalogue.' },
-        { q: 'Visibility', a: 'Individual items can be hidden from the public price list by toggling visibility in the Price List view. Hidden items still appear in Stock Items.' },
-        { q: 'Printing', a: 'Click 🖨️ Print to open a formatted A4 price list suitable for posting at the bar.' },
-      ]
-    },
-    {
-      icon: '👥',
-      title: 'Volunteer Roster',
-      items: [
-        { q: 'Opening', a: 'Click 👥 Roster under Records. The roster opens at /roster — no separate app or login needed.' },
-        { q: 'Bar display screen', a: 'The tablet display at /roster/display shows the current bar session, who is on duty and sign-in status — updates live. The Specials display at /roster/display/specials rotates tonight\'s specials.' },
-        { q: 'Duty manager', a: 'Duty managers can self-assign to a shift directly from the roster. Volunteers sign in via the bar display screen.' },
-      ]
-    },
-    {
-      icon: '🖨️',
-      title: 'Other Exports',
-      items: [
-        { q: 'Barcode Sheet', a: 'Click 🖨️ Barcode Sheet under Records to download a printable A4 sheet of Square barcodes for all items.' },
-        { q: 'Wastage Print', a: 'In the Wastage Log, click 🖨️ Print to export a formatted A4 table of the current filtered entries.' },
-        { q: 'Stocktake History', a: 'In the Stocktake tab, click 📅 History to view all previous stocktake records with a Summary and filterable Data sheet.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['Opening', 'Click 📊 Sales Report under Analytics. Data is fetched live from Square — allow a few seconds.'],
+            ['Period selector', 'This Month, Last Month, Last 3 Months, Financial Year (May–Apr), Single Day or Custom Range.'],
+            ['Category filter', 'Click any category pill to filter the item table to that category. Click again to clear.'],
+            ['Comparison columns', 'Prior Period, Change % and Prior Revenue are hidden by default. Click ▸ Show comparison to reveal them.'],
+            ['Export', 'Click 📊 Excel for a formatted spreadsheet with category breakdown and revenue columns.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '⚙️',
       title: 'Settings & Administration',
-      items: [
-        { q: 'Settings panel', a: 'Click ⚙️ Settings in the sidebar (BMT access only). Manage suppliers, Square vendor name mappings, default target weeks, revenue target, and app PIN management.' },
-        { q: 'Suppliers', a: 'Add or remove suppliers in the Settings panel. Assign items to suppliers by clicking the Supplier column inline in Stock Items.' },
-        { q: 'Square vendor names', a: 'Map each Hub supplier name to its Square vendor name — used to match invoices in Price History and filter Square reports.' },
-        { q: 'Recent Changes audit', a: 'The Settings panel shows the last 30 setting changes — item name, field changed, old value, new value and date. Useful for tracking who changed what.' },
-        { q: 'Shared settings', a: 'All settings (categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks) are saved to the cloud and shared instantly across all management sessions.' },
-        { q: 'Square POS connection', a: 'The app connects to Square via API. Stock levels, sales and prices update on every Refresh. Square is always the source of truth for transactions and price changes.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['Suppliers tab', 'Add or remove suppliers. Assign items to suppliers by clicking the Supplier column inline in Stock Items.'],
+            ['Square Mappings tab', 'Map each Hub supplier name to its Square vendor name — used to match invoices in Price History.'],
+            ['Reorder Defaults tab', 'Set the default target weeks and manually sync data from Redis to Supabase backup.'],
+            ['App Access tab', 'Check OneDrive connection status, reconnect OneDrive (must be paynterbar@gemwoods.com.au), change BMT PIN and Read-Only PIN, view recent settings changes audit log.'],
+            ['Shared settings', 'All settings are saved to the cloud and shared instantly across all management sessions.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
     {
       icon: '👁',
       title: 'Access Levels',
-      items: [
-        { q: 'BMT PIN (management)', a: 'Full access to all features — editing item settings, categories, suppliers, pack sizes, bottle/nip sizes, buy prices, notes, target weeks, price list visibility, wastage editing, and all exports.' },
-        { q: 'Read-only PIN (homeowners)', a: 'View-only access. All data is visible — stock levels, order quantities, sales reports, price list, SOH and sales exports — but nothing can be edited. A READ ONLY badge appears in the header.' },
-        { q: 'Pricing visibility', a: 'Buy prices and the 💲 Pricing tab are only visible to BMT members — hidden entirely in read-only mode to keep cost prices confidential.' },
-        { q: 'Settings', a: 'The ⚙️ Settings panel is only visible to BMT members — hidden in read-only mode.' },
-      ]
+      content: (
+        <div>
+          {[
+            ['BMT PIN (management)', 'Full access — edit item settings, categories, suppliers, buy prices, notes, price list visibility, wastage, all exports and Settings.'],
+            ['Read-only PIN (homeowners)', 'View-only. All data visible — stock levels, order quantities, sales reports, price list, SOH — but nothing can be edited. Buy prices and Pricing tab are hidden. READ ONLY badge appears in header.'],
+          ].map(([q, a], i, arr) => (
+            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
+              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
+            </div>
+          ))}
+        </div>
+      )
     },
   ]
 
   return (
-    <div style={{ padding: '32px', maxWidth: 900, margin: '0 auto' }}>
-      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '24px 32px', marginBottom: 24 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
-          <div style={{ width: 48, height: 48, background: '#0f172a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 24 }}>🍺</div>
+    <div style={{ padding: '24px 32px', maxWidth: 900, margin: '0 auto' }}>
+      {/* Header */}
+      <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '20px 24px', marginBottom: 20 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 12 }}>
+          <div style={{ width: 44, height: 44, background: '#0f172a', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 22 }}>🍺</div>
           <div>
-            <h2 style={{ fontSize: 20, fontWeight: 700, color: '#0f172a', margin: 0 }}>Paynter Bar Hub</h2>
-            <p style={{ fontSize: 13, color: '#64748b', margin: '3px 0 0' }}>GemLife Palmwoods — Bar Management System</p>
+            <h2 style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', margin: 0 }}>Paynter Bar Hub</h2>
+            <p style={{ fontSize: 12, color: '#64748b', margin: '2px 0 0' }}>GemLife Palmwoods — Bar Management System</p>
           </div>
         </div>
         <p style={{ fontSize: 13, color: '#475569', lineHeight: 1.7, margin: 0 }}>
-          This app manages bar operations for the Paynter Bar Management Team. It connects directly to Square POS to provide
-          live stock levels, reorder calculations, sales analytics, pricing tools and management reports — all in one place.
-          Settings and changes made by any management team member are shared across all devices instantly.
+          Manages bar operations for the Paynter Bar Management Team. Connects to Square POS for live stock, reorder calculations, sales analytics, pricing tools and management reports. Changes made by any BMT member are shared across all devices instantly.
         </p>
       </div>
 
-      {/* Procedures document */}
-      <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', borderRadius: 12, padding: '20px 24px', marginBottom: 24, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
+      {/* Procedures doc */}
+      <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', borderRadius: 12, padding: '16px 20px', marginBottom: 20, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 16, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontSize: 15, fontWeight: 700, color: '#fff', marginBottom: 4 }}>📄 Stock Ordering & Inventory Procedures</div>
-          <div style={{ fontSize: 12, color: '#bfdbfe', lineHeight: 1.6 }}>
-            Complete procedures document — ordering, PO creation, invoice filing, goods receipt and wastage recording.
-          </div>
+          <div style={{ fontSize: 14, fontWeight: 700, color: '#fff', marginBottom: 3 }}>📄 Stock Ordering & Inventory Procedures</div>
+          <div style={{ fontSize: 12, color: '#bfdbfe' }}>Complete procedures — ordering, PO creation, invoice filing, goods receipt and wastage recording.</div>
         </div>
-        <button
-          onClick={() => window.open('/PaynterHubProcedures.pdf', '_blank')}
-          style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '10px 20px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
+        <button onClick={() => window.open('/PaynterHubProcedures.pdf', '_blank')}
+          style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '8px 18px', fontSize: 13, fontWeight: 700, cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0 }}>
           📄 View & Print Procedures
         </button>
       </div>
 
+      {/* Sections */}
       {sections.map(section => (
-        <div key={section.title} style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', marginBottom: 16, overflow: 'hidden' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: '1px solid #e2e8f0', background: '#f8fafc' }}>
+        <div key={section.title} style={{ background: '#fff', borderRadius: 12, border: `1px solid ${section.highlight ? '#bfdbfe' : '#e2e8f0'}`, marginBottom: 12, overflow: 'hidden' }}>
+          <button onClick={() => setOpen(open === section.title ? null : section.title)}
+            style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '14px 20px', borderBottom: open === section.title ? '1px solid #e2e8f0' : 'none', background: section.highlight ? '#eff6ff' : '#f8fafc', border: 'none', cursor: 'pointer', textAlign: 'left' }}>
             <span style={{ fontSize: 18 }}>{section.icon}</span>
-            <h3 style={{ fontSize: 13, fontWeight: 700, color: '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em' }}>{section.title}</h3>
-          </div>
-          <div>
-            {section.items.map((item, idx) => (
-              <div key={idx} style={{ display: 'flex', borderBottom: idx < section.items.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-                <div style={{ width: 220, minWidth: 220, padding: '11px 20px', borderRight: '1px solid #f1f5f9', background: '#fafafa' }}>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: '#374151' }}>{item.q}</span>
-                </div>
-                <div style={{ flex: 1, padding: '11px 20px' }}>
-                  <span style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{item.a}</span>
-                </div>
-              </div>
-            ))}
-          </div>
+            <h3 style={{ fontSize: 13, fontWeight: 700, color: section.highlight ? '#1d4ed8' : '#0f172a', margin: 0, textTransform: 'uppercase', letterSpacing: '0.06em', flex: 1 }}>{section.title}</h3>
+            {section.highlight && <span style={{ fontSize: 10, fontWeight: 700, background: '#1d4ed8', color: '#fff', padding: '2px 7px', borderRadius: 3 }}>KEY WORKFLOW</span>}
+            <span style={{ fontSize: 16, color: '#94a3b8' }}>{open === section.title ? '▾' : '▸'}</span>
+          </button>
+          {open === section.title && (
+            <div style={{ padding: '20px 24px' }}>
+              {section.content}
+            </div>
+          )}
         </div>
       ))}
 
-      <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '16px 20px', textAlign: 'center' }}>
+      <div style={{ background: '#f8fafc', borderRadius: 12, border: '1px solid #e2e8f0', padding: '14px 20px', textAlign: 'center', marginTop: 8 }}>
         <p style={{ fontSize: 11, color: '#94a3b8', margin: 0, lineHeight: 1.8 }}>
           Paynter Bar Hub — Built for Paynter Bar Management Team, GemLife Palmwoods<br />
-          Data source: Square POS · Settings stored in Supabase · Deployed on Vercel
+          Square POS · Supabase · OneDrive · Vercel
         </p>
       </div>
     </div>
