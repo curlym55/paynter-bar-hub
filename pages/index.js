@@ -4932,10 +4932,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   <td style={{ padding:'7px 10px' }}>
                                     {avgIncGst != null && (
                                       <button onClick={async () => {
-                                        if (!confirm(`Update buy price for "${row.item_name}" to $${avgIncGst.toFixed(3)} (inc GST)?`)) return
-                                        await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                                          body: JSON.stringify({ itemName: row.item_name, field:'buyPrice', value: avgIncGst }) })
-                                        alert('✓ Buy price updated.')
+                                        const hubKey = row.matched_hub_key || row.item_name
+                                        if (!confirm(`Update buy price for "${hubKey}" to $${avgIncGst.toFixed(3)} (inc GST)?`)) return
+                                        const r2 = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
+                                          body: JSON.stringify({ itemName: hubKey, field:'buyPrice', value: avgIncGst }) })
+                                        if (r2.ok) { alert('✓ Buy price updated.'); loadItems(false) } else alert('Failed to update buy price.')
                                       }} style={{ padding:'2px 8px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                                         ↑ Update
                                       </button>
