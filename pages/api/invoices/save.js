@@ -47,6 +47,19 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: 'All items were excluded (include=false)' })
   }
 
+  // Duplicate prevention — remove any existing rows for this invoice before inserting.
+  // Re-importing the same invoice (e.g. auto-extract on receive + later manual import)
+  // replaces the data instead of double-counting it in weighted averages.
+  const { error: delError } = await sb.from('buy_price_history')
+    .delete()
+    .eq('invoice_ref', String(invoice_ref))
+    .eq('supplier', String(supplier))
+
+  if (delError) {
+    console.error('[save] duplicate-cleanup error:', delError)
+    return res.status(500).json({ error: 'Duplicate cleanup failed: ' + delError.message })
+  }
+
   const { data, error } = await sb.from('buy_price_history').insert(rows).select('id')
 
   if (error) {
