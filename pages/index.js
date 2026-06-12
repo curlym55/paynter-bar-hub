@@ -491,7 +491,7 @@ export default function Home() {
                     supplier: d.supplier || supplier,
                     invoice_date: d.invoice_date || dateStr,
                     gst_included: d.gst_included ?? true,
-                    items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_raw })),
+                    items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_hub || i.item_name_raw })),
                   })
                 })
               })

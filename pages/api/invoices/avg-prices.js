@@ -60,7 +60,23 @@ export default async function handler(req, res) {
     const items = Object.entries(map).map(([name, d]) => {
       const avg = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
       const exactMatch = settings[name]
-      const fuzzyMatch = !exactMatch ? settingsNorm[norm(name)] : null
+      // Fuzzy match: try exact normalised, then word-overlap scoring
+      let fuzzyMatch = null
+      if (!exactMatch) {
+        fuzzyMatch = settingsNorm[norm(name)] || null
+        if (!fuzzyMatch) {
+          // Word-overlap: find the Hub item whose name words best overlap with the invoice description
+          const nameWords = new Set(norm(name).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2))
+          let bestScore = 0, bestKey = null
+          for (const [hubNorm, hubVal] of Object.entries(settingsNorm)) {
+            const hubWords = new Set(hubNorm.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2))
+            const overlap = [...nameWords].filter(w => hubWords.has(w)).length
+            const score = overlap / Math.max(hubWords.size, 1)
+            if (score > bestScore && score >= 0.5) { bestScore = score; bestKey = hubVal }
+          }
+          if (bestKey) fuzzyMatch = bestKey
+        }
+      }
       const matched = exactMatch || fuzzyMatch
       const currentBuy = matched?.buyPrice != null ? Number(matched.buyPrice) : null
 
