@@ -89,7 +89,18 @@ export default function Home() {
           body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: avgIncGst }) }).catch(() => null)
         if (r2?.ok) updated++
       }
-      if (updated > 0) loadItems(false)
+      if (updated > 0) {
+        // Update items state directly — no Square refresh needed
+        setItems(prev => prev.map(it => {
+          const match = updatable.find(row => row.matched_hub_key === it.name)
+          if (!match) return it
+          const nipMLMatch2 = match.item_name?.match(/(\d+)\s*ml\s*nip/i)
+          const hubItem2 = prev.find(i => i.name === match.matched_hub_key)
+          const nipsPerBtl2 = match.nips_per_bottle ?? (hubItem2?.bottleML && (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2?.nipML) ? hubItem2.bottleML / (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2.nipML) : null)
+          const newBuy = Math.round((nipsPerBtl2 ? match.avg_unit_price_ex_gst / nipsPerBtl2 : match.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
+          return { ...it, buyPrice: newBuy }
+        }))
+      }
       return updated
     } catch (e) { console.error('[autoUpdateBuyPrices]', e); return 0 }
   }
@@ -4865,6 +4876,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           if (r.ok) updated++; else failed++
                         } catch { failed++ }
                       }
+                      if (updated > 0) loadItems(false)
                       alert(`✓ Updated ${updated} buy prices.${failed ? ` ${failed} failed.` : ''}`)
                     }} style={{ padding:'5px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       ↑ Update All Buy Prices
@@ -4936,7 +4948,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         if (!confirm(`Update buy price for "${hubKey}" to $${avgIncGst.toFixed(3)} (inc GST)?`)) return
                                         const r2 = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
                                           body: JSON.stringify({ itemName: hubKey, field:'buyPrice', value: avgIncGst }) })
-                                        if (r2.ok) { alert('✓ Buy price updated.'); loadItems(false) } else alert('Failed to update buy price.')
+                                        if (r2.ok) {
+                                          // Update items state directly — no Square refresh needed
+                                          setItems(prev => prev.map(it => it.name === hubKey ? { ...it, buyPrice: avgIncGst } : it))
+                                          alert('✓ Buy price updated.')
+                                        } else alert('Failed to update buy price.')
                                       }} style={{ padding:'2px 8px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
                                         ↑ Update
                                       </button>
