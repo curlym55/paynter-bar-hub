@@ -3586,6 +3586,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           }
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>{item.targetStock}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', display: showDetails ? '' : 'none', cursor: 'pointer' }}
+                          onClick={() => {
+                            const v = prompt(`Min Stock for "${item.name}"\n(leave blank to clear, currently: ${item.minStock ?? 'not set'}):`, item.minStock ?? '')
+                            if (v === null) return
+                            const val = v.trim() === '' ? null : Number(v)
+                            saveSetting(item.name, 'minStock', val)
+                            setItems(prev => prev.map(i => i.name === item.name ? { ...i, minStock: val } : i))
+                          }}
+                          title="Click to set minimum stock level">
+                          {item.minStock != null
+                            ? <span style={{ fontWeight: 700, color: '#0ea5e9' }}>{item.minStock}</span>
+                            : <span style={{ color: '#cbd5e1', fontSize: 11 }}>—</span>}
+                        </td>
                         <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {!item.isSpirit ? (
                             <EditSelect value={String(item.pack || '')} options={['1', '6', '12', '18', '24', '30', '48']}
