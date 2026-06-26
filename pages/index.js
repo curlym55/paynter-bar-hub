@@ -1711,8 +1711,12 @@ ${orderItems.length === 0 ? '<p style="color:#6b7280;margin-top:16px">No items t
     const rows = supplierItems.map(item => {
       const override = orderQtyOverrides[item.name]
       const qty = override !== undefined ? override : (item.orderQty || 0)
+      // Use stored bottlesToOrder directly — avoids rounding mismatch from recalculating
+      const btlOverride = override !== undefined
+        ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(override / ((item.bottleML || 700) / (item.nipML || 30)))
+        : (item.bottlesToOrder || null)
       const qtyLabel = item.isSpirit
-        ? `${qty} nips / ${(v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(qty / ((item.bottleML || 700) / (item.nipML || 30)))} btl`
+        ? `${qty} nips / ${btlOverride ?? '?'} btl`
         : `${qty} units`
       return `<tr>
         <td style="text-align:center"><input type="checkbox" style="width:16px;height:16px"></td>
