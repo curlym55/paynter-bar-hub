@@ -19,7 +19,12 @@ export default async function handler(req, res) {
   try {
     const token = await getAccessToken()
     const buffer = Buffer.from(base64, 'base64')
-    const safeSupplier = (supplier || 'Unknown').replace(/[^a-zA-Z0-9 ]/g, '').trim()
+    // Normalise supplier name to a short clean folder name
+    const supplierRaw = (supplier || 'Unknown')
+    const safeSupplier = supplierRaw.toLowerCase().includes('dan murphy') ? 'Dan Murphy'
+      : supplierRaw.toLowerCase().includes('coles') || supplierRaw.toLowerCase().includes('woolies') || supplierRaw.toLowerCase().includes('woolworths') ? 'Coles Woolies'
+      : supplierRaw.toLowerCase().includes('acw') ? 'ACW'
+      : supplierRaw.replace(/[^a-zA-Z0-9 ]/g, '').trim()
     const folder = `POs Invoices and Receive Reports/Invoices/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
     const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
