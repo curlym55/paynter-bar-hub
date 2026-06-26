@@ -3504,6 +3504,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'right', width: 68 }}>On Hand</th>
                     <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Avg</th>
                     <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Target</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 68, display: showDetails ? '' : 'none' }}>Min Stock</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 50, display: showDetails ? '' : 'none' }}>Pack</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 60, display: showDetails ? '' : 'none' }}>Btl mL</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 52, display: showDetails ? '' : 'none' }}>Nip mL</th>
