@@ -483,9 +483,17 @@ export default function Home() {
           fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) })
             .then(r => r.json()).then(d => {
-              if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                body: JSON.stringify({ action:'update_urls', po_ref: poRef, invoice_onedrive_url: d.webUrl }) })
-            }).catch(()=>null)
+              if (d.ok && d.webUrl) {
+                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ action:'update_urls', po_ref: poRef, invoice_onedrive_url: d.webUrl }) })
+              } else if (d.skipped) {
+                console.warn('[invoice upload] OneDrive skipped:', d.reason)
+                alert(`⚠️ Invoice could not be saved to OneDrive:\n${d.reason || 'Unknown error'}\n\nThe invoice has been saved to the Hub database only.`)
+              }
+            }).catch(e => {
+              console.error('[invoice upload] error:', e)
+              alert('⚠️ Invoice upload failed — check OneDrive connection in Settings.')
+            })
           fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
 
@@ -3223,7 +3231,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         setInvoiceFile({ name: file.name, base64, mimeType: file.type })
                       }} />
                     <span style={{ fontSize: 13, color: '#3b82f6', textDecoration: 'underline' }}>Select PDF or image…</span>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>Saved to OneDrive/Paynter Bar/Invoices/</span>
+                    <span style={{ fontSize: 11, color: '#94a3b8' }}>Will save to OneDrive after confirming delivery</span>
                   </label>
                 )}
               </div>
