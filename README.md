@@ -1,6 +1,6 @@
 # Paynter Bar Hub
 
-Bar management system for the GemLife Palmwoods Paynter Bar. Built with Next.js, deployed on Vercel, using Square POS, Supabase, Redis, and OneDrive.
+Bar management system  for the GemLife Palmwoods Paynter Bar. Built with Next.js, deployed on Vercel, using Square POS, Supabase, Redis, and OneDrive.
 
 ---
 
