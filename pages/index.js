@@ -482,17 +482,21 @@ export default function Home() {
           const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
           fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) })
-            .then(r => r.json()).then(d => {
+            .then(r => {
+              if (!r.ok) { console.error('[invoice upload] HTTP error:', r.status); return null }
+              return r.json()
+            }).then(d => {
+              if (!d) return
               if (d.ok && d.webUrl) {
                 fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({ action:'update_urls', po_ref: poRef, invoice_onedrive_url: d.webUrl }) })
               } else if (d.skipped) {
                 console.warn('[invoice upload] OneDrive skipped:', d.reason)
-                alert(`⚠️ Invoice could not be saved to OneDrive:\n${d.reason || 'Unknown error'}\n\nThe invoice has been saved to the Hub database only.`)
+              } else {
+                console.warn('[invoice upload] unexpected response:', d)
               }
             }).catch(e => {
               console.error('[invoice upload] error:', e)
-              alert('⚠️ Invoice upload failed — check OneDrive connection in Settings.')
             })
           fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
