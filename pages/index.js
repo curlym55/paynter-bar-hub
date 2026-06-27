@@ -681,7 +681,9 @@ export default function Home() {
             minStock: updated.minStock,
             targetWeeksOverride: updated.targetWeeksOverride,
             weeklyAvgOverride: updated.weeklyAvgOverride,
-            stockOverride: updated.stockOverride
+            stockOverride: updated.stockOverride,
+            bottleML: updated.bottleML,
+            nipML: updated.nipML,
           }, targetWeeks, daysBack)
           return { ...updated, ...recalc }
         }
@@ -3628,7 +3630,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               setItems(prev => prev.map(i => {
                                 if (i.name !== item.name) return i
                                 const updated = { ...i, minStock: val }
-                                const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride }, targetWeeks, daysBack)
+                                const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
                                 return { ...updated, ...recalc }
                               }))
                             }}
