@@ -676,26 +676,14 @@ export default function Home() {
         if (item.name !== itemName) return item
         const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
-        if (field === 'weeklyAvgOverride') {
-          const avg = (value !== null && value !== '' ? Number(value) : item.squareWeeklyAvg) || 0
-          const targetStock = Math.ceil(avg * targetWeeks)
-          const onHand = updated.onHand || 0
-          if (updated.isSpirit) {
-            const nipsPerBottle = (updated.bottleML || 700) / (updated.nipML || 30)
-            const nipsNeeded = Math.max(0, targetStock - onHand)
-            const bottlesToOrder = nipsNeeded > 0 ? Math.ceil(nipsNeeded / nipsPerBottle) : 0
-            const nipsToOrder = bottlesToOrder > 0 ? Math.ceil(bottlesToOrder * nipsPerBottle) : 0
-            const weeksLeft = avg > 0 ? onHand / avg : 999
-            return { ...updated, targetStock, nipsToOrder, bottlesToOrder, orderQty: nipsToOrder,
-              priority: nipsToOrder > 0 ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW') : 'OK' }
-          } else {
-            const pack = updated.pack || 1
-            const unitsNeeded = Math.max(0, targetStock - onHand)
-            const orderQty = unitsNeeded > 0 ? Math.ceil(unitsNeeded / pack) * pack : 0
-            const weeksLeft = avg > 0 ? onHand / avg : 999
-            return { ...updated, targetStock, orderQty,
-              priority: orderQty > 0 ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW') : 'OK' }
-          }
+        if (['weeklyAvgOverride', 'bottleML', 'nipML', 'pack', 'minStock'].includes(field)) {
+          const recalc = calculateItem(updated, {
+            minStock: updated.minStock,
+            targetWeeksOverride: updated.targetWeeksOverride,
+            weeklyAvgOverride: updated.weeklyAvgOverride,
+            stockOverride: updated.stockOverride
+          }, targetWeeks, daysBack)
+          return { ...updated, ...recalc }
         }
         return updated
       }))
