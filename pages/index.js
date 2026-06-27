@@ -1,6 +1,6 @@
 ﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
-import { CATEGORIES } from '../lib/calculations'
+import { CATEGORIES, calculateItem } from '../lib/calculations'
 import { styles } from '../lib/barStyles'
 import { DEFAULT_SUPPLIERS, PRIORITY_COLORS, SUPPLIER_COLORS, CATEGORY_ORDER_LIST } from '../lib/constants'
 import WastageView from '../components/bar/views/WastageView'
@@ -3637,7 +3637,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               const val = v === '' ? null : Number(v)
                               if (val === item.minStock) return
                               saveSetting(item.name, 'minStock', val)
-                              setItems(prev => prev.map(i => i.name === item.name ? { ...i, minStock: val } : i))
+                              setItems(prev => prev.map(i => {
+                                if (i.name !== item.name) return i
+                                const updated = { ...i, minStock: val }
+                                const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride }, targetWeeks, daysBack)
+                                return { ...updated, ...recalc }
+                              }))
                             }}
                             onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
                             style={{
