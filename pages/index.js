@@ -3651,7 +3651,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {item.isSpirit ? (
-                            <EditSelect value={String(item.bottleML)} options={['700', '750', '1000']}
+                            <EditSelect value={String(item.bottleML || 700)} options={['700', '750', '1000']}
                               onChange={v => saveSetting(item.name, 'bottleML', Number(v))}
                               saving={saving[`${item.name}_bottleML`]} readOnly={readOnly} />
                           ) : <span style={{ color: '#e2e8f0' }}>—</span>}
