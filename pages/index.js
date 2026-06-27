@@ -3217,9 +3217,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ fontSize: 11, color: '#d97706', marginBottom: 6 }}>⚠️ Recommended — needed to email the treasurer and extract pricing data</div>
                 {invoiceFile ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
-                    <button onClick={() => setInvoiceFile(null)}
-                      style={{ fontSize: 11, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#64748b' }}>Remove</button>
+                    {invoiceFile.uploading
+                      ? <span style={{ fontSize: 13, color: '#d97706', fontWeight: 600, flex: 1 }}>⏳ Uploading {invoiceFile.name}…</span>
+                      : invoiceFile.saved
+                        ? <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name} — saved to OneDrive</span>
+                        : <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
+                    }
+                    {!invoiceFile.uploading && (
+                      <button onClick={() => setInvoiceFile(null)}
+                        style={{ fontSize: 11, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#64748b' }}>Remove</button>
+                    )}
                   </div>
                 ) : (
                   <label style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}>
@@ -3227,15 +3234,31 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       onChange={async e => {
                         const file = e.target.files?.[0]
                         if (!file) return
+                        setInvoiceFile({ name: file.name, base64: null, mimeType: file.type, uploading: true })
                         const base64 = await new Promise(resolve => {
                           const reader = new FileReader()
                           reader.onload = () => resolve(reader.result.split(',')[1])
                           reader.readAsDataURL(file)
                         })
-                        setInvoiceFile({ name: file.name, base64, mimeType: file.type })
+                        // Save to OneDrive immediately — same as PO Documents upload
+                        const poRef = receiveModal.ref || receiveModal.supplier
+                        const ext = file.name.split('.').pop()
+                        const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
+                        const supplier = receiveModal.supplier
+                        // Save to Supabase storage
+                        fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ action:'invoice', po_ref:poRef, supplier, file_base64:base64, file_name:invName, file_mime:file.type }) }).catch(()=>null)
+                        // Save to OneDrive
+                        const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
+                          body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier }) }).catch(()=>null)
+                        const odData = odRes ? await odRes.json().catch(()=>({})) : {}
+                        if (odData.webUrl) {
+                          fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                            body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
+                        }
+                        setInvoiceFile({ name: invName, base64, mimeType: file.type, uploading: false, saved: !!odData.webUrl })
                       }} />
                     <span style={{ fontSize: 13, color: '#3b82f6', textDecoration: 'underline' }}>Select PDF or image…</span>
-                    <span style={{ fontSize: 11, color: '#94a3b8' }}>Will save to OneDrive after confirming delivery</span>
                   </label>
                 )}
               </div>
