@@ -3,31 +3,25 @@ import { getAccessToken } from '../../../lib/onedrive'
 export default async function handler(req, res) {
   try {
     const token = await getAccessToken()
-    const folder = process.env.ONEDRIVE_FOLDER_PATH ?? 'NOT SET - using default'
     
-    // Try to list the root to verify token works
-    const rootRes = await fetch('https://graph.microsoft.com/v1.0/me/drive/root/children', {
-      headers: { Authorization: `Bearer ${token}` }
+    // Try to save a test file to the invoices folder
+    const folder = 'POs Invoices and Receive Reports/Invoices/Dan Murphy'
+    const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/test-invoice.txt:/content`
+    
+    const saveRes = await fetch(url, {
+      method: 'PUT',
+      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'text/plain' },
+      body: 'test invoice file'
     })
-    const rootData = await rootRes.json()
-    const rootFolders = (rootData.value || []).map(f => f.name)
-
-    // Try to list the target folder
-    const folderEncoded = (process.env.ONEDRIVE_FOLDER_PATH ?? '').split('/').map(encodeURIComponent).join('/')
-    const folderRes = folderEncoded ? await fetch(
-      `https://graph.microsoft.com/v1.0/me/drive/root:/${folderEncoded}:/children`,
-      { headers: { Authorization: `Bearer ${token}` } }
-    ) : null
-    const folderData = folderRes ? await folderRes.json() : null
-
+    const saveData = await saveRes.json()
+    
     return res.json({
-      ok: true,
-      env_ONEDRIVE_FOLDER_PATH: folder,
-      token_works: rootRes.ok,
-      root_folders: rootFolders,
-      target_folder_exists: folderRes?.ok ?? false,
-      target_folder_error: folderData?.error?.message ?? null,
-      target_folder_contents: folderRes?.ok ? (folderData.value || []).map(f => f.name) : null,
+      ok: saveRes.ok,
+      status: saveRes.status,
+      webUrl: saveData.webUrl ?? null,
+      error: saveData.error ?? null,
+      folder_used: folder,
     })
   } catch (e) {
     return res.json({ ok: false, error: e.message })
