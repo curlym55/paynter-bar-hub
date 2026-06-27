@@ -689,10 +689,8 @@ export default function Home() {
         }
         return updated
       }))
-      const auditKey = itemName + '__' + field
-      if (value === null || value === '' || value === false) {
-      } else {
-      }
+      // For supplier changes, reload items to reflect new grouping
+      if (field === 'supplier') loadItems(false)
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }
