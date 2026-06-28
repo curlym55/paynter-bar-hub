@@ -73,13 +73,15 @@ export default function HelpTab() {
           </STEP>
 
           <STEP n="6" title="Managing an existing order">
-            Once placed, open the <strong>View Order</strong> modal from the Dashboard on-order banner or the On Order stat card. From here you can:
+            Once placed, open the <strong>View Order</strong> modal from the Dashboard on-order banner, the On Order stat card on the Dashboard, or the On Order count in the Stock Items toolbar. From here you can:
             <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
               <li>Edit individual item quantities</li>
-              <li>Add forgotten items using the + Add item section (spirits default to bottles)</li>
+              <li><strong>Add forgotten items</strong> using the + Add item to this order section at the bottom (spirits enter quantity in bottles, converts to nips automatically)</li>
               <li>Remove items with 🗑 Remove</li>
               <li>Delete the whole order with 🗑 Delete Whole Order</li>
+              <li>Click <strong>📋 Delivery List</strong> to print a checklist showing ordered quantities in nips and bottles</li>
             </ul>
+            <Note>The delivery checklist has a ✕ Close button to return to the app — useful on iPad where closing a new tab isn't obvious.</Note>
           </STEP>
 
           <Note type="success">
@@ -115,6 +117,7 @@ export default function HelpTab() {
               <li>Automatically extract line item prices into Price History</li>
             </ul>
             <Note type="warn">Without an invoice attached, the treasurer email will be sent without an attachment and buy prices won't update from this delivery.</Note>
+            <Note>The invoice uploads to OneDrive <strong>as soon as you select the file</strong> — you'll see ✓ saved to OneDrive appear. You don't need to wait until you click Confirm Delivery.</Note>
           </STEP>
 
           <STEP n="4" title="Confirm the delivery">
@@ -176,7 +179,8 @@ export default function HelpTab() {
             ['PO link ☁️', 'Opens the formatted Excel PO document on OneDrive. Created automatically when the order is placed.'],
             ['Receipt link 📄', 'Opens the receive report CSV on OneDrive. Created automatically when the delivery is confirmed.'],
             ['Invoice link 📎', 'Opens the invoice PDF. Attach in the receive modal or via 📎 Upload Invoice on the card.'],
-            ['✕ Remove invoice', 'Removes the invoice link from this record (file on OneDrive is not deleted). Use if the wrong invoice was attached — then upload the correct one.'],
+            ['✕ Remove invoice', 'Removes the invoice link from this record (file on OneDrive is not deleted). Use if the wrong invoice was attached — then upload the correct one using 📎 Upload Invoice.'],
+            ['Filter bar', 'Search by PO ref, filter by supplier or filter by status (Ordered / Received). A ✕ Clear button appears when any filter is active.'],
             ['🗑 Delete', 'Deletes the PO record. Only possible for Ordered status records — received records are permanent for audit purposes.'],
           ].map(([q, a]) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
@@ -214,12 +218,14 @@ export default function HelpTab() {
         <div>
           {[
             ['Reading the table', 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.'],
-            ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns. Hidden by default to keep the view clean.'],
+            ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Min Stock, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns. Hidden by default to keep the view clean.'],
             ['Supplier tabs', 'Click a supplier name to filter the table to just that supplier.'],
             ['Pricing view', 'Click 💲 Pricing to switch to pricing mode — shows Buy Price, Sell Price and Markup % for all items. Export to Excel from here.'],
-            ['Editing inline', 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically.'],
+            ['Editing inline', 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and order quantities recalculate immediately.'],
+            ['Min Stock', 'Type a value in the Min Stock column (visible under Show Details) to set a minimum stock floor. The order quantity will always be enough to reach this level, even if the calculated target is lower. Leave blank to use the calculated target only.'],
             ['Rundown items', 'Tick the Rundown checkbox on any item to flag it for running down — excluded from order calculations and pricing exports.'],
             ['Order Again', 'Items that are on order are hidden from the main list. Click + Order Again on any on-order item to bring it back into view if you need to order more.'],
+            ['On Order stat', 'Click the On Order number in the toolbar to open the View Order modal directly — no need to go back to the Dashboard.'],
           ].map(([q, a], i, arr) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
