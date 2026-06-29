@@ -3678,37 +3678,32 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </td>
                         <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>{item.targetStock}</td>
                         <td style={{ ...styles.td, textAlign: 'right', display: showDetails ? '' : 'none' }}>
-                          {(() => {
-                            const [msVal, setMsVal] = React.useState(item.minStock != null ? String(item.minStock) : '')
-                            return (
-                              <input
-                                type="number" min="0" step="1"
-                                placeholder="—"
-                                value={msVal}
-                                onChange={e => setMsVal(e.target.value)}
-                                onBlur={e => {
-                                  const v = e.target.value.trim()
-                                  const val = v === '' ? null : Number(v)
-                                  if (val === item.minStock) return
-                                  saveSetting(item.name, 'minStock', val)
-                                  setItems(prev => prev.map(i => {
-                                    if (i.name !== item.name) return i
-                                    const updated = { ...i, minStock: val }
-                                    const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
-                                    return { ...updated, ...recalc }
-                                  }))
-                                }}
-                                onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-                                style={{
-                                  width: 58, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13,
-                                  border: item.minStock != null ? '1px solid #0ea5e9' : '1px solid #e2e8f0',
-                                  borderRadius: 5, padding: '2px 4px',
-                                  background: item.minStock != null ? '#f0f9ff' : '#f8fafc',
-                                  color: item.minStock != null ? '#0369a1' : 'inherit'
-                                }}
-                              />
-                            )
-                          })()}
+                          <input
+                            type="number" min="0" step="1"
+                            placeholder="—"
+                            defaultValue={item.minStock ?? ''}
+                            key={item.name + '_minstock'}
+                            onBlur={e => {
+                              const v = e.target.value.trim()
+                              const val = v === '' ? null : Number(v)
+                              if (val === (item.minStock ?? null)) return
+                              saveSetting(item.name, 'minStock', val)
+                              setItems(prev => prev.map(i => {
+                                if (i.name !== item.name) return i
+                                const updated = { ...i, minStock: val }
+                                const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
+                                return { ...updated, ...recalc }
+                              }))
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                            style={{
+                              width: 58, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13,
+                              border: item.minStock != null ? '1px solid #0ea5e9' : '1px solid #e2e8f0',
+                              borderRadius: 5, padding: '2px 4px',
+                              background: item.minStock != null ? '#f0f9ff' : '#f8fafc',
+                              color: item.minStock != null ? '#0369a1' : 'inherit'
+                            }}
+                          />
                         </td>
                         <td style={{ ...styles.td, textAlign: 'center', display: showDetails ? '' : 'none' }}>
                           {!item.isSpirit ? (
