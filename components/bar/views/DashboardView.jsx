@@ -49,7 +49,7 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
         <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', padding: '14px 32px', display: 'flex', alignItems: 'center', gap: 20 }}>
           <button onClick={onStartOrder}
             style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', flexShrink: 0 }}>
-            📋 Start Weekly Order
+            📋 Start Order
           </button>
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📦 {orderCount} item{orderCount !== 1 ? 's' : ''} need{orderCount === 1 ? 's' : ''} ordering</div>

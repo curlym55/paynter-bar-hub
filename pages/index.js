@@ -2756,7 +2756,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     {/* Header */}
                     <div style={{ background:'linear-gradient(135deg,#1e3a5f,#0e7490)', borderRadius:'16px 16px 0 0', padding:'20px 24px' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-                        <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>📋 Weekly Order</div>
+                        <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>📋 Order Wizard</div>
                         <button onClick={() => setOrderWizard(null)} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12 }}>✕ Exit</button>
                       </div>
                       {/* Progress bar */}
