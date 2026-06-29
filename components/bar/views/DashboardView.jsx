@@ -45,12 +45,20 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Weekly Order CTA */}
-      {onStartOrder && orderCount > 0 && (
-        <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', padding: '14px 32px', display: 'flex', alignItems: 'center', gap: 20 }}>
-          <button onClick={onStartOrder}
-            style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)', flexShrink: 0 }}>
-            📋 Start Order
-          </button>
+      {onStartOrder && (
+        <div style={{ background: 'linear-gradient(135deg, #1e3a5f 0%, #0e7490 100%)', padding: '14px 32px', display: 'flex', alignItems: 'center', gap: 20, flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', gap: 8, flexShrink: 0 }}>
+            {orderCount > 0 && (
+              <button onClick={() => onStartOrder('weekly')}
+                style={{ background: '#fff', color: '#1e3a5f', border: 'none', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 800, cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.2)' }}>
+                📋 Weekly Order
+              </button>
+            )}
+            <button onClick={() => onStartOrder('additional')}
+              style={{ background: 'rgba(255,255,255,0.15)', color: '#fff', border: '2px solid rgba(255,255,255,0.4)', borderRadius: 8, padding: '10px 24px', fontSize: 14, fontWeight: 800, cursor: 'pointer' }}>
+              ➕ Additional Order
+            </button>
+          </div>
           <div>
             <div style={{ color: '#fff', fontWeight: 700, fontSize: 14 }}>📦 {orderCount} item{orderCount !== 1 ? 's' : ''} need{orderCount === 1 ? 's' : ''} ordering</div>
             <div style={{ color: '#bae6fd', fontSize: 12, marginTop: 2 }}>

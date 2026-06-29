@@ -2720,11 +2720,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               // Build order items per supplier — use effective qty (override takes precedence over auto)
               const orderBySup = {}
               for (const sup of suppliers) {
-                const anyOnOrder = Object.keys(orderedItems).length > 0
                 const supItems = items.filter(i => {
                   const effectiveQty = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty
                   return i.supplier === sup &&
-                    (anyOnOrder || effectiveQty > 0) &&
+                    (orderMode === 'additional' || effectiveQty > 0) &&
                     !rundownItems[i.name] &&
                     !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
                 })
@@ -2756,7 +2755,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     {/* Header */}
                     <div style={{ background:'linear-gradient(135deg,#1e3a5f,#0e7490)', borderRadius:'16px 16px 0 0', padding:'20px 24px' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', alignItems:'center', marginBottom:16 }}>
-                        <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>📋 Order Wizard</div>
+                        <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>
+                          📋 {orderMode === 'additional' ? 'Additional Order' : 'Weekly Order'}
+                        </div>
                         <button onClick={() => setOrderWizard(null)} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12 }}>✕ Exit</button>
                       </div>
                       {/* Progress bar */}
@@ -2852,7 +2853,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </tr>
                             </thead>
                             <tbody>
-                              {supItems.map((item, i) => (
+                              {(orderMode === 'additional' ? supItems : supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0)).map((item, i) => (
                                 <tr key={item.name} style={{ background: i%2===0?'#fff':'#f8fafc', borderTop:'1px solid #f1f5f9' }}>
                                   <td style={{ padding:'10px 14px' }}>
                                     <div style={{ fontWeight:600, color:'#0f172a' }}>{item.name}</div>
@@ -3976,16 +3977,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             orderCount={orderCount}
             critCount={critCount}
             onOrderCount={onOrderCount}
-            onStartOrder={() => {
+            onStartOrder={(mode) => {
               const q = {}
-              const anyOnOrder = Object.keys(orderedItems).length > 0
+              setOrderMode(mode)
               for (const i of items) {
                 if (rundownItems[i.name]) continue
-                if (anyOnOrder) {
-                  // Additional order — clean slate, start at 0
+                if (mode === 'additional') {
                   q[i.name] = 0
                 } else {
-                  // First order — pre-fill suggested quantities
                   if (orderQtyOverrides[i.name] !== undefined) {
                     q[i.name] = orderQtyOverrides[i.name]
                   } else {
