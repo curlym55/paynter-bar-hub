@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES, calculateItem } from '../lib/calculations'
 import { styles } from '../lib/barStyles'
@@ -173,6 +173,7 @@ export default function Home() {
   const [orderedItems, setOrderedItems]   = useState({})
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
+  const [orderMode, setOrderMode]     = useState('weekly') // 'weekly' | 'additional'
   const [wizQtys, setWizQtys] = useState({})
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
