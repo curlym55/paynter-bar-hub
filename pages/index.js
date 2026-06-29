@@ -273,7 +273,7 @@ export default function Home() {
     }
   }, [daysBack])
 
-  useEffect(() => { loadItems(); loadLastOrderSummary() }, [loadItems])
+  useEffect(() => { loadItems(); loadLastOrderSummary(); loadDocuments() }, [loadItems])
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
