@@ -2724,7 +2724,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const effectiveQty = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty
                   return i.supplier === sup &&
                     effectiveQty > 0 &&
-                    !orderedItems[i.name] &&
                     !rundownItems[i.name] &&
                     !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
                 })
@@ -2741,7 +2740,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const addedSupItems = items.filter(i =>
                 i.supplier === activeSup &&
                 !baseNames.has(i.name) &&
-                !orderedItems[i.name] &&
                 wizQtys[i.name] != null &&
                 wizQtys[i.name] > 0
               )
@@ -2878,8 +2876,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const addableItems = items.filter(i =>
                             i.supplier === activeSup &&
                             !alreadyInList.has(i.name) &&
-                            !rundownItems[i.name] &&
-                            !orderedItems[i.name]
+                            !rundownItems[i.name]
                           )
                           if (addableItems.length === 0) return null
                           return (
