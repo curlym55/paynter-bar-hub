@@ -2731,8 +2731,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 if (supItems.length > 0) orderBySup[sup] = supItems
               }
               const suppliersToOrder = Object.keys(orderBySup)
-              // Lock to the single supplier set when wizard was opened
-              const activeSup = wiz.supplier || suppliersToOrder[0]
+              // If no suppliers have items to order, allow manual selection from all suppliers
+              const allSuppliers = suppliers
+              const activeSup = wiz.supplier || suppliersToOrder[0] || allSuppliers[0]
               // Base items for this supplier with order qty > 0
               const baseSupItems = orderBySup[activeSup] || []
               // Also include any manually added items (in wizQtys but not in baseSupItems)
@@ -2782,8 +2783,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <span style={{ fontSize:13, color:'#64748b' }}>Supplier:</span>
                           <select value={activeSup} onChange={e => setOrderWizard(prev => ({ ...prev, supplier: e.target.value }))}
                             style={{ padding:'6px 12px', border:'2px solid #0e7490', borderRadius:6, fontSize:13, fontWeight:700, color:'#1e3a5f', cursor:'pointer' }}>
-                            {suppliersToOrder.map(sup => <option key={sup} value={sup}>{sup} ({orderBySup[sup].length} items)</option>)}
+                            {suppliersToOrder.length > 0
+                              ? suppliersToOrder.map(sup => <option key={sup} value={sup}>{sup} ({orderBySup[sup].length} items)</option>)
+                              : allSuppliers.map(sup => <option key={sup} value={sup}>{sup}</option>)
+                            }
                           </select>
+                          {suppliersToOrder.length === 0 && (
+                            <span style={{ fontSize:11, color:'#d97706', fontWeight:600 }}>⚠️ All items on order — use + Add item below to add extras</span>
+                          )}
                           <button onClick={() => {
                             const date = new Date().toLocaleDateString('en-AU', { day:'2-digit', month:'short', year:'numeric' })
                             const rows = supItems
