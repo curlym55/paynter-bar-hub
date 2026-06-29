@@ -174,6 +174,7 @@ export default function Home() {
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
   const [orderMode, setOrderMode]     = useState('weekly') // 'weekly' | 'additional'
+  const [wizInvoiceFile, setWizInvoiceFile] = useState(null) // invoice attached during ordering
   const [wizQtys, setWizQtys] = useState({})
   const [viewOrderModal, setViewOrderModal] = useState(null)
   const [priceListSettings, setPriceListSettings] = useState({}) // { itemName: { hidden: bool, priceOverride: num, label: str } }
@@ -2759,7 +2760,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <div style={{ color:'#fff', fontWeight:800, fontSize:16 }}>
                           📋 {orderMode === 'additional' ? 'Additional Order' : 'Weekly Order'}
                         </div>
-                        <button onClick={() => setOrderWizard(null)} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12 }}>✕ Exit</button>
+                        <button onClick={() => { setOrderWizard(null); setWizInvoiceFile(null) }} style={{ background:'rgba(255,255,255,0.2)', border:'none', color:'#fff', borderRadius:6, padding:'4px 10px', cursor:'pointer', fontSize:12 }}>✕ Exit</button>
                       </div>
                       {/* Progress bar */}
                       <div style={{ display:'flex', gap:4 }}>
@@ -3059,6 +3060,47 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ fontSize:11, color:'#94a3b8', marginTop:4 }}>Supplier confirmation number (if any) can be appended — e.g. COLE-PO-101-31 05 2025 / 1666</div>
                         </div>
 
+                        {/* Optional invoice attachment */}
+                        <div style={{ marginBottom:20, padding:'14px 16px', background:'#f8fafc', border:'1px dashed #cbd5e1', borderRadius:8 }}>
+                          <div style={{ fontSize:12, fontWeight:700, color:'#475569', marginBottom:6, textTransform:'uppercase', letterSpacing:'0.05em' }}>📎 Attach Invoice (optional)</div>
+                          <div style={{ fontSize:11, color:'#94a3b8', marginBottom:10 }}>If you have the invoice already, attach it now. It will be saved to OneDrive immediately.</div>
+                          {!wizInvoiceFile ? (
+                            <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+                              <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }}
+                                onChange={async e => {
+                                  const file = e.target.files?.[0]
+                                  if (!file) return
+                                  setWizInvoiceFile({ name: file.name, uploading: true })
+                                  const base64 = await new Promise(resolve => {
+                                    const reader = new FileReader()
+                                    reader.onload = () => resolve(reader.result.split(',')[1])
+                                    reader.readAsDataURL(file)
+                                  })
+                                  const poRef = wiz.poRef.trim()
+                                  const ext = file.name.split('.').pop()
+                                  const invName = poRef ? `${poRef.replace(/\s/g,'_')}-Invoice.${ext}` : file.name
+                                  // Save to OneDrive immediately
+                                  const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
+                                    body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier:activeSup }) }).catch(()=>null)
+                                  const odData = odRes ? await odRes.json().catch(()=>({})) : {}
+                                  setWizInvoiceFile({ name:invName, base64, mimeType:file.type, uploading:false, saved:!!odData.webUrl, webUrl:odData.webUrl||null })
+                                }} />
+                              <span style={{ fontSize:12, color:'#3b82f6', textDecoration:'underline' }}>Select PDF or image…</span>
+                            </label>
+                          ) : (
+                            <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                              {wizInvoiceFile.uploading
+                                ? <span style={{ fontSize:12, color:'#d97706', fontWeight:600 }}>⏳ Uploading…</span>
+                                : <span style={{ fontSize:12, color:'#16a34a', fontWeight:600 }}>✓ {wizInvoiceFile.name}{wizInvoiceFile.saved ? ' — saved to OneDrive' : ''}</span>
+                              }
+                              {!wizInvoiceFile.uploading && (
+                                <button onClick={() => setWizInvoiceFile(null)}
+                                  style={{ fontSize:11, background:'none', border:'1px solid #e2e8f0', borderRadius:4, padding:'2px 8px', cursor:'pointer', color:'#64748b' }}>Remove</button>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
                         <div style={{ display:'flex', justifyContent:'space-between' }}>
                           <button onClick={() => setOrderWizard(prev => ({ ...prev, step: 2 }))}
                             style={{ background:'#f1f5f9', color:'#374151', border:'none', borderRadius:8, padding:'12px 20px', fontSize:13, fontWeight:600, cursor:'pointer' }}>
@@ -3094,6 +3136,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
                             fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
+                            // Link invoice to PO record if already uploaded
+                            if (wizInvoiceFile?.webUrl) {
+                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
+                            }
                             fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
                                 order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
