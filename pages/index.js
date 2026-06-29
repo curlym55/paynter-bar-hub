@@ -2720,10 +2720,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               // Build order items per supplier — use effective qty (override takes precedence over auto)
               const orderBySup = {}
               for (const sup of suppliers) {
+                const anyOnOrder = Object.keys(orderedItems).length > 0
                 const supItems = items.filter(i => {
                   const effectiveQty = orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty
                   return i.supplier === sup &&
-                    effectiveQty > 0 &&
+                    (anyOnOrder || effectiveQty > 0) &&
                     !rundownItems[i.name] &&
                     !/do\s*n'?t\s+order|do\s+not\s+order/i.test(i.notes || '')
                 })
