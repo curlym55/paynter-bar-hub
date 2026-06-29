@@ -2857,7 +2857,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               {(orderMode === 'additional' ? supItems : supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0)).map((item, i) => (
                                 <tr key={item.name} style={{ background: i%2===0?'#fff':'#f8fafc', borderTop:'1px solid #f1f5f9' }}>
                                   <td style={{ padding:'10px 14px' }}>
-                                    <div style={{ fontWeight:600, color:'#0f172a' }}>{item.name}</div>
+                                    <div style={{ fontWeight:600, color:'#0f172a', display:'flex', alignItems:'center', gap:8, flexWrap:'wrap' }}>
+                                      {item.name}
+                                      {orderedItems[item.name] && (
+                                        <span style={{ fontSize:10, fontWeight:700, padding:'1px 6px', borderRadius:4, background:'#dcfce7', color:'#16a34a', whiteSpace:'nowrap' }}>🛒 ON ORDER</span>
+                                      )}
+                                    </div>
                                     {item.priority === 'CRITICAL' && <span style={{ fontSize:10, color:'#dc2626', fontWeight:700 }}>● CRITICAL</span>}
                                   </td>
                                   <td style={{ padding:'10px 14px', textAlign:'center', color:'#64748b' }}>{item.onHand}</td>
