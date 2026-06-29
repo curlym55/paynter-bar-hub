@@ -5644,10 +5644,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                                 body: JSON.stringify({ action:'update_urls', po_ref:viewOrderModal.ref, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
                               setDocuments(prev => prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl } : d))
-                              alert('✓ Invoice saved to OneDrive')
-                            } else {
-                              alert('⚠️ Invoice could not be saved to OneDrive')
-                            }
+                              setDocuments(prev => prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl, invoice_path: 'saved' } : d))
                           }} />
                         <span style={{ fontSize:12, color:'#3b82f6', textDecoration:'underline' }}>📎 Attach invoice…</span>
                         <span style={{ fontSize:11, color:'#94a3b8' }}>optional</span>
