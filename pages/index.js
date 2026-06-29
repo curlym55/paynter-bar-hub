@@ -368,6 +368,16 @@ export default function Home() {
     setReceiveChecked(checked)
     setReceiveQtys(qtys)
     setSquareReceiveResult(null)
+    // Check if an invoice is already saved for this PO
+    const existingDoc = documents.find(d => d.po_ref === (ref || '') && (d.invoice_url || d.invoice_onedrive_url || d.invoice_path))
+    if (existingDoc) {
+      const existingName = existingDoc.invoice_onedrive_url
+        ? existingDoc.invoice_onedrive_url.split('/').pop().split('?')[0]
+        : (ref ? `${ref}-Invoice` : 'Invoice')
+      setInvoiceFile({ name: decodeURIComponent(existingName), base64: null, mimeType: 'application/pdf', saved: true, alreadySaved: true })
+    } else {
+      setInvoiceFile(null)
+    }
     setReceiveModal({ supplier, ref: ref || '', items: supplierItems })
   }
 
@@ -3256,13 +3266,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     {invoiceFile.uploading
                       ? <span style={{ fontSize: 13, color: '#d97706', fontWeight: 600, flex: 1 }}>⏳ Uploading {invoiceFile.name}…</span>
-                      : invoiceFile.saved
-                        ? <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name} — saved to OneDrive</span>
-                        : <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
+                      : invoiceFile.alreadySaved
+                        ? <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name} — previously saved</span>
+                        : invoiceFile.saved
+                          ? <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name} — saved to OneDrive</span>
+                          : <span style={{ fontSize: 13, color: '#16a34a', fontWeight: 600, flex: 1 }}>✓ {invoiceFile.name}</span>
                     }
                     {!invoiceFile.uploading && (
                       <button onClick={() => setInvoiceFile(null)}
-                        style={{ fontSize: 11, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#64748b' }}>Remove</button>
+                        style={{ fontSize: 11, background: 'none', border: '1px solid #e2e8f0', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#64748b' }}>
+                        {invoiceFile.alreadySaved ? 'Replace' : 'Remove'}
+                      </button>
                     )}
                   </div>
                 ) : (
