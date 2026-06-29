@@ -5610,6 +5610,53 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   🗑 Delete Whole Order
                 </button>
               )}
+              {/* Invoice attachment for existing order */}
+              {!readOnly && (() => {
+                const existingInv = documents.find(d => d.po_ref === viewOrderModal.ref && (d.invoice_url || d.invoice_onedrive_url || d.invoice_path))
+                return (
+                  <div style={{ marginTop:14, padding:'10px 14px', background:'#f8fafc', border:'1px dashed #cbd5e1', borderRadius:8 }}>
+                    <div style={{ fontSize:12, fontWeight:700, color:'#475569', marginBottom:6 }}>📎 Invoice</div>
+                    {existingInv ? (
+                      <div style={{ display:'flex', alignItems:'center', gap:8 }}>
+                        <span style={{ fontSize:12, color:'#16a34a', fontWeight:600 }}>✓ Invoice already attached</span>
+                        {existingInv.invoice_onedrive_url && (
+                          <a href={existingInv.invoice_onedrive_url} target="_blank" rel="noreferrer"
+                            style={{ fontSize:11, color:'#0ea5e9' }}>☁️ View</a>
+                        )}
+                      </div>
+                    ) : (
+                      <label style={{ display:'flex', alignItems:'center', gap:8, cursor:'pointer' }}>
+                        <input type="file" accept=".pdf,.jpg,.jpeg,.png" style={{ display:'none' }}
+                          onChange={async e => {
+                            const file = e.target.files?.[0]
+                            if (!file) return
+                            const base64 = await new Promise(resolve => {
+                              const reader = new FileReader()
+                              reader.onload = () => resolve(reader.result.split(',')[1])
+                              reader.readAsDataURL(file)
+                            })
+                            const ext = file.name.split('.').pop()
+                            const invName = `${(viewOrderModal.ref||viewOrderModal.supplier).replace(/\s/g,'_')}-Invoice.${ext}`
+                            const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier:viewOrderModal.supplier }) }).catch(()=>null)
+                            const odData = odRes ? await odRes.json().catch(()=>({})) : {}
+                            if (odData.webUrl) {
+                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ action:'update_urls', po_ref:viewOrderModal.ref, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
+                              setDocuments(prev => prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl } : d))
+                              alert('✓ Invoice saved to OneDrive')
+                            } else {
+                              alert('⚠️ Invoice could not be saved to OneDrive')
+                            }
+                          }} />
+                        <span style={{ fontSize:12, color:'#3b82f6', textDecoration:'underline' }}>📎 Attach invoice…</span>
+                        <span style={{ fontSize:11, color:'#94a3b8' }}>optional</span>
+                      </label>
+                    )}
+                  </div>
+                )
+              })()}
+
               <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                 <button onClick={() => setViewOrderModal(null)}
                   style={{ padding: '8px 20px', background: '#f1f5f9', color: '#475569', border: 'none', borderRadius: 7, fontWeight: 600, cursor: 'pointer' }}>Close</button>
