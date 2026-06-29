@@ -2851,7 +2851,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </tr>
                             </thead>
                             <tbody>
-                              {supItems.filter(item => (wizQtys[item.name] ?? (item.isSpirit ? item.nipsToOrder : item.orderQty)) > 0).map((item, i) => (
+                              {supItems.map((item, i) => (
                                 <tr key={item.name} style={{ background: i%2===0?'#fff':'#f8fafc', borderTop:'1px solid #f1f5f9' }}>
                                   <td style={{ padding:'10px 14px' }}>
                                     <div style={{ fontWeight:600, color:'#0f172a' }}>{item.name}</div>
@@ -3977,12 +3977,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             onOrderCount={onOrderCount}
             onStartOrder={() => {
               const q = {}
+              const anyOnOrder = Object.keys(orderedItems).length > 0
               for (const i of items) {
                 if (rundownItems[i.name]) continue
-                if (orderQtyOverrides[i.name] !== undefined) {
-                  q[i.name] = orderQtyOverrides[i.name]
+                if (anyOnOrder) {
+                  // Additional order — clean slate, start at 0
+                  q[i.name] = 0
                 } else {
-                  q[i.name] = i.isSpirit ? (i.nipsToOrder || i.orderQty) : i.orderQty
+                  // First order — pre-fill suggested quantities
+                  if (orderQtyOverrides[i.name] !== undefined) {
+                    q[i.name] = orderQtyOverrides[i.name]
+                  } else {
+                    q[i.name] = i.isSpirit ? (i.nipsToOrder || i.orderQty) : i.orderQty
+                  }
                 }
               }
               setWizQtys(q)
