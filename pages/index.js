@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+﻿import { useState, useEffect, useCallback, useRef } from 'react'
 import Head from 'next/head'
 import { CATEGORIES, calculateItem } from '../lib/calculations'
 import { styles } from '../lib/barStyles'
@@ -642,14 +642,18 @@ export default function Home() {
   }
 
 
-  async function resavePO(supplier, ordered) {
-    const updatedItems = Object.entries(ordered)
-      .filter(([, info]) => info.supplier === supplier)
-      .map(([name, info]) => ({ name, sku: info.sku||'', orderQty: info.orderQty, bottlesToOrder: info.bottlesToOrder||null, isSpirit: info.isSpirit||false }))
-    if (!updatedItems.length) return
-    const sampleInfo = Object.values(ordered).find(i => i.supplier === supplier)
-    const poRef = sampleInfo?.ref || supplier
-    const orderDate = sampleInfo?.date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
+  async function resavePO(supplier, ordered, ref) {
+    // Flatten — find the entry for THIS specific order (supplier + ref) per item,
+    // since an item can now appear on more than one order at once.
+    const flat = []
+    for (const [name, entries] of Object.entries(ordered)) {
+      const match = (entries || []).find(e => e.supplier === supplier && (!ref || e.ref === ref))
+      if (match) flat.push({ name, ...match })
+    }
+    if (!flat.length) return
+    const updatedItems = flat.map(f => ({ name: f.name, sku: f.sku||'', orderQty: f.orderQty, bottlesToOrder: f.bottlesToOrder||null, isSpirit: f.isSpirit||false }))
+    const poRef = ref || flat[0].ref || supplier
+    const orderDate = flat[0].date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
     fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
       .then(r => r.json()).then(d => {
@@ -2688,13 +2692,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             <div className="stat-cell" style={{ ...styles.stat, borderTopColor: '#16a34a', cursor: onOrderCount > 0 ? 'pointer' : 'default' }}
               onClick={() => {
                 if (!onOrderCount) return
-                const entries = Object.entries(orderedItems).filter(([, info]) => (info.orderQty || 0) > 0)
-                if (!entries.length) return
-                const firstSupplier = entries[0][1].supplier
-                const supplierItems = entries
-                  .filter(([, info]) => info.supplier === firstSupplier)
+                // Flatten — an item may appear on more than one order at once
+                const flat = []
+                for (const [name, arr] of Object.entries(orderedItems)) {
+                  for (const info of (arr || [])) {
+                    if ((info.orderQty || 0) > 0) flat.push([name, info])
+                  }
+                }
+                if (!flat.length) return
+                const firstSupplier = flat[0][1].supplier
+                const firstRef = flat[0][1].ref || ''
+                const supplierItems = flat
+                  .filter(([, info]) => info.supplier === firstSupplier && (info.ref || '') === firstRef)
                   .map(([name, info]) => ({ name, ...info }))
-                const firstRef = entries[0][1].ref || ''
                 setViewOrderModal({ supplier: firstSupplier, items: supplierItems, ref: firstRef })
               }}>
               <span style={{ ...styles.statNum, color: '#16a34a' }}>{onOrderCount}</span>
@@ -5493,9 +5503,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             const newQty = Number(e.target.value)
                             if (!newQty || newQty === item.orderQty) return
                             const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty }) })
+                              body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty, ref: viewOrderModal.ref }) })
                             const d = await r.json()
-                            if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered) }
+                            if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref) }
                           }} />
                       ) : (
                         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
@@ -5507,13 +5517,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <button onClick={async () => {
                           if (!confirm(`Remove ${item.name} from this order?`)) return
                           const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ action:'deleteItem', itemName: item.name }) })
+                            body: JSON.stringify({ action:'deleteItem', itemName: item.name, ref: viewOrderModal.ref }) })
                           const d = await r.json()
                           if (d.ok) {
                             setOrderedItems(d.ordered)
                             const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
                             if (!remaining.length) setViewOrderModal(null)
-                            else { setViewOrderModal(prev => ({ ...prev, items: remaining })); resavePO(viewOrderModal.supplier, d.ordered) }
+                            else { setViewOrderModal(prev => ({ ...prev, items: remaining })); resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref) }
                           }
                         }} style={{ padding: '2px 8px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5', borderRadius: 4, fontSize: 11, fontWeight: 700, cursor: 'pointer' }}>
                           🗑 Remove
@@ -5572,7 +5582,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         if (d.ok) {
                           setOrderedItems(d.ordered)
                           setViewOrderModal(prev => ({ ...prev, items: [...prev.items, { name, orderQty: finalQty, isSpirit: item.isSpirit || false, bottleML: item.bottleML, nipML: item.nipML }] }))
-                          resavePO(viewOrderModal.supplier, d.ordered)
+                          resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref)
                           if (sel) sel.value = ''
                           if (qtyEl) qtyEl.value = '1'
                           const unitEl = document.getElementById('vom-add-unit')
@@ -5590,7 +5600,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <button onClick={async () => {
                   if (!confirm(`Delete the entire ${viewOrderModal.supplier} order? This cannot be undone.`)) return
                   const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
-                    body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier }) })
+                    body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier, ref: viewOrderModal.ref }) })
                   const d = await r.json()
                   if (d.ok) {
                     setOrderedItems(d.ordered)

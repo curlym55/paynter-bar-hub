@@ -20,8 +20,6 @@ async function getNextPoNumber(peek = false) {
   return next
 }
 
-// GET  — return current on-order state
-// POST — place order (flag items) or clear supplier (received)
 async function get(key, fallback = null) {
   let val = await kvGet(key).catch(() => null)
   if (val === null || val === undefined) {
@@ -35,6 +33,21 @@ async function set(key, value) {
   sbConfigSet(key, value).catch(() => {})
 }
 
+// ─────────────────────────────────────────────────────────────────────────
+// DATA MODEL
+//
+//   orderedItems[itemName] = [
+//     { ref, supplier, date, poNumber, orderQty, bottlesToOrder, isSpirit, sku },
+//     ...
+//   ]
+//
+// An item can appear on more than one order (different `ref`s) at the same
+// time — e.g. it's on the current weekly order AND on a separate
+// management-paid event order. Each array entry represents one order's
+// worth of that item. When an order is received/deleted, only the entry
+// matching that order's ref is removed — other orders containing the same
+// item are left untouched.
+// ─────────────────────────────────────────────────────────────────────────
 
 export default async function handler(req, res) {
   try {
@@ -53,7 +66,7 @@ export default async function handler(req, res) {
     const { action, supplier, items } = req.body
 
     if (action === 'place') {
-      // items: [{ name, sku, orderQty, bottlesToOrder, isSpirit, unitCost }]
+      // items: [{ name, sku, orderQty, bottlesToOrder, isSpirit }]
       const ordered = (await get('orderedItems', {}))
       const date = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
       const abbr = supplierAbbr(supplier)
@@ -64,74 +77,88 @@ export default async function handler(req, res) {
       const autoRef = `${abbr}-PO-${poNum}-${brisDate}`
       const ref = req.body.ref || autoRef
       for (const item of items) {
-        // Protect items already in a different pending PO unless explicitly re-ordered (hasOverride)
-        if (ordered[item.name] && ordered[item.name].ref && ordered[item.name].ref !== ref && !item.hasOverride) {
-          continue
-        }
-        ordered[item.name] = {
-          supplier,
-          date,
-          ref,
-          poNumber: poNum,
+        // Keep any entries for this item on OTHER orders untouched;
+        // replace/add the entry for THIS ref only.
+        const entries = (ordered[item.name] || []).filter(e => e.ref !== ref)
+        entries.push({
+          ref, supplier, date, poNumber: poNum,
           orderQty:       item.orderQty,
           bottlesToOrder: item.bottlesToOrder || null,
           isSpirit:       item.isSpirit || false,
           sku:            item.sku || '',
-        }
+        })
+        ordered[item.name] = entries
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered, ref, poNumber: poNum })
     }
 
     if (action === 'receiveByRef') {
-      // Clear items belonging to a specific PO ref
+      // Clear only the entries belonging to a specific PO ref
       const { ref, receivedItems } = req.body
       const ordered = (await get('orderedItems', {}))
-      for (const [name, info] of Object.entries(ordered)) {
-        if (info.ref === ref) {
-          if (!receivedItems || receivedItems.includes(name)) {
-            delete ordered[name]
-          }
-        }
+      for (const [name, entries] of Object.entries(ordered)) {
+        const keep = entries.filter(e => !(e.ref === ref && (!receivedItems || receivedItems.includes(name))))
+        if (keep.length) ordered[name] = keep
+        else delete ordered[name]
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'receive') {
-      // Clear all items for this supplier
+      // Legacy fallback for orders with no ref — clears every entry for
+      // this supplier regardless of which order it belongs to. Only hit
+      // when a ref genuinely doesn't exist (very old orders).
       const ordered = (await get('orderedItems', {}))
-      for (const [name, info] of Object.entries(ordered)) {
-        if ((info.supplier || 'Unknown') === supplier) delete ordered[name]
+      for (const [name, entries] of Object.entries(ordered)) {
+        const keep = entries.filter(e => (e.supplier || 'Unknown') !== supplier)
+        if (keep.length) ordered[name] = keep
+        else delete ordered[name]
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'partialReceive') {
-      // Clear only the specified item names
-      const { receivedItems } = req.body // array of item names received
+      // Legacy fallback (no ref) — clears the named items entirely.
+      // If a ref is supplied, scopes to that order only.
+      const { receivedItems, ref } = req.body
       const ordered = (await get('orderedItems', {}))
       for (const name of (receivedItems || [])) {
-        delete ordered[name]
+        const entries = ordered[name]
+        if (!entries) continue
+        const keep = ref ? entries.filter(e => e.ref !== ref) : []
+        if (keep.length) ordered[name] = keep
+        else delete ordered[name]
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'deleteItem') {
-      const { itemName } = req.body
+      // ref scopes the removal to one specific order; without it, all
+      // entries for that item name are removed (legacy behaviour).
+      const { itemName, ref } = req.body
       const ordered = (await get('orderedItems', {}))
-      delete ordered[itemName]
+      if (ordered[itemName]) {
+        const keep = ref ? ordered[itemName].filter(e => e.ref !== ref) : []
+        if (keep.length) ordered[itemName] = keep
+        else delete ordered[itemName]
+      }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
     }
 
     if (action === 'deleteOrder') {
-      const { supplier } = req.body
+      // ref scopes deletion to one specific order for this supplier;
+      // without it, every order for that supplier is removed (legacy).
+      const { supplier, ref } = req.body
       const ordered = (await get('orderedItems', {}))
       for (const name of Object.keys(ordered)) {
-        if (ordered[name].supplier === supplier) delete ordered[name]
+        const keep = ordered[name].filter(e => !(e.supplier === supplier && (!ref || e.ref === ref)))
+        if (keep.length) ordered[name] = keep
+        else delete ordered[name]
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
@@ -140,17 +167,29 @@ export default async function handler(req, res) {
     if (action === 'addItem') {
       const { itemName, supplier, ref, orderQty, isSpirit, bottlesToOrder } = req.body
       if (!itemName) return res.json({ ok: false, error: 'itemName required' })
-      const ordered2 = await get('orderedItems', {})
-      ordered2[itemName] = { supplier, ref: ref || '', date: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }), orderQty: Number(orderQty), isSpirit: !!isSpirit, bottlesToOrder: bottlesToOrder || null }
-      await set('orderedItems', ordered2)
-      return res.json({ ok: true, ordered: ordered2 })
+      const ordered = await get('orderedItems', {})
+      const entries = (ordered[itemName] || []).filter(e => e.ref !== ref)
+      entries.push({
+        supplier, ref: ref || '',
+        date: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }),
+        orderQty: Number(orderQty), isSpirit: !!isSpirit, bottlesToOrder: bottlesToOrder || null,
+      })
+      ordered[itemName] = entries
+      await set('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
     }
 
     if (action === 'updateItem') {
-      const { itemName, orderQty } = req.body
+      // ref identifies which order's entry to update when an item is on
+      // more than one order at once. Falls back to the first entry if
+      // no ref given (legacy).
+      const { itemName, orderQty, ref } = req.body
       const ordered = (await get('orderedItems', {}))
-      if (ordered[itemName]) {
-        ordered[itemName] = { ...ordered[itemName], orderQty: Number(orderQty) }
+      const entries = ordered[itemName]
+      if (entries && entries.length) {
+        const idx = ref ? entries.findIndex(e => e.ref === ref) : 0
+        if (idx !== -1) entries[idx] = { ...entries[idx], orderQty: Number(orderQty) }
+        ordered[itemName] = entries
       }
       await set('orderedItems', ordered)
       return res.json({ ok: true, ordered })
