@@ -33,6 +33,16 @@ async function set(key, value) {
   sbConfigSet(key, value).catch(() => {})
 }
 
+// Migration helper — old data stored one plain object per item name.
+// New data stores an array of entries per item name. This coerces
+// whatever is found into the array form so both old and new data
+// work without a separate migration step.
+function normalizeEntries(val) {
+  if (Array.isArray(val)) return val
+  if (val && typeof val === 'object') return [val]
+  return []
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // DATA MODEL
 //
@@ -58,7 +68,13 @@ export default async function handler(req, res) {
       const num = await getNextPoNumber(true)
       return res.json({ num })
     }
-    const ordered = (await get('orderedItems', {}))
+    const raw = (await get('orderedItems', {}))
+    // Normalise old single-object entries into arrays for the client too —
+    // guards against stale data that hasn't been touched by a write yet.
+    const ordered = {}
+    for (const [name, val] of Object.entries(raw)) {
+      ordered[name] = normalizeEntries(val)
+    }
     return res.json({ ordered })
   }
 
@@ -79,7 +95,7 @@ export default async function handler(req, res) {
       for (const item of items) {
         // Keep any entries for this item on OTHER orders untouched;
         // replace/add the entry for THIS ref only.
-        const entries = (ordered[item.name] || []).filter(e => e.ref !== ref)
+        const entries = normalizeEntries(ordered[item.name]).filter(e => e.ref !== ref)
         entries.push({
           ref, supplier, date, poNumber: poNum,
           orderQty:       item.orderQty,
@@ -97,7 +113,8 @@ export default async function handler(req, res) {
       // Clear only the entries belonging to a specific PO ref
       const { ref, receivedItems } = req.body
       const ordered = (await get('orderedItems', {}))
-      for (const [name, entries] of Object.entries(ordered)) {
+      for (const [name, rawEntries] of Object.entries(ordered)) {
+        const entries = normalizeEntries(rawEntries)
         const keep = entries.filter(e => !(e.ref === ref && (!receivedItems || receivedItems.includes(name))))
         if (keep.length) ordered[name] = keep
         else delete ordered[name]
@@ -111,7 +128,8 @@ export default async function handler(req, res) {
       // this supplier regardless of which order it belongs to. Only hit
       // when a ref genuinely doesn't exist (very old orders).
       const ordered = (await get('orderedItems', {}))
-      for (const [name, entries] of Object.entries(ordered)) {
+      for (const [name, rawEntries] of Object.entries(ordered)) {
+        const entries = normalizeEntries(rawEntries)
         const keep = entries.filter(e => (e.supplier || 'Unknown') !== supplier)
         if (keep.length) ordered[name] = keep
         else delete ordered[name]
@@ -126,8 +144,8 @@ export default async function handler(req, res) {
       const { receivedItems, ref } = req.body
       const ordered = (await get('orderedItems', {}))
       for (const name of (receivedItems || [])) {
-        const entries = ordered[name]
-        if (!entries) continue
+        const entries = normalizeEntries(ordered[name])
+        if (!entries.length) continue
         const keep = ref ? entries.filter(e => e.ref !== ref) : []
         if (keep.length) ordered[name] = keep
         else delete ordered[name]
@@ -142,7 +160,7 @@ export default async function handler(req, res) {
       const { itemName, ref } = req.body
       const ordered = (await get('orderedItems', {}))
       if (ordered[itemName]) {
-        const keep = ref ? ordered[itemName].filter(e => e.ref !== ref) : []
+        const keep = ref ? normalizeEntries(ordered[itemName]).filter(e => e.ref !== ref) : []
         if (keep.length) ordered[itemName] = keep
         else delete ordered[itemName]
       }
@@ -156,7 +174,7 @@ export default async function handler(req, res) {
       const { supplier, ref } = req.body
       const ordered = (await get('orderedItems', {}))
       for (const name of Object.keys(ordered)) {
-        const keep = ordered[name].filter(e => !(e.supplier === supplier && (!ref || e.ref === ref)))
+        const keep = normalizeEntries(ordered[name]).filter(e => !(e.supplier === supplier && (!ref || e.ref === ref)))
         if (keep.length) ordered[name] = keep
         else delete ordered[name]
       }
@@ -168,7 +186,7 @@ export default async function handler(req, res) {
       const { itemName, supplier, ref, orderQty, isSpirit, bottlesToOrder } = req.body
       if (!itemName) return res.json({ ok: false, error: 'itemName required' })
       const ordered = await get('orderedItems', {})
-      const entries = (ordered[itemName] || []).filter(e => e.ref !== ref)
+      const entries = normalizeEntries(ordered[itemName]).filter(e => e.ref !== ref)
       entries.push({
         supplier, ref: ref || '',
         date: new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane' }),
@@ -185,8 +203,8 @@ export default async function handler(req, res) {
       // no ref given (legacy).
       const { itemName, orderQty, ref } = req.body
       const ordered = (await get('orderedItems', {}))
-      const entries = ordered[itemName]
-      if (entries && entries.length) {
+      const entries = normalizeEntries(ordered[itemName])
+      if (entries.length) {
         const idx = ref ? entries.findIndex(e => e.ref === ref) : 0
         if (idx !== -1) entries[idx] = { ...entries[idx], orderQty: Number(orderQty) }
         ordered[itemName] = entries
