@@ -24,12 +24,18 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
     { label: 'To Order',  value: orderCount,   sub: 'need ordering',     color: '#2563eb', bg: '#eff6ff', action: () => onNav('reorder') },
     { label: 'On Order',  value: onOrderCount, sub: 'click to view orders', color: '#16a34a', bg: '#f0fdf4', action: () => {
       if (!onViewOrder) { onNav('reorder'); return }
-      const entries = Object.entries(orderedItems).filter(([, info]) => (info.orderQty || 0) > 0)
-      if (!entries.length) { onNav('reorder'); return }
-      const firstSupplier = entries[0][1].supplier
-      const firstRef = entries[0][1].ref || ''
-      const supplierItems = entries
-        .filter(([, info]) => info.supplier === firstSupplier)
+      // Flatten — each item may appear on more than one order (e.g. weekly + additional)
+      const flat = []
+      for (const [name, arr] of Object.entries(orderedItems)) {
+        for (const info of (arr || [])) {
+          if ((info.orderQty || 0) > 0) flat.push([name, info])
+        }
+      }
+      if (!flat.length) { onNav('reorder'); return }
+      const firstSupplier = flat[0][1].supplier
+      const firstRef = flat[0][1].ref || ''
+      const supplierItems = flat
+        .filter(([, info]) => info.supplier === firstSupplier && (info.ref || '') === firstRef)
         .map(([name, info]) => ({ name, ...info }))
       onViewOrder(firstSupplier, supplierItems, firstRef)
     }},
@@ -74,10 +80,12 @@ export default function DashboardView({ items, lastUpdated, onNav, onStartOrder,
           {/* On Order banner */}
           {onOrderCount > 0 && (() => {
             const byRef = {}
-            for (const [name, info] of Object.entries(orderedItems)) {
-              const key = info.ref || info.supplier || 'Unknown'
-              if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
-              if ((info.orderQty || 0) > 0) byRef[key].items.push({ name, ...info })
+            for (const [name, arr] of Object.entries(orderedItems)) {
+              for (const info of (arr || [])) {
+                const key = info.ref || info.supplier || 'Unknown'
+                if (!byRef[key]) byRef[key] = { supplier: info.supplier || 'Unknown', ref: info.ref || '', items: [] }
+                if ((info.orderQty || 0) > 0) byRef[key].items.push({ name, ...info })
+              }
             }
             return (
               <div style={{ marginBottom: 16, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
