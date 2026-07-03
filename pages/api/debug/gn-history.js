@@ -6,13 +6,18 @@ export default async function handler(req, res) {
     const locationId = await getLocationId(token)
     const variationMap = await getVariationIdMap(token) // { itemName: variationId }
 
-    const matchName = Object.keys(variationMap).find(name =>
-      name.toLowerCase().includes('supercrisp')
-    )
+    const matchName = Object.keys(variationMap).find(name => {
+      const n = name.toLowerCase()
+      return n.includes('supercrisp') || (n.includes('great northern') && n.includes('crisp'))
+    })
     if (!matchName) {
-      return res.json({ ok: false, error: 'No item matching "supercrisp" found in Square catalog', availableNames: Object.keys(variationMap).filter(n => n.toLowerCase().includes('gn')) })
+      return res.json({
+        ok: false,
+        error: 'No item matching "supercrisp" / "great northern" found in Square catalog',
+        availableNames: Object.keys(variationMap).filter(n => /gn|great|north|crisp/i.test(n)),
+      })
     }
-    const variationId = variationMap[matchName]
+    const variationId = variationMap[matchName].varId
 
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
 
