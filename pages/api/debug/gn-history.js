@@ -21,19 +21,26 @@ export default async function handler(req, res) {
 
     const since = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
 
-    const changesRes = await fetch('https://connect.squareup.com/v2/inventory/changes/batch-retrieve', {
-      method: 'POST',
-      headers: { 'Square-Version': '2026-01-22', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        catalog_object_ids: [variationId],
-        location_ids: [locationId],
-        updated_after: since,
+    // Paginate through ALL changes in the window — a single call caps at 100
+    let allChanges = []
+    let cursor = null
+    let pageCount = 0
+    do {
+      const body = { catalog_object_ids: [variationId], location_ids: [locationId], updated_after: since }
+      if (cursor) body.cursor = cursor
+      const changesRes = await fetch('https://connect.squareup.com/v2/inventory/changes/batch-retrieve', {
+        method: 'POST',
+        headers: { 'Square-Version': '2026-01-22', Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
       })
-    })
-    const changesData = await changesRes.json()
-    if (!changesRes.ok) return res.json({ ok: false, error: changesData })
+      const changesData = await changesRes.json()
+      if (!changesRes.ok) return res.json({ ok: false, error: changesData, pagesFetched: pageCount })
+      allChanges = allChanges.concat(changesData.changes || [])
+      cursor = changesData.cursor || null
+      pageCount++
+    } while (cursor && pageCount < 20)
 
-    const changes = (changesData.changes || []).map(c => {
+    const changes = allChanges.map(c => {
       const a = c.physical_count || c.adjustment
       return {
         type: c.type,
@@ -45,12 +52,26 @@ export default async function handler(req, res) {
         state: a?.state,
         source: a?.source?.product_name || a?.source?.name || null,
         note: a?.note || null,
-        employeeId: a?.employee_id || null,
-        teamMemberId: a?.team_member_id || null,
       }
     }).sort((a,b) => new Date(a.occurredAt||a.createdAt) - new Date(b.occurredAt||b.createdAt))
 
-    return res.json({ ok: true, itemName: matchName, variationId, changeCount: changes.length, changes })
+    // Summarise by transition type to spot double-counted receiving paths
+    const summary = {}
+    for (const c of changes) {
+      const key = `${c.fromState || c.state || '?'} -> ${c.toState || '?'}`
+      const qty = Number(c.quantity) || 0
+      summary[key] = (summary[key] || 0) + qty
+    }
+
+    return res.json({
+      ok: true,
+      itemName: matchName,
+      variationId,
+      pagesFetched: pageCount,
+      changeCount: changes.length,
+      summaryByTransition: summary,
+      changes,
+    })
   } catch (e) {
     return res.json({ ok: false, error: e.message })
   }
