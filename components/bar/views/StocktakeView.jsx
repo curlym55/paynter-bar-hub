@@ -381,7 +381,8 @@ export default function StocktakeView({ items, readOnly, onExport }) {
     sortedItems.forEach((item, idx) => {
       if (item.category !== lastCat) {
         lastCat = item.category
-        rows += `<tr class="cat-row"><td colspan="8">${item.category}</td></tr>`
+        const forcePageBreak = item.category === 'Sparkling' ? ' style="page-break-before: always; break-before: page;"' : ''
+        rows += `<tr class="cat-row"${forcePageBreak}><td colspan="8">${item.category}</td></tr>`
       }
       const shade = idx % 2 === 0 ? '#ffffff' : '#dfe7ef'
       const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : ''
