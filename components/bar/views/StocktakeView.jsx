@@ -383,7 +383,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
         lastCat = item.category
         rows += `<tr class="cat-row"><td colspan="8">${item.category}</td></tr>`
       }
-      const shade = idx % 2 === 0 ? '#fff' : '#f8fafc'
+      const shade = idx % 2 === 0 ? '#ffffff' : '#dfe7ef'
       const nipsPerBottle = item.isSpirit ? +((item.bottleML || 700) / (item.nipML || 30)).toFixed(1) : ''
       rows += `<tr style="background:${shade}">
         <td class="item-name">${item.name}${item.isSpirit ? '<span class="hint">enter bottles (0.5 = half bottle)</span>' : ''}</td>
@@ -408,24 +408,24 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   .header-right { font-size: 10px; color: #64748b; text-align: right; line-height: 1.7; }
   .header-right strong { font-size: 13px; color: #0f172a; display: block; }
   .instructions { background: #f1f5f9; border-radius: 6px; padding: 7px 12px; margin-bottom: 10px; font-size: 10px; color: #475569; line-height: 1.6; }
-  table { width: 100%; border-collapse: collapse; }
-  th { background: #0f172a; color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; }
+  table { width: 100%; border-collapse: collapse; border: 2px solid #0f172a; }
+  th { background: #0f172a; color: #fff; padding: 6px 8px; font-size: 9px; text-transform: uppercase; letter-spacing: 0.06em; border: 1px solid #0f172a; }
   th.item-col { text-align: left; width: 32%; }
   th.input-col { text-align: center; width: 10%; }
   th.total-col { text-align: center; width: 8%; background: #1e3a5f; }
   th.nips-col { text-align: center; width: 8%; background: #134e4a; }
   th.sq-col { text-align: center; width: 8%; }
   th.diff-col { text-align: center; width: 8%; background: #1e3a5f; }
-  td { padding: 5px 8px; border-bottom: 1px solid #f1f5f9; vertical-align: middle; }
-  td.item-name { font-size: 11px; font-weight: 500; }
-  td.input-cell { text-align: center; border-left: 1px solid #e2e8f0; }
-  td.total-cell { text-align: center; background: #f0f9ff; border-left: 2px solid #bae6fd; font-weight: 700; }
+  td { padding: 5px 8px; border: 1px solid #94a3b8; vertical-align: middle; }
+  td.item-name { font-size: 11px; font-weight: 500; border-left: 1px solid #94a3b8; }
+  td.input-cell { text-align: center; border-left: 1.5px solid #64748b; }
+  td.total-cell { text-align: center; background: #f0f9ff; border-left: 2px solid #38bdf8; font-weight: 700; }
   td.sq-cell { text-align: center; color: #64748b; font-family: monospace; }
-  td.diff-cell { text-align: center; background: #fefce8; border-left: 2px solid #fef08a; }
+  td.diff-cell { text-align: center; background: #fefce8; border-left: 2px solid #eab308; }
   .write-box { display: inline-block; width: 52px; height: 20px; border-bottom: 1.5px solid #94a3b8; }
-  tr.cat-row td { background: #f1f5f9; font-weight: 700; font-size: 10px; color: #374151; padding: 6px 8px; border-top: 2px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.04em; }
-  td.nips-cell { text-align: center; color: #0f766e; font-family: monospace; font-weight: 700; font-size: 11px; background: #f0fdfa; border-left: 1px solid #99f6e4; }
-  .nips-ref { display: inline-block; background: #ccfbf1; border-radius: 4px; padding: 1px 5px; font-size: 10px; }
+  tr.cat-row td { background: #cbd5e1; font-weight: 700; font-size: 10px; color: #1e293b; padding: 6px 8px; border-top: 2px solid #64748b; border-bottom: 2px solid #64748b; text-transform: uppercase; letter-spacing: 0.04em; }
+  td.nips-cell { text-align: center; color: #0f766e; font-family: monospace; font-weight: 700; font-size: 11px; background: #ccfbf1; border-left: 1.5px solid #2dd4bf; }
+  .nips-ref { display: inline-block; background: #99f6e4; border-radius: 4px; padding: 1px 5px; font-size: 10px; }
   .hint { font-size: 8px; color: #94a3b8; display: block; margin-top: 1px; }
   .footer { margin-top: 16px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 9px; color: #94a3b8; }
   .sign-row { display: flex; gap: 40px; margin-top: 14px; padding-top: 10px; border-top: 1px solid #e2e8f0; }
