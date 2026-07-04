@@ -21,6 +21,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   const [syncPreview, setSyncPreview]       = useState(null)
   const [syncLoading, setSyncLoading]       = useState(false)
   const [syncing, setSyncing]               = useState(false)
+  const [syncCompleted, setSyncCompleted]   = useState(false)
   const [syncResult, setSyncResult]         = useState(null)
   const [autoSyncPrompt, setAutoSyncPrompt] = useState(false)
   const [autoSyncDismissed, setAutoSyncDismissed] = useState(false)
@@ -31,10 +32,18 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   const loadHistory = async () => {
     setHistoryLoading(true)
     try {
-      const d = await fetch('/api/stocktake-history').then(r => r.json())
-      setHistory(d.history || [])
-    } catch(e) { setHistory([]) }
-    finally { setHistoryLoading(false) }
+      const r = await fetch('/api/stocktake-history')
+      if (!r.ok) {
+        console.error('[stocktake-history] request failed:', r.status)
+        setHistory([])
+        return
+      }
+      const d = await r.json()
+      setHistory(Array.isArray(d.history) ? d.history : [])
+    } catch(e) {
+      console.error('[stocktake-history] fetch error:', e)
+      setHistory([])
+    } finally { setHistoryLoading(false) }
   }
 
   const exportHistoryToExcel = () => {
@@ -201,6 +210,69 @@ export default function StocktakeView({ items, readOnly, onExport }) {
     })()
   }
 
+  const exportSyncChangesToExcel = () => {
+    if (!syncResult || !syncPreview?.preview) return
+    ;(async () => {
+      await loadExcelJS()
+      const NAVY = '0F172A', TEAL = '0E7490'
+      const WHITE = 'FFFFFF', GREEN = '16A34A', AMBER = '92400E', GREY = '64748B'
+      const cell = (v, s) => ({ v: v ?? '', s, t: typeof v === 'number' ? 'n' : 's' })
+      const hStyle = {
+        font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+        fill: { fgColor: { rgb: NAVY } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: { bottom: { style: 'medium', color: { rgb: TEAL } } }
+      }
+      const hStyleL = { ...hStyle, alignment: { horizontal: 'left' } }
+
+      const rows = []
+      const merges = []
+      rows.push([cell('Paynter Bar — Stocktake Sync to Square', { font: { bold: true, sz: 16, color: { rgb: NAVY } } }), ...Array(6).fill(cell(''))])
+      rows.push([cell(`Synced: ${new Date().toLocaleString('en-AU', { timeZone: 'Australia/Brisbane' })}`, { font: { sz: 10, color: { rgb: GREY } } }), ...Array(6).fill(cell(''))])
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 6 } })
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 6 } })
+      rows.push([])
+
+      rows.push([
+        cell('Item',              hStyleL),
+        cell('Category',          hStyleL),
+        cell('Counted (btl/units)', hStyle),
+        cell('Square Before',     hStyle),
+        cell('Square Set To',     hStyle),
+        cell('Conversion',        hStyleL),
+        cell('Status',            hStyle),
+      ])
+
+      const skippedNames = new Set((syncResult.skippedItems || []).map(s => s.name))
+      syncPreview.preview.forEach((p, idx) => {
+        const status = skippedNames.has(p.name) ? 'Skipped / Failed' : (p.canSync ? 'Synced' : 'Skipped')
+        const shade = idx % 2 === 0 ? WHITE : 'F8FAFC'
+        const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
+        const sc = { ...s, alignment: { horizontal: 'center' } }
+        const statusColor = status === 'Synced' ? GREEN : AMBER
+        rows.push([
+          cell(p.name, s),
+          cell(p.category || '', { ...s, font: { sz: 10, color: { rgb: GREY } } }),
+          cell(p.total, sc),
+          cell(p.squareOnHand ?? '—', sc),
+          cell(p.canSync ? p.squareQty : '—', { ...sc, font: { sz: 10, bold: true, color: { rgb: GREEN } } }),
+          cell(p.conversionNote || '1:1', { ...s, font: { sz: 9, color: { rgb: GREY } } }),
+          cell(status, { ...sc, font: { sz: 10, bold: true, color: { rgb: statusColor } } }),
+        ])
+      })
+
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, rows, 'Sync Changes', {
+        cols: [{ wch:34 },{ wch:16 },{ wch:16 },{ wch:14 },{ wch:14 },{ wch:32 },{ wch:16 }],
+        rowHeights: rows.map((_, i) => i === 0 ? { hpt:26 } : { hpt:18 }),
+        merges,
+        freeze: 4,
+        autoFilter: { from:'A4', to:'G4' },
+      })
+      await xlsDownload(wb, `Paynter-Bar-Square-Sync-${new Date().toISOString().split('T')[0]}.xlsx`)
+    })()
+  }
+
   const loadSyncPreview = async () => {
     setSyncLoading(true)
     setSyncResult(null)
@@ -217,7 +289,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
     finally { setSyncLoading(false) }
   }
 
-  const openSyncModal = () => { setShowSyncModal(true); setAutoSyncPrompt(false); setAutoSyncDismissed(true); loadSyncPreview() }
+  const openSyncModal = () => { setShowSyncModal(true); setAutoSyncPrompt(false); setAutoSyncDismissed(true); setSyncCompleted(false); loadSyncPreview() }
 
   const executeSync = async () => {
     setSyncing(true)
@@ -230,7 +302,11 @@ export default function StocktakeView({ items, readOnly, onExport }) {
       })
       const d = await r.json()
       setSyncResult(d)
-      if (d.ok) { loadSyncPreview(); if (showHistory) loadHistory() }
+      setSyncCompleted(d.ok === true)
+      // Don't reload the preview here — that would re-fetch the SAME items
+      // as "ready to sync" again (since local counts aren't cleared), making
+      // it look like the sync did nothing. Just refresh history in the background.
+      if (d.ok && showHistory) loadHistory()
     } catch(e) { setSyncResult({ ok: false, error: e.message }) }
     finally { setSyncing(false) }
   }
@@ -798,7 +874,15 @@ export default function StocktakeView({ items, readOnly, onExport }) {
               {/* Result banner */}
               {syncResult && (
                 <div style={{ marginBottom: 14, padding: '10px 14px', borderRadius: 8, background: syncResult.ok ? '#f0fdf4' : '#fee2e2', border: `1px solid ${syncResult.ok ? '#86efac' : '#fca5a5'}`, color: syncResult.ok ? '#166534' : '#991b1b', fontSize: 13, fontWeight: 600 }}>
-                  {syncResult.ok ? '✓ ' : '✕ '}{syncResult.message || syncResult.error}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
+                    <span>{syncResult.ok ? '✓ ' : '✕ '}{syncResult.message || syncResult.error}</span>
+                    {syncResult.ok && (
+                      <button onClick={exportSyncChangesToExcel}
+                        style={{ padding: '5px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        📊 Export Changes to Excel
+                      </button>
+                    )}
+                  </div>
                   {syncResult.skippedItems?.length > 0 && (
                     <div style={{ marginTop: 8, fontWeight: 400, fontSize: 12 }}>
                       {syncResult.skippedItems.map((s, i) => (
@@ -856,7 +940,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
                                   </td>
                                   <td style={{ padding: '7px 10px' }}>
                                     {p.canSync
-                                      ? <span style={{ fontSize: 10, background: '#ede9fe', color: '#6d28d9', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>Ready</span>
+                                      ? <span style={{ fontSize: 10, background: syncCompleted ? '#dcfce7' : '#ede9fe', color: syncCompleted ? '#166534' : '#6d28d9', fontWeight: 700, padding: '2px 8px', borderRadius: 99 }}>{syncCompleted ? '✓ Synced' : 'Ready'}</span>
                                       : <span title={p.skipReason} style={{ fontSize: 10, background: '#fef9c3', color: '#92400e', fontWeight: 700, padding: '2px 8px', borderRadius: 99, cursor: 'help' }}>Skip ⓘ</span>
                                     }
                                   </td>
@@ -872,25 +956,36 @@ export default function StocktakeView({ items, readOnly, onExport }) {
             </div>
 
             {/* Footer */}
-            {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length > 0 && (
-              <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
-                  style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-                  Cancel
-                </button>
-                <button onClick={executeSync} disabled={syncing}
-                  style={{ padding: '9px 22px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: syncing ? 0.7 : 1 }}>
-                  {syncing ? 'Syncing…' : `⬆ Sync ${syncPreview.preview.filter(p => p.canSync).length} item${syncPreview.preview.filter(p => p.canSync).length === 1 ? '' : 's'} to Square`}
-                </button>
-              </div>
-            )}
-            {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length === 0 && (
+            {syncCompleted ? (
               <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
-                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
-                  style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
-                  Close
+                <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null); setSyncCompleted(false) }}
+                  style={{ padding: '9px 22px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer', fontWeight: 700 }}>
+                  ✓ Done
                 </button>
               </div>
+            ) : (
+              <>
+                {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length > 0 && (
+                  <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                    <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                      style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                      Cancel
+                    </button>
+                    <button onClick={executeSync} disabled={syncing}
+                      style={{ padding: '9px 22px', background: '#7c3aed', color: '#fff', border: 'none', borderRadius: 8, fontSize: 13, cursor: syncing ? 'not-allowed' : 'pointer', fontWeight: 700, opacity: syncing ? 0.7 : 1 }}>
+                      {syncing ? 'Syncing…' : `⬆ Sync ${syncPreview.preview.filter(p => p.canSync).length} item${syncPreview.preview.filter(p => p.canSync).length === 1 ? '' : 's'} to Square`}
+                    </button>
+                  </div>
+                )}
+                {syncPreview && !syncPreview.error && syncPreview.preview?.filter(p => p.canSync).length === 0 && (
+                  <div style={{ padding: '12px 20px', borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end' }}>
+                    <button onClick={() => { setShowSyncModal(false); setSyncPreview(null); setSyncResult(null) }}
+                      style={{ padding: '9px 20px', background: '#f1f5f9', color: '#374151', border: 'none', borderRadius: 8, fontSize: 13, cursor: 'pointer' }}>
+                      Close
+                    </button>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
