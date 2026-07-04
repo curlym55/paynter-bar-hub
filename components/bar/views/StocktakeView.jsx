@@ -86,7 +86,9 @@ export default function StocktakeView({ items, readOnly, onExport }) {
       rows.push([
         cell('Item',            hStyleL),
         cell('Category',        hStyleL),
+        cell('Before',          hStyle),
         cell('Square Qty Set',  hStyle),
+        cell('Change',          hStyle),
         cell('Conversion',      hStyle),
         cell('Time',            hStyle),
       ])
@@ -99,9 +101,9 @@ export default function StocktakeView({ items, readOnly, onExport }) {
         const dayRowIdx = rows.length
         rows.push([
           cell(`${dayLabel}  (${day.snapshots.length} sync${day.snapshots.length !== 1 ? 's' : ''})`, dayStyle),
-          cell('', dayStyle), cell('', dayStyle), cell('', dayStyle), cell('', dayStyle),
+          cell('', dayStyle), cell('', dayStyle), cell('', dayStyle), cell('', dayStyle), cell('', dayStyle), cell('', dayStyle),
         ])
-        merges.push({ s: { r: dayRowIdx, c: 0 }, e: { r: dayRowIdx, c: 4 } })
+        merges.push({ s: { r: dayRowIdx, c: 0 }, e: { r: dayRowIdx, c: 6 } })
 
         for (const snap of day.snapshots) {
           const timeStr = new Date(snap.ts).toLocaleTimeString('en-AU', {
@@ -111,9 +113,9 @@ export default function StocktakeView({ items, readOnly, onExport }) {
           const syncRowIdx = rows.length
           rows.push([
             cell(syncLabel, syncStyle),
-            cell('', syncStyle), cell('', syncStyle), cell('', syncStyle), cell('', syncStyle),
+            cell('', syncStyle), cell('', syncStyle), cell('', syncStyle), cell('', syncStyle), cell('', syncStyle), cell('', syncStyle),
           ])
-          merges.push({ s: { r: syncRowIdx, c: 0 }, e: { r: syncRowIdx, c: 4 } })
+          merges.push({ s: { r: syncRowIdx, c: 0 }, e: { r: syncRowIdx, c: 6 } })
 
           // Item rows
           const snapItems = snap.items || []
@@ -122,10 +124,16 @@ export default function StocktakeView({ items, readOnly, onExport }) {
             const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
             const sc = { ...s, alignment: { horizontal: 'center' } }
             const cat = item.category || ''
+            const hasBefore = item.before !== null && item.before !== undefined
+            const change = hasBefore ? +(item.sqQty - item.before).toFixed(2) : null
+            const changeColor = change === null ? '94A3B8' : change > 0 ? '16A34A' : change < 0 ? 'DC2626' : '64748B'
+            const changeText  = change === null ? '—' : (change > 0 ? `+${change}` : `${change}`)
             rows.push([
               cell(item.name,  s),
               cell(cat,        { ...s, font: { sz: 10, color: { rgb: '64748B' } } }),
+              cell(hasBefore ? item.before : '—', { ...sc, font: { sz: 10, color: { rgb: '64748B' } } }),
               cell(item.sqQty, { ...sc, font: { sz: 10, bold: true, color: { rgb: '16A34A' } } }),
+              cell(changeText, { ...sc, font: { sz: 10, bold: true, color: { rgb: changeColor } } }),
               cell(item.note || '1:1', { ...s, font: { sz: 9, color: { rgb: '64748B' } } }),
               cell(timeStr,    { ...sc, font: { sz: 10, color: { rgb: '94A3B8' } } }),
             ])
@@ -136,7 +144,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
 
       const wb = new window.ExcelJS.Workbook()
       xlsAOAtoWS(wb, rows, 'Summary', {
-        cols: [{ wch:38 },{ wch:20 },{ wch:14 },{ wch:36 },{ wch:10 }],
+        cols: [{ wch:38 },{ wch:20 },{ wch:12 },{ wch:14 },{ wch:12 },{ wch:36 },{ wch:10 }],
         rowHeights: rows.map((_, i) => i === 0 ? { hpt:26 } : { hpt:18 }),
         merges,
         freeze: 3,
@@ -155,7 +163,9 @@ export default function StocktakeView({ items, readOnly, onExport }) {
         cell('Time',           fhStyle),
         cell('Item',           fhStyleL),
         cell('Category',       fhStyleL),
+        cell('Before',         fhStyle),
         cell('Square Qty Set', fhStyle),
+        cell('Change',         fhStyle),
         cell('Conversion',     fhStyleL),
         cell('Synced',         fhStyle),
         cell('Skipped',        fhStyle),
@@ -176,7 +186,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
             flatRows.push([
               cell(dateLabel, {}), cell(timeStr, {}),
               cell('(no items synced)', { font: { color: { rgb: '94A3B8' }, italic: true } }),
-              cell('', {}), cell('', {}), cell('', {}),
+              cell('', {}), cell('', {}), cell('', {}), cell('', {}), cell('', {}),
               cell(snap.synced,  {}), cell(snap.skipped, {}), cell(snap.failed || 0, {}),
             ])
           } else {
@@ -184,12 +194,18 @@ export default function StocktakeView({ items, readOnly, onExport }) {
               const shade = idx % 2 === 0 ? WHITE : 'F8FAFC'
               const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
               const sc = { ...s, alignment: { horizontal: 'center' } }
+              const hasBefore = item.before !== null && item.before !== undefined
+              const change = hasBefore ? +(item.sqQty - item.before).toFixed(2) : null
+              const changeColor = change === null ? '94A3B8' : change > 0 ? '16A34A' : change < 0 ? 'DC2626' : '64748B'
+              const changeText  = change === null ? '—' : (change > 0 ? `+${change}` : `${change}`)
               flatRows.push([
                 cell(dateLabel,      s),
                 cell(timeStr,        sc),
                 cell(item.name,      s),
                 cell(item.category || '', { ...s, font: { sz: 10, color: { rgb: '64748B' } } }),
+                cell(hasBefore ? item.before : '—', { ...sc, font: { sz: 10, color: { rgb: '64748B' } } }),
                 cell(item.sqQty,     { ...sc, font: { sz: 10, bold: true, color: { rgb: '16A34A' } } }),
+                cell(changeText,     { ...sc, font: { sz: 10, bold: true, color: { rgb: changeColor } } }),
                 cell(item.note || '1:1', { ...s, font: { sz: 9, color: { rgb: '64748B' } } }),
                 cell(idx === 0 ? snap.synced  : '', sc),
                 cell(idx === 0 ? snap.skipped : '', sc),
@@ -201,12 +217,78 @@ export default function StocktakeView({ items, readOnly, onExport }) {
       }
 
       xlsAOAtoWS(wb, flatRows, 'Data', {
-        cols: [{ wch:12 },{ wch:8 },{ wch:36 },{ wch:20 },{ wch:14 },{ wch:36 },{ wch:8 },{ wch:8 },{ wch:8 }],
+        cols: [{ wch:12 },{ wch:8 },{ wch:36 },{ wch:20 },{ wch:10 },{ wch:14 },{ wch:10 },{ wch:36 },{ wch:8 },{ wch:8 },{ wch:8 }],
         rowHeights: flatRows.map((_, i) => i === 0 ? { hpt:22 } : { hpt:18 }),
         freeze: 1,
-        autoFilter: { from:'A1', to:'I1' },
+        autoFilter: { from:'A1', to:'K1' },
       })
       await xlsDownload(wb, `Paynter-Bar-Stocktake-History-${new Date().toISOString().split('T')[0]}.xlsx`)
+    })()
+  }
+
+  const exportSnapshotToExcel = (day, snap) => {
+    if (!snap?.items?.length) return
+    ;(async () => {
+      await loadExcelJS()
+      const NAVY = '0F172A', TEAL = '0E7490'
+      const WHITE = 'FFFFFF', GREEN = '16A34A', RED = 'DC2626', GREY = '64748B'
+      const cell = (v, s) => ({ v: v ?? '', s, t: typeof v === 'number' ? 'n' : 's' })
+      const hStyle = {
+        font: { bold: true, color: { rgb: WHITE }, sz: 10 },
+        fill: { fgColor: { rgb: NAVY } },
+        alignment: { horizontal: 'center', vertical: 'center' },
+        border: { bottom: { style: 'medium', color: { rgb: TEAL } } }
+      }
+      const hStyleL = { ...hStyle, alignment: { horizontal: 'left' } }
+      const dateLabel = new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+      const timeStr = new Date(snap.ts).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })
+
+      const rows = []
+      const merges = []
+      rows.push([cell('Paynter Bar — Stocktake Sync to Square', { font: { bold: true, sz: 16, color: { rgb: NAVY } } }), ...Array(5).fill(cell(''))])
+      rows.push([cell(`${dateLabel} at ${timeStr}`, { font: { sz: 10, color: { rgb: GREY } } }), ...Array(5).fill(cell(''))])
+      rows.push([cell(`${snap.synced} synced${snap.skipped ? `, ${snap.skipped} skipped` : ''}${snap.failed ? `, ${snap.failed} failed` : ''}`, { font: { sz: 10, color: { rgb: GREY } } }), ...Array(5).fill(cell(''))])
+      merges.push({ s: { r: 0, c: 0 }, e: { r: 0, c: 5 } })
+      merges.push({ s: { r: 1, c: 0 }, e: { r: 1, c: 5 } })
+      merges.push({ s: { r: 2, c: 0 }, e: { r: 2, c: 5 } })
+      rows.push([])
+
+      rows.push([
+        cell('Item',      hStyleL),
+        cell('Category',  hStyleL),
+        cell('Before',    hStyle),
+        cell('Set To',    hStyle),
+        cell('Change',    hStyle),
+        cell('Conversion', hStyleL),
+      ])
+
+      snap.items.forEach((item, idx) => {
+        const shade = idx % 2 === 0 ? WHITE : 'F8FAFC'
+        const s  = { fill: { fgColor: { rgb: shade } }, font: { sz: 10 } }
+        const sc = { ...s, alignment: { horizontal: 'center' } }
+        const hasBefore = item.before !== null && item.before !== undefined
+        const change = hasBefore ? +(item.sqQty - item.before).toFixed(2) : null
+        const changeColor = change === null ? GREY : change > 0 ? GREEN : change < 0 ? RED : GREY
+        const changeText  = change === null ? '—' : (change > 0 ? `+${change}` : `${change}`)
+        rows.push([
+          cell(item.name, s),
+          cell(item.category || '', { ...s, font: { sz: 10, color: { rgb: GREY } } }),
+          cell(hasBefore ? item.before : '—', { ...sc, font: { sz: 10, color: { rgb: GREY } } }),
+          cell(item.sqQty, { ...sc, font: { sz: 10, bold: true, color: { rgb: GREEN } } }),
+          cell(changeText, { ...sc, font: { sz: 10, bold: true, color: { rgb: changeColor } } }),
+          cell(item.note || '1:1', { ...s, font: { sz: 9, color: { rgb: GREY } } }),
+        ])
+      })
+
+      const wb = new window.ExcelJS.Workbook()
+      xlsAOAtoWS(wb, rows, 'Sync', {
+        cols: [{ wch:34 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:12 },{ wch:32 }],
+        rowHeights: rows.map((_, i) => i === 0 ? { hpt:26 } : { hpt:18 }),
+        merges,
+        freeze: 5,
+      })
+      const fname = `Paynter-Bar-Sync-${day.date}-${timeStr.replace(':','').replace(' ','')}.xlsx`
+      await xlsDownload(wb, fname)
     })()
   }
 
@@ -715,14 +797,8 @@ export default function StocktakeView({ items, readOnly, onExport }) {
       {/* History panel */}
       {showHistory && (
         <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📋 Stocktake Sync History</span>
-            {history?.length > 0 && (
-              <button onClick={exportHistoryToExcel}
-                style={{ padding: '5px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                📊 Export Excel
-              </button>
-            )}
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12 }}>
+            📋 Stocktake Sync History
           </div>
           {historyLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>}
           {!historyLoading && history?.length === 0 && (
@@ -736,18 +812,24 @@ export default function StocktakeView({ items, readOnly, onExport }) {
               </div>
               {day.snapshots.map((snap, si) => (
                 <div key={si} style={{ marginBottom: 8, padding: '10px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 10, flexWrap: 'wrap' }}>
                     <span style={{ fontSize: 12, color: '#64748b' }}>
                       {new Date(snap.ts).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })}
                     </span>
-                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
+                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600, flex: 1 }}>
                       ✓ {snap.synced} synced{snap.skipped > 0 ? ` · ${snap.skipped} skipped` : ''}{snap.failed > 0 ? ` · ${snap.failed} failed` : ''}
                     </span>
+                    {snap.items?.length > 0 && (
+                      <button onClick={() => exportSnapshotToExcel(day, snap)}
+                        style={{ padding: '4px 10px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 11, cursor: 'pointer', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        📊 Export
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
                     {snap.items?.map((item, ii) => (
                       <span key={ii} style={{ fontSize: 10, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 4, padding: '2px 6px', fontFamily: 'monospace' }}>
-                        {item.name}: {item.sqQty}{item.note ? ` (${item.note})` : ''}
+                        {item.name}: {item.before != null ? `${item.before} → ` : ''}{item.sqQty}{item.note ? ` (${item.note})` : ''}
                       </span>
                     ))}
                   </div>
