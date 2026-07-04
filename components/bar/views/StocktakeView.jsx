@@ -583,7 +583,8 @@ export default function StocktakeView({ items, readOnly, onExport }) {
           <button onClick={exportToExcel} style={{ background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, padding: '6px 12px', fontSize: 13, fontWeight: 700, cursor: 'pointer' }}>📊 Excel</button>
         </div>
 
-        {/* Category filter */}
+
+      {/* Category filter */}
         <div style={{ overflowX: 'auto', background: '#1e293b', padding: '8px 12px', display: 'flex', gap: 6, whiteSpace: 'nowrap' }}>
           {categories.map(c => (
             <button key={c} onClick={() => { setFilterCat(c); setMobileIdx(0) }}
@@ -711,6 +712,52 @@ export default function StocktakeView({ items, readOnly, onExport }) {
         </button>
       </div>
 
+      {/* History panel */}
+      {showHistory && (
+        <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
+          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span>📋 Stocktake Sync History</span>
+            {history?.length > 0 && (
+              <button onClick={exportHistoryToExcel}
+                style={{ padding: '5px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
+                📊 Export Excel
+              </button>
+            )}
+          </div>
+          {historyLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>}
+          {!historyLoading && history?.length === 0 && (
+            <div style={{ color: '#94a3b8', fontSize: 13 }}>No syncs recorded yet.</div>
+          )}
+          {!historyLoading && history?.map(day => (
+            <div key={day.date} style={{ marginBottom: 16 }}>
+              <div style={{ fontWeight: 700, fontSize: 12, color: '#0e7490', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
+                {new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
+                <span style={{ marginLeft: 8, fontWeight: 400, color: '#94a3b8' }}>({day.snapshots.length} sync{day.snapshots.length !== 1 ? 's' : ''})</span>
+              </div>
+              {day.snapshots.map((snap, si) => (
+                <div key={si} style={{ marginBottom: 8, padding: '10px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <span style={{ fontSize: 12, color: '#64748b' }}>
+                      {new Date(snap.ts).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
+                      ✓ {snap.synced} synced{snap.skipped > 0 ? ` · ${snap.skipped} skipped` : ''}{snap.failed > 0 ? ` · ${snap.failed} failed` : ''}
+                    </span>
+                  </div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
+                    {snap.items?.map((item, ii) => (
+                      <span key={ii} style={{ fontSize: 10, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 4, padding: '2px 6px', fontFamily: 'monospace' }}>
+                        {item.name}: {item.sqQty}{item.note ? ` (${item.note})` : ''}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* Category filter */}
       <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 14 }}>
         {categories.map(c => (
@@ -791,51 +838,6 @@ export default function StocktakeView({ items, readOnly, onExport }) {
         For spirits: enter bottle count (decimals ok, e.g. 4.5 for a half-used bottle). Nips calculated automatically. Non-spirit items: enter unit count.
       </div>
 
-      {/* History panel */}
-      {showHistory && (
-        <div style={{ marginTop: 16, background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 16 }}>
-          <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 14, marginBottom: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span>📋 Stocktake Sync History</span>
-            {history?.length > 0 && (
-              <button onClick={exportHistoryToExcel}
-                style={{ padding: '5px 12px', background: '#16a34a', color: '#fff', border: 'none', borderRadius: 6, fontSize: 12, cursor: 'pointer', fontWeight: 700 }}>
-                📊 Export Excel
-              </button>
-            )}
-          </div>
-          {historyLoading && <div style={{ color: '#64748b', fontSize: 13 }}>Loading…</div>}
-          {!historyLoading && history?.length === 0 && (
-            <div style={{ color: '#94a3b8', fontSize: 13 }}>No syncs recorded yet.</div>
-          )}
-          {!historyLoading && history?.map(day => (
-            <div key={day.date} style={{ marginBottom: 16 }}>
-              <div style={{ fontWeight: 700, fontSize: 12, color: '#0e7490', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 6 }}>
-                {new Date(day.date + 'T12:00:00').toLocaleDateString('en-AU', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
-                <span style={{ marginLeft: 8, fontWeight: 400, color: '#94a3b8' }}>({day.snapshots.length} sync{day.snapshots.length !== 1 ? 's' : ''})</span>
-              </div>
-              {day.snapshots.map((snap, si) => (
-                <div key={si} style={{ marginBottom: 8, padding: '10px 14px', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 8 }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <span style={{ fontSize: 12, color: '#64748b' }}>
-                      {new Date(snap.ts).toLocaleTimeString('en-AU', { timeZone: 'Australia/Brisbane', hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                    <span style={{ fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
-                      ✓ {snap.synced} synced{snap.skipped > 0 ? ` · ${snap.skipped} skipped` : ''}{snap.failed > 0 ? ` · ${snap.failed} failed` : ''}
-                    </span>
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-                    {snap.items?.map((item, ii) => (
-                      <span key={ii} style={{ fontSize: 10, background: '#f0fdf4', color: '#166534', border: '1px solid #bbf7d0', borderRadius: 4, padding: '2px 6px', fontFamily: 'monospace' }}>
-                        {item.name}: {item.sqQty}{item.note ? ` (${item.note})` : ''}
-                      </span>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Auto-sync prompt — appears after save when counts exist */}
       {autoSyncPrompt && !showSyncModal && (
