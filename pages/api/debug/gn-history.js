@@ -6,15 +6,15 @@ export default async function handler(req, res) {
     const locationId = await getLocationId(token)
     const variationMap = await getVariationIdMap(token) // { itemName: variationId }
 
-    const matchName = Object.keys(variationMap).find(name => {
-      const n = name.toLowerCase()
-      return n.includes('supercrisp') || (n.includes('great northern') && n.includes('crisp'))
-    })
+    const searchTerm = (req.query.item || 'supercrisp').toLowerCase()
+    const matchName = Object.keys(variationMap).find(name =>
+      name.toLowerCase().includes(searchTerm)
+    )
     if (!matchName) {
       return res.json({
         ok: false,
-        error: 'No item matching "supercrisp" / "great northern" found in Square catalog',
-        availableNames: Object.keys(variationMap).filter(n => /gn|great|north|crisp/i.test(n)),
+        error: `No item matching "${searchTerm}" found in Square catalog`,
+        availableNames: Object.keys(variationMap).filter(n => n.toLowerCase().includes(searchTerm.slice(0,4))),
       })
     }
     const variationId = variationMap[matchName].varId
