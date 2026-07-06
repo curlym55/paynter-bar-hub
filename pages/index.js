@@ -2972,7 +2972,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           💡
                           {activeSup === "Dan Murphy's" && " Dan Murphy's: danmurphys.com.au → My Account → Order History"}
                           {activeSup === 'Coles Woolies' && ' Coles: coles.com.au — Woolworths: woolworths.com.au'}
-                          {activeSup === 'ACW' && ' ACW: phone or email your order to ACW directly.'}
+                          {activeSup === 'ACW' && ' ACW: acwsunshine.com.au'}
                           {!["Dan Murphy's",'Coles Woolies','ACW'].includes(activeSup) && ` Place your order with ${activeSup} then update quantities below.`}
                         </div>
 
