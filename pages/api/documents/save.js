@@ -12,9 +12,13 @@ async function uploadFile(client, path, buffer, mime) {
 }
 
 async function upsertDoc(client, po_ref, updates) {
-  const { data: existing } = await client.from('bar_documents').select('id').eq('po_ref', po_ref).maybeSingle()
+  // Match on the specific row's id once found, not po_ref again — this way,
+  // even if po_ref somehow isn't unique (e.g. legacy data from before refs
+  // were always generated uniquely), an update can only ever touch the ONE
+  // row it originally matched rather than every row sharing that po_ref.
+  const { data: existing } = await client.from('bar_documents').select('id').eq('po_ref', po_ref).order('created_at', { ascending: false }).limit(1).maybeSingle()
   if (existing) {
-    const { error } = await client.from('bar_documents').update({ ...updates, updated_at: new Date().toISOString() }).eq('po_ref', po_ref)
+    const { error } = await client.from('bar_documents').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', existing.id)
     if (error) throw new Error(error.message)
   } else {
     const { error } = await client.from('bar_documents').insert({ po_ref, ...updates })

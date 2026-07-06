@@ -479,7 +479,10 @@ export default function Home() {
         }
 
         const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
-        const poRef = receiveModal.ref || supplier
+        // Never fall back to the bare supplier name — if two deliveries both
+        // have no ref, they'd collide on the same Supabase document row and
+        // clearing one order's invoice would silently clear the other's too.
+        const poRef = receiveModal.ref || `${supplier}-${Date.now()}`
         // Save document record to Supabase (receive report)
         fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
           body: JSON.stringify({
@@ -652,7 +655,8 @@ export default function Home() {
     }
     if (!flat.length) return
     const updatedItems = flat.map(f => ({ name: f.name, sku: f.sku||'', orderQty: f.orderQty, bottlesToOrder: f.bottlesToOrder||null, isSpirit: f.isSpirit||false }))
-    const poRef = ref || flat[0].ref || supplier
+    // Same rule as confirmReceive — never collapse to the bare supplier name
+    const poRef = ref || flat[0].ref || `${supplier}-${Date.now()}`
     const orderDate = flat[0].date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
     fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
