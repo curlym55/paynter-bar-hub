@@ -28,11 +28,17 @@ export default async function handler(req, res) {
   // Only actually take a snapshot when TOMORROW is the 1st — i.e. today is the
   // real last day of the month — so we store exactly one month-end row rather
   // than 3-4 clustered rows at the end of longer months.
-  const nowBris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }))
-  const tomorrow = new Date(nowBris)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  if (tomorrow.getDate() !== 1) {
-    return res.status(200).json({ ok: true, skipped: true, reason: 'Not the last day of the month (Brisbane time)' })
+  //
+  // ?manual=true bypasses this: the "Generate snapshot now" button in the SOH
+  // History tab needs to work on any day, not just month-end.
+  const isManual = req.query.manual === 'true'
+  if (!isManual) {
+    const nowBris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }))
+    const tomorrow = new Date(nowBris)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    if (tomorrow.getDate() !== 1) {
+      return res.status(200).json({ ok: true, skipped: true, reason: 'Not the last day of the month (Brisbane time)' })
+    }
   }
 
   try {

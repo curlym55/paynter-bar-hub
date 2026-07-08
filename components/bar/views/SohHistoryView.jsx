@@ -11,6 +11,73 @@ export default function SohHistoryView({ readOnly, onExportPdf, onExportXlsx }) 
   const [generating, setGenerating] = useState(false)
   const [deleting, setDeleting]   = useState(null)
 
+  // ── Trend chart (inline SVG — no charting dependency) ────────────────────
+  const [chartMode, setChartMode] = useState('value')   // 'value' | 'units'
+  const [chartCat, setChartCat]   = useState('All')
+  const [hover, setHover]         = useState(null)
+
+  // Snapshots come back newest-first; the chart reads left-to-right oldest-first.
+  const chronological = React.useMemo(() => [...reports].reverse(), [reports])
+
+  const chartCategories = React.useMemo(() => {
+    const set = new Set()
+    for (const r of reports) for (const it of (r.data || [])) if (it.category) set.add(it.category)
+    return ['All', ...[...set].sort()]
+  }, [reports])
+
+  const series = React.useMemo(() => chronological.map(r => {
+    const items = chartCat === 'All' ? (r.data || []) : (r.data || []).filter(i => i.category === chartCat)
+    const value = items.reduce((s, i) => s + (Number(i.totalValue) || 0), 0)
+    const units = items.reduce((s, i) => s + (Number(i.onHand) || 0), 0)
+    return {
+      date: r.report_date,
+      label: new Date(r.report_date + 'T00:00:00').toLocaleDateString('en-AU', { month: 'short', year: '2-digit' }),
+      value: Math.round(value * 100) / 100,
+      units: Math.round(units * 100) / 100,
+    }
+  }), [chronological, chartCat])
+
+  const chart = React.useMemo(() => {
+    if (series.length === 0) return null
+    const W = 900, H = 260
+    const padL = 64, padR = 20, padT = 18, padB = 34
+    const key = chartMode
+    const vals = series.map(p => p[key])
+    const rawMax = Math.max(...vals, 0)
+    // Round the axis top up to something readable rather than a jagged max.
+    const mag  = Math.pow(10, Math.max(0, String(Math.floor(rawMax)).length - 2))
+    const maxY = rawMax === 0 ? 1 : Math.ceil(rawMax / mag) * mag
+    const innerW = W - padL - padR
+    const innerH = H - padT - padB
+    // With a single snapshot there's no span to divide by — pin it centre.
+    const x = i => series.length === 1 ? padL + innerW / 2 : padL + (i / (series.length - 1)) * innerW
+    const y = v => padT + innerH - (v / maxY) * innerH
+
+    const pts = series.map((p, i) => ({ ...p, cx: x(i), cy: y(p[key]) }))
+    const line = pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.cx.toFixed(1)} ${p.cy.toFixed(1)}`).join(' ')
+    const area = `${line} L ${pts[pts.length - 1].cx.toFixed(1)} ${padT + innerH} L ${pts[0].cx.toFixed(1)} ${padT + innerH} Z`
+
+    const ticks = Array.from({ length: 5 }, (_, i) => {
+      const v = (maxY / 4) * i
+      return { v, y: y(v) }
+    })
+    return { W, H, padL, padR, padT, padB, innerH, pts, line, area, ticks, maxY }
+  }, [series, chartMode])
+
+  const fmtAxis = v => chartMode === 'value'
+    ? (v >= 1000 ? `$${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k` : `$${Math.round(v)}`)
+    : `${Math.round(v)}`
+  const fmtFull = v => chartMode === 'value'
+    ? `$${Number(v).toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `${Number(v).toLocaleString('en-AU')} units`
+
+  const btn = active => ({
+    padding: '5px 12px', fontSize: 12, fontWeight: 700, cursor: 'pointer', borderRadius: 6,
+    border: '1px solid ' + (active ? '#0e7490' : '#e2e8f0'),
+    background: active ? '#0e7490' : '#fff',
+    color: active ? '#fff' : '#475569',
+  })
+
   useEffect(() => { loadReports() }, [])
 
   async function loadReports() {
@@ -26,7 +93,8 @@ export default function SohHistoryView({ readOnly, onExportPdf, onExportXlsx }) 
     if (!confirm('Generate a SOH snapshot now?')) return
     setGenerating(true)
     try {
-      const r = await fetch('/api/cron/soh-snapshot')
+      // ?manual=true bypasses the month-end-only guard in the cron handler
+      const r = await fetch('/api/cron/soh-snapshot?manual=true')
       const d = await r.json()
       if (d.ok) { alert(`Snapshot saved: ${d.items} items, $${d.total_value}`); await loadReports() }
       else alert('Error: ' + (d.error || 'unknown'))
@@ -138,6 +206,125 @@ export default function SohHistoryView({ readOnly, onExportPdf, onExportXlsx }) 
           )}
         </div>
       </div>
+
+      {/* Trend chart */}
+      {!loading && reports.length > 0 && chart && (
+        <div style={{ marginBottom: 18, background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, padding: '16px 18px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', marginBottom: 14 }}>
+            <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a', flex: 1 }}>
+              📈 Stock Trend
+              <span style={{ fontWeight: 400, color: '#94a3b8', fontSize: 12, marginLeft: 8 }}>
+                {series.length} snapshot{series.length === 1 ? '' : 's'}
+              </span>
+            </div>
+            <div style={{ display: 'flex', gap: 6 }}>
+              <button onClick={() => setChartMode('value')} style={btn(chartMode === 'value')}>$ Value</button>
+              <button onClick={() => setChartMode('units')} style={btn(chartMode === 'units')}>Units</button>
+            </div>
+            <select value={chartCat} onChange={e => setChartCat(e.target.value)}
+              style={{ padding: '5px 10px', fontSize: 12, borderRadius: 6, border: '1px solid #e2e8f0', color: '#475569', fontWeight: 600, cursor: 'pointer' }}>
+              {chartCategories.map(c => <option key={c} value={c}>{c === 'All' ? 'All categories' : c}</option>)}
+            </select>
+          </div>
+
+          {series.length === 1 && (
+            <div style={{ fontSize: 12, color: '#92400e', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, padding: '6px 10px', marginBottom: 10 }}>
+              Only one snapshot so far — the trend line appears once there are at least two.
+            </div>
+          )}
+
+          <div style={{ position: 'relative', width: '100%' }}>
+            <svg viewBox={`0 0 ${chart.W} ${chart.H}`} style={{ width: '100%', height: 'auto', display: 'block' }}
+                 onMouseLeave={() => setHover(null)}>
+              <defs>
+                <linearGradient id="sohFill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0%"   stopColor="#0e7490" stopOpacity="0.22" />
+                  <stop offset="100%" stopColor="#0e7490" stopOpacity="0.02" />
+                </linearGradient>
+              </defs>
+
+              {/* gridlines + y axis labels */}
+              {chart.ticks.map((t, i) => (
+                <g key={i}>
+                  <line x1={chart.padL} x2={chart.W - chart.padR} y1={t.y} y2={t.y}
+                        stroke="#f1f5f9" strokeWidth="1" />
+                  <text x={chart.padL - 10} y={t.y + 4} textAnchor="end"
+                        fontSize="11" fill="#94a3b8" fontFamily="system-ui">{fmtAxis(t.v)}</text>
+                </g>
+              ))}
+
+              {/* area + line */}
+              {chart.pts.length > 1 && <path d={chart.area} fill="url(#sohFill)" />}
+              {chart.pts.length > 1 && (
+                <path d={chart.line} fill="none" stroke="#0e7490" strokeWidth="2.5"
+                      strokeLinejoin="round" strokeLinecap="round" />
+              )}
+
+              {/* points + hover targets + x labels */}
+              {chart.pts.map((p, i) => (
+                <g key={p.date}>
+                  <circle cx={p.cx} cy={p.cy} r={hover === i ? 5.5 : 3.5}
+                          fill="#fff" stroke="#0e7490" strokeWidth="2.5" />
+                  <rect x={p.cx - 22} y={chart.padT} width="44" height={chart.innerH}
+                        fill="transparent" style={{ cursor: 'pointer' }}
+                        onMouseEnter={() => setHover(i)} />
+                  <text x={p.cx} y={chart.H - 12} textAnchor="middle"
+                        fontSize="11" fill="#94a3b8" fontFamily="system-ui">{p.label}</text>
+                </g>
+              ))}
+
+              {/* hover marker */}
+              {hover != null && chart.pts[hover] && (
+                <line x1={chart.pts[hover].cx} x2={chart.pts[hover].cx}
+                      y1={chart.padT} y2={chart.padT + chart.innerH}
+                      stroke="#0e7490" strokeWidth="1" strokeDasharray="3 3" opacity="0.5" />
+              )}
+            </svg>
+
+            {/* tooltip */}
+            {hover != null && chart.pts[hover] && (
+              <div style={{
+                position: 'absolute',
+                left: `${(chart.pts[hover].cx / chart.W) * 100}%`,
+                top: `${(chart.pts[hover].cy / chart.H) * 100}%`,
+                transform: 'translate(-50%, -130%)',
+                background: '#0f172a', color: '#fff', padding: '6px 10px', borderRadius: 6,
+                fontSize: 12, whiteSpace: 'nowrap', pointerEvents: 'none',
+                boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+              }}>
+                <div style={{ fontWeight: 700 }}>{fmtFull(chart.pts[hover][chartMode])}</div>
+                <div style={{ color: '#94a3b8', fontSize: 11 }}>
+                  {new Date(chart.pts[hover].date + 'T00:00:00').toLocaleDateString('en-AU', { day: 'numeric', month: 'long', year: 'numeric' })}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* change since previous snapshot */}
+          {series.length > 1 && (() => {
+            const last = series[series.length - 1][chartMode]
+            const prev = series[series.length - 2][chartMode]
+            const diff = last - prev
+            const pct  = prev === 0 ? null : (diff / prev) * 100
+            const up   = diff > 0
+            const flat = Math.abs(diff) < 0.005
+            return (
+              <div style={{ marginTop: 12, paddingTop: 12, borderTop: '1px solid #f1f5f9', display: 'flex', gap: 24, flexWrap: 'wrap', fontSize: 12 }}>
+                <div><span style={{ color: '#94a3b8' }}>Latest: </span>
+                  <strong style={{ color: '#0f172a' }}>{fmtFull(last)}</strong></div>
+                <div>
+                  <span style={{ color: '#94a3b8' }}>Change: </span>
+                  <strong style={{ color: flat ? '#64748b' : up ? '#16a34a' : '#dc2626' }}>
+                    {flat ? '—' : `${up ? '+' : ''}${fmtFull(diff)}`}
+                    {pct != null && !flat && ` (${up ? '+' : ''}${pct.toFixed(1)}%)`}
+                  </strong>
+                  <span style={{ color: '#94a3b8' }}> vs previous</span>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+      )}
 
       {loading ? (
         <div style={{ textAlign: 'center', padding: 48, color: '#64748b' }}>Loading...</div>
