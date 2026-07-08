@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
 
   const { invoice_ref, supplier, invoice_date, gst_included, items } = req.body
 

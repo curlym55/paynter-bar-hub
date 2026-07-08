@@ -1,7 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
   if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' })
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
 
   const { id, receive_report_path, invoice_path } = req.body
   if (!id) return res.status(400).json({ error: 'id required' })

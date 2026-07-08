@@ -1,5 +1,6 @@
 import { kvGet, kvSet, kvDelete } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
+import { requireAuth } from '../../lib/session'
 
 // ── Dual-read/write helpers ───────────────────────────────────────────────
 async function get(key, fallback = null) {
@@ -61,6 +62,7 @@ export default async function handler(req, res) {
       res.status(500).json({ error: err.message })
     }
   } else if (req.method === 'POST') {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
     try {
       const { action, itemName, name, field, value } = req.body
 

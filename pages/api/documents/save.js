@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { buildReceiveCsv } from '../../../lib/onedrive'
+import { requireAuth } from '../../../lib/session'
 
 const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -28,6 +29,7 @@ async function upsertDoc(client, po_ref, updates) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
   const client = sb()
   const { action, po_ref, supplier, order_date, receive_date, item_count, items,
           file_base64, file_name, file_mime,
