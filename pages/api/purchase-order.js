@@ -1,5 +1,6 @@
 import { kvGet, kvSet } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
+import { requireAuth } from '../../lib/session'
 
 const SUPPLIER_ABBR = {
   'dan murphy':   'DAN',
@@ -84,6 +85,7 @@ export default async function handler(req, res) {
   }
 
   if (req.method === 'POST') {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
     const { action, supplier, items } = req.body
 
     if (action === 'place') {
