@@ -61,7 +61,8 @@ export default function MonthlyReportView() {
     rows.push([cell('Wastage cost', {font:{sz:10}}), cell(report.wastage.totalCost, {font:{sz:10,bold:true,color:{rgb:RED}}}), cell(`${report.wastage.entryCount} entries`, {font:{sz:9,color:{rgb:GREY}}}), cell(''), cell('')])
     rows.push([cell('Revenue less wastage', {font:{sz:10}}), cell(report.summary.grossProfit, {font:{sz:10,bold:true}}), cell(''), cell(''), cell('')])
     rows.push([cell('Orders placed', {font:{sz:10}}), cell(report.purchases.orderCount, {font:{sz:10}}), cell(`${report.purchases.received} received, ${report.purchases.pending} pending`, {font:{sz:9,color:{rgb:GREY}}}), cell(''), cell('')])
-    rows.push([cell('Average markup', {font:{sz:10}}), cell(report.pricing.avgMarkupPct == null ? '—' : `${report.pricing.avgMarkupPct}%`, {font:{sz:10}}), cell(`${report.pricing.itemsPriced} items priced`, {font:{sz:9,color:{rgb:GREY}}}), cell(''), cell('')])
+    rows.push([cell('Average markup (excl. spirits)', {font:{sz:10}}), cell(report.pricing.avgMarkupPct == null ? '—' : `${report.pricing.avgMarkupPct}%`, {font:{sz:10}}), cell(`${report.pricing.itemsPriced} items priced`, {font:{sz:9,color:{rgb:GREY}}}), cell(''), cell('')])
+    rows.push([cell('Spirits markup (per nip)', {font:{sz:10}}), cell(report.pricing.avgSpiritMarkupPct == null ? '—' : `${report.pricing.avgSpiritMarkupPct}%`, {font:{sz:10}}), cell(`${report.pricing.spiritsPriced} spirits`, {font:{sz:9,color:{rgb:GREY}}}), cell(''), cell('')])
     rows.push([])
 
     // Sales by category
@@ -175,7 +176,10 @@ export default function MonthlyReportView() {
               { label:'Units sold', value: num(report.sales.unitsSold), color:'#0f172a', sub:`${report.sales.itemCount} items` },
               { label:'Wastage', value: money(report.wastage.totalCost), color:'#dc2626', sub:`${report.wastage.entryCount} entries` },
               { label:'Orders placed', value: num(report.purchases.orderCount), color:'#0e7490', sub:`${report.purchases.received} received` },
-              { label:'Avg markup', value: report.pricing.avgMarkupPct == null ? '—' : `${report.pricing.avgMarkupPct}%`, color:'#7c3aed', sub:`${report.pricing.itemsPriced} items` },
+              { label:'Avg markup', value: report.pricing.avgMarkupPct == null ? '—' : `${report.pricing.avgMarkupPct}%`, color:'#7c3aed',
+                sub: `${report.pricing.itemsPriced} items (excl. spirits)${report.pricing.itemsSkipped ? ` · ${report.pricing.itemsSkipped} unpriced` : ''}` },
+              { label:'Spirits markup', value: report.pricing.avgSpiritMarkupPct == null ? '—' : `${report.pricing.avgSpiritMarkupPct}%`, color:'#7c3aed',
+                sub: `${report.pricing.spiritsPriced} spirits · per nip` },
             ].map(s => (
               <div key={s.label} style={card}>
                 <div style={{ fontSize:11, color:'#64748b', textTransform:'uppercase', letterSpacing:'0.05em', fontWeight:700 }}>{s.label}</div>
