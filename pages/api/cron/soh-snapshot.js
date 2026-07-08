@@ -3,17 +3,36 @@ import { fetchSquareData } from '../../../lib/square'
 import { calculateItem } from '../../../lib/calculations'
 import { kvGet } from '../../../lib/redis'
 
+// Use the service-role key (server-side only, never exposed to the browser)
+// rather than the public anon key. The anon key would require the soh_reports
+// table to allow anonymous inserts, which means anyone who found the public
+// Supabase URL could write junk rows. The service-role key keeps writes locked
+// to this server-side cron.
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
 export default async function handler(req, res) {
   // Verify cron secret to prevent unauthorised calls
   const cronSecret = process.env.CRON_SECRET
   const auth = req.headers.authorization
-  if (cronSecret && auth && auth !== `Bearer ${cronSecret}`) {
+  // Fail closed: if a secret is configured, a request MUST present the matching
+  // header. Previously a request with NO Authorization header slipped through
+  // because both sides of the && were false.
+  if (cronSecret && (!auth || auth !== `Bearer ${cronSecret}`)) {
     return res.status(401).json({ error: 'Unauthorised' })
+  }
+
+  // The Vercel cron fires on days 28-31 (cron can't express "last day of month").
+  // Only actually take a snapshot when TOMORROW is the 1st — i.e. today is the
+  // real last day of the month — so we store exactly one month-end row rather
+  // than 3-4 clustered rows at the end of longer months.
+  const nowBris = new Date(new Date().toLocaleString('en-US', { timeZone: 'Australia/Brisbane' }))
+  const tomorrow = new Date(nowBris)
+  tomorrow.setDate(tomorrow.getDate() + 1)
+  if (tomorrow.getDate() !== 1) {
+    return res.status(200).json({ ok: true, skipped: true, reason: 'Not the last day of the month (Brisbane time)' })
   }
 
   try {
