@@ -1,4 +1,5 @@
 import { kvGet, kvSet } from '../../lib/redis'
+import { requireAuth } from '../../lib/session'
 
 export default async function handler(req, res) {
   try {
@@ -7,6 +8,9 @@ export default async function handler(req, res) {
     if (req.method === 'GET') {
       return res.json({ entries: log.sort((a, b) => b.date - a.date) })
     }
+
+    // GET is readable by any valid session; all writes require committee access.
+    if (['POST', 'PUT', 'DELETE'].includes(req.method) && !requireAuth(req, res, { allowReadOnly: false })) return
 
     if (req.method === 'POST') {
       // Bulk mark all unsynced entries as already synced (no Square API call)

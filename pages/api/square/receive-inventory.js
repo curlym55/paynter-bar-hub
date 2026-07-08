@@ -18,11 +18,13 @@
 
 import { randomUUID } from 'crypto'
 import { getVariationIdMap, getLocationId } from '../../../lib/square'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'Method not allowed' })
   }
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
 
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
