@@ -358,6 +358,17 @@ export default function Home() {
 
 
 
+  // Default GST-inclusive flag by supplier when the AI extract doesn't specify.
+  // ACW invoices are ex-GST; Dan Murphy's and Coles/Woolies are GST-inclusive.
+  // Getting this wrong mis-costs items by ~9%, so we default per-supplier rather
+  // than a blanket true/false.
+  function defaultGstIncluded(supplier, extracted) {
+    if (extracted === true || extracted === false) return extracted
+    const s = (supplier || '').toLowerCase()
+    if (s.includes('acw')) return false
+    return true // Dan Murphy's, Coles/Woolies and anything else default inc-GST
+  }
+
   function openReceiveModal(supplier, supplierItems, ref) {
     supplierItems = supplierItems.filter(i => (i.orderQty || 0) > 0)
     const checked = {}
@@ -528,7 +539,7 @@ export default function Home() {
                     invoice_ref: d.invoice_ref || poRef,
                     supplier: d.supplier || supplier,
                     invoice_date: d.invoice_date || dateStr,
-                    gst_included: d.gst_included ?? true,
+                    gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
                     items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_hub || i.item_name_raw })),
                   })
                 })
@@ -5384,7 +5395,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         if (file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')) {
                                           const dateStr = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
                                           fetch('/api/invoices/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdf_base64:base64})})
-                                            .then(r=>r.ok?r.json():null).then(d=>{if(!d?.items?.length)return;fetch('/api/invoices/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({supplier:doc.supplier,invoice_ref:d.invoice_ref||poRef,invoice_date:d.invoice_date||dateStr,gst_included:d.gst_included??true,items:d.items.map(i=>({...i,include:true,item_name_hub:i.item_name_raw}))})}).catch(()=>null)}).catch(()=>null)
+                                            .then(r=>r.ok?r.json():null).then(d=>{if(!d?.items?.length)return;fetch('/api/invoices/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({supplier:doc.supplier,invoice_ref:d.invoice_ref||poRef,invoice_date:d.invoice_date||dateStr,gst_included:defaultGstIncluded(doc.supplier,d.gst_included),items:d.items.map(i=>({...i,include:true,item_name_hub:i.item_name_raw}))})}).catch(()=>null)}).catch(()=>null)
                                         }
                                         // loadDocuments AFTER all saves complete so OneDrive URL is reflected
                                         await loadDocuments()
