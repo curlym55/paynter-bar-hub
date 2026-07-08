@@ -118,6 +118,22 @@ export default function WastageView({ items, log, readOnly, onRefresh }) {
   }
 
   async function deleteEntry(id) {
+    const entry = log.find(e => e.id === id)
+    if (!entry) return
+    if (entry.squareSynced) {
+      // This entry already reduced Square's stock. Deleting won't restore it.
+      const ok = confirm(
+        'This entry was already synced to Square.\n\n' +
+        'Deleting it here will NOT add the stock back in Square — the Hub and Square would no longer match.\n\n' +
+        'Only continue if you have ALREADY corrected the stock in Square (e.g. via a stocktake). ' +
+        'Otherwise, cancel and leave this entry in place.\n\nForce-remove this log entry?'
+      )
+      if (!ok) return
+      const r = await fetch(`/api/wastage?id=${id}&force=true`, { method: 'DELETE' })
+      if (!r.ok) { alert('Error: ' + ((await r.json()).message || 'could not delete')) ; return }
+      await onRefresh()
+      return
+    }
     if (!confirm('Delete this wastage entry?')) return
     await fetch(`/api/wastage?id=${id}`, { method: 'DELETE' })
     await onRefresh()
@@ -399,28 +415,29 @@ export default function WastageView({ items, log, readOnly, onRefresh }) {
                 const rc = REASON_COLOR[entry.reason] || REASON_COLOR.Other
                 const isEditing = editingId === entry.id
                 const inp = { fontSize: 12, border: '1px solid #93c5fd', borderRadius: 4, padding: '3px 6px', width: '100%', boxSizing: 'border-box' }
+                const lockedInp = { background: '#f1f5f9', color: '#94a3b8', cursor: 'not-allowed', borderColor: '#e2e8f0' }
                 return (
                   <tr key={entry.id} style={{ background: isEditing ? '#eff6ff' : idx % 2 === 0 ? '#fff' : '#f8fafc', borderBottom: '1px solid #f1f5f9', outline: isEditing ? '2px solid #3b82f6' : 'none' }}>
                     {isEditing ? (
                       <>
                         <td style={{ padding: '6px 8px' }}>
-                          <input type="date" value={editForm.date} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={inp} />
+                          <input type="date" value={editForm.date} disabled={entry.squareSynced} onChange={e => setEditForm(f => ({ ...f, date: e.target.value }))} style={{ ...inp, ...(entry.squareSynced ? lockedInp : {}) }} />
                         </td>
                         <td style={{ padding: '6px 8px' }}>
-                          <select value={editForm.itemName} onChange={e => setEditForm(f => ({ ...f, itemName: e.target.value }))} style={inp}>
+                          <select value={editForm.itemName} disabled={entry.squareSynced} onChange={e => setEditForm(f => ({ ...f, itemName: e.target.value }))} style={{ ...inp, ...(entry.squareSynced ? lockedInp : {}) }}>
                             {items.map(i => <option key={i.name}>{i.name}</option>)}
                           </select>
                         </td>
                         <td style={{ padding: '6px 8px' }}>
                           <div style={{ display: 'flex', gap: 4 }}>
-                            <input type="number" value={editForm.qty} min="0" step="0.1" onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} style={{ ...inp, width: 55 }} />
-                            <select value={editForm.unit} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inp, width: 65 }}>
+                            <input type="number" value={editForm.qty} min="0" step="0.1" disabled={entry.squareSynced} onChange={e => setEditForm(f => ({ ...f, qty: e.target.value }))} style={{ ...inp, width: 55, ...(entry.squareSynced ? lockedInp : {}) }} />
+                            <select value={editForm.unit} disabled={entry.squareSynced} onChange={e => setEditForm(f => ({ ...f, unit: e.target.value }))} style={{ ...inp, width: 65, ...(entry.squareSynced ? lockedInp : {}) }}>
                               {getUnitOptions(items.find(i => i.name === editForm.itemName)).map(u => <option key={u}>{u}</option>)}
                             </select>
                           </div>
                         </td>
                         <td style={{ padding: '6px 8px' }}>
-                          <select value={editForm.reason} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} style={inp}>
+                          <select value={editForm.reason} disabled={entry.squareSynced} onChange={e => setEditForm(f => ({ ...f, reason: e.target.value }))} style={{ ...inp, ...(entry.squareSynced ? lockedInp : {}) }}>
                             {REASONS.map(r => <option key={r}>{r}</option>)}
                           </select>
                         </td>

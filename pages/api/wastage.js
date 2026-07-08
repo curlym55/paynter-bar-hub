@@ -46,20 +46,43 @@ export default async function handler(req, res) {
     if (req.method === 'PUT') {
       const { id } = req.query
       if (!id) return res.status(400).json({ error: 'id required' })
-      const { itemName, category, qty, unit, reason, note, recordedBy, date } = req.body
       const idx = log.findIndex(e => e.id === id)
       if (idx === -1) return res.status(404).json({ error: 'Entry not found' })
+      // Once an entry has been synced to Square, its quantity has already
+      // reduced Square's stock. Editing it here would NOT change Square, so
+      // the two would silently diverge — exactly the kind of mismatch that
+      // causes stocktake discrepancies. Only allow editing the note/recordedBy
+      // on synced entries; block changes to the quantity-affecting fields.
+      if (log[idx].squareSynced) {
+        const { note, recordedBy } = req.body
+        log[idx] = { ...log[idx], note: note ?? log[idx].note, recordedBy: recordedBy ?? log[idx].recordedBy }
+        await kvSet('wastageLog', log)
+        return res.json({ entry: log[idx], syncedNote: 'Only note/recorded-by updated — quantity is locked because this entry was already synced to Square.' })
+      }
+      const { itemName, category, qty, unit, reason, note, recordedBy, date } = req.body
       log[idx] = { ...log[idx], itemName, category: category || '', qty: Number(qty), unit: unit || 'units', reason, note: note || '', recordedBy: recordedBy || '', date }
       await kvSet('wastageLog', log)
       return res.json({ entry: log[idx] })
     }
 
     if (req.method === 'DELETE') {
-      const { id } = req.query
+      const { id, force } = req.query
       if (!id) return res.status(400).json({ error: 'id required' })
+      const entry = log.find(e => e.id === id)
+      if (!entry) return res.status(404).json({ error: 'Entry not found' })
+      // Block deleting a synced entry unless the caller explicitly forces it,
+      // because deleting here does NOT restore the stock in Square — the entry
+      // already reduced Square's count. Removing it from the log would hide a
+      // real Square adjustment and cause the Hub and Square to disagree.
+      if (entry.squareSynced && force !== 'true') {
+        return res.status(409).json({
+          error: 'SYNCED_ENTRY',
+          message: 'This entry was already synced to Square. Deleting it here will NOT restore the stock in Square — the two would no longer match. If you have already corrected the stock in Square (e.g. via a stocktake), you can force-remove this log entry.',
+        })
+      }
       const filtered = log.filter(e => e.id !== id)
       await kvSet('wastageLog', filtered)
-      return res.json({ ok: true })
+      return res.json({ ok: true, forced: force === 'true' })
     }
 
     return res.status(405).json({ error: 'Method not allowed' })
