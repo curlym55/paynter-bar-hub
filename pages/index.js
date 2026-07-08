@@ -8,6 +8,7 @@ import NotesView from '../components/bar/views/NotesView'
 import SpecialsView from '../components/bar/views/SpecialsView'
 import StocktakeView from '../components/bar/views/StocktakeView'
 import SohHistoryView from '../components/bar/views/SohHistoryView'
+import MonthlyReportView from '../components/bar/views/MonthlyReportView'
 import DashboardView from '../components/bar/views/DashboardView'
 import BarcodeSheetView from '../components/bar/views/BarcodeSheetView'
 import PriceListView from '../components/bar/views/PriceListView'
@@ -2474,6 +2475,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     { divider: true, section: 'Stock' },
     { icon: '📋', label: 'Stocktake',        tab: 'stocktake',    action: () => setMainTab(t => t==='stocktake'?'reorder':'stocktake') },
     { icon: '🗓️', label: 'SOH History',      tab: 'sohhistory',   action: () => setMainTab(t => t==='sohhistory'?'reorder':'sohhistory') },
+    { icon: '📅', label: 'Monthly Report',  tab: 'monthlyreport', action: () => setMainTab(t => t==='monthlyreport'?'reorder':'monthlyreport') },
     { divider: true, section: 'Analytics' },
     { icon: '📊', label: 'Sales Report',     tab: 'sales',        action: () => { const n=mainTab==='sales'?'reorder':'sales'; setMainTab(n); if(n==='sales'&&!salesReport) loadSalesReport(salesPeriod,salesCustom) } },
     { divider: true, section: 'Manage' },
@@ -5484,6 +5486,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
         {mainTab === 'stocktake' && <StocktakeView items={items} readOnly={readOnly} onExport={exportStocktake} />}
           {mainTab === 'sohhistory' && <SohHistoryView readOnly={readOnly} onExportPdf={() => generateStockReport(false)} onExportXlsx={() => generateStockReport(true)} />}
+          {mainTab === 'monthlyreport' && <MonthlyReportView />}
           {mainTab === 'specials' && !readOnly && <SpecialsView items={items} />}
         {mainTab === 'help' && <HelpTab />}
 
