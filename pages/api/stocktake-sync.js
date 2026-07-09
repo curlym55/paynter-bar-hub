@@ -1,5 +1,6 @@
 import { kvGet, kvSet }                                         from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postPhysicalCount } from '../../lib/square'
+import { requireAuth }                                          from '../../lib/session'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 
@@ -30,6 +31,10 @@ export const config = {
 }
 
 export default async function handler(req, res) {
+  // Both the preview and the sync read stock data and, on POST, overwrite
+  // Square's inventory via postPhysicalCount. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 

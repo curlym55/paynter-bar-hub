@@ -1,6 +1,12 @@
 import { kvGet, kvSet } from '../../lib/redis'
+import { requireAuth } from '../../lib/session'
 
 export default async function handler(req, res) {
+  // GET is readable by any valid session; all writes require management access.
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
+  } else if (!requireAuth(req, res)) return
+
   try {
     const notes = (await kvGet('barNotes').catch(() => null)) || []
 
