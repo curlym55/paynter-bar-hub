@@ -5,8 +5,12 @@
  * Body: { raw_names: string[] }
  */
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
+  // Deletes invoice line items. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   if (req.method !== 'DELETE') return res.status(405).json({ error: 'Method not allowed' })
 
   const { raw_names } = req.body ?? {}

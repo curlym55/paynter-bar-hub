@@ -5,6 +5,7 @@
  */
 import { kvGet } from '../../../lib/redis'
 import { sbConfigSet } from '../../../lib/supabase-config'
+import { requireAuth } from '../../../lib/session'
 
 const KEYS = [
   { key: 'itemSettings',       fallback: {} },
@@ -20,6 +21,9 @@ const KEYS = [
 ]
 
 export default async function handler(req, res) {
+  // Admin maintenance route: copies Redis keys into Supabase. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const results = []

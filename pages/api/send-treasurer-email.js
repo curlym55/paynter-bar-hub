@@ -16,6 +16,7 @@
 
 import { createClient } from '@supabase/supabase-js'
 import { getAccessToken } from '../../lib/onedrive'
+import { requireAuth } from '../../lib/session'
 
 const SENDER     = process.env.MAIL_SENDER     || 'paynterbar@gemwoods.com.au'
 const TREASURER  = process.env.MAIL_TREASURER  || 'treasurer@gemwoods.com.au'
@@ -68,6 +69,9 @@ function fmtDate(isoDate) {
 
 // ── Handler ───────────────────────────────────────────────────────────────────
 export default async function handler(req, res) {
+  // Sends email on the bar's behalf. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   const { doc } = req.body

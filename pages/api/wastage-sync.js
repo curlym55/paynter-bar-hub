@@ -1,5 +1,6 @@
 import { kvGet, kvSet }                                              from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postSingleWasteAdjustment } from '../../lib/square'
+import { requireAuth } from '../../lib/session'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
@@ -45,6 +46,11 @@ function skipReason(entry, varInfo, squareQty) {
 }
 
 export default async function handler(req, res) {
+  // GET is a preview; POST posts waste adjustments into Square.
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
+  } else if (!requireAuth(req, res)) return
+
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 

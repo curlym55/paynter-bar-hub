@@ -1,6 +1,10 @@
 import { getCatalogImages } from '../../lib/square'
+import { requireAuth } from '../../lib/session'
 
 export default async function handler(req, res) {
+  // Square catalog images. Requires a valid session — no anonymous access.
+  if (!requireAuth(req, res)) return
+
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'No token' })
 

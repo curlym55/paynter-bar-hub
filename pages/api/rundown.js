@@ -1,5 +1,6 @@
 import { kvGet, kvSet } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
+import { requireAuth } from '../../lib/session'
 
 const KEY = 'rundownItems'
 
@@ -18,6 +19,11 @@ async function set(key, value) {
 
 
 export default async function handler(req, res) {
+  // Rundown flags are read on every page load; writing is management-only.
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
+  } else if (!requireAuth(req, res)) return
+
   if (req.method === 'GET') {
     const data = (await get(KEY, {})) || {}
     return res.json({ rundown: data })

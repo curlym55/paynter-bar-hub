@@ -1,6 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
+  // GET lists invoices; PATCH edits them.
+  if (['POST', 'PATCH', 'PUT', 'DELETE'].includes(req.method)) {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
+  } else if (!requireAuth(req, res)) return
+
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
   if (req.method === 'GET') {

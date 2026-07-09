@@ -1,4 +1,5 @@
 import { getAccessToken } from '../../../lib/onedrive'
+import { requireAuth } from '../../../lib/session'
 
 export const config = {
   api: {
@@ -9,6 +10,9 @@ export const config = {
 }
 
 export default async function handler(req, res) {
+  // Writes an invoice into OneDrive. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   if (!process.env.ONEDRIVE_CLIENT_ID || !process.env.ONEDRIVE_CLIENT_SECRET) {

@@ -1,6 +1,12 @@
 import { kvGet, kvSet } from '../../lib/redis'
+import { requireAuth } from '../../lib/session'
 
 export default async function handler(req, res) {
+  // Counts are read by the Stocktake tab; writes are management-only.
+  if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+    if (!requireAuth(req, res, { allowReadOnly: false })) return
+  } else if (!requireAuth(req, res)) return
+
   try {
     if (req.method === 'GET') {
       const counts = (await kvGet('stocktakeCounts').catch(() => null)) || {}

@@ -1,6 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
+  // Purchase order records. Requires a valid session — no anonymous access.
+  if (!requireAuth(req, res)) return
+
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)

@@ -1,6 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
+import { requireAuth } from '../../../lib/session'
 
 const norm = s => (s || '').toLowerCase().trim().replace(/\s+/g, ' ')
 
@@ -14,6 +15,9 @@ function normalizeSupplier(s) {
 }
 
 export default async function handler(req, res) {
+  // Average buy prices. Requires a valid session — no anonymous access.
+  if (!requireAuth(req, res)) return
+
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const { days = '90', supplier = 'all' } = req.query

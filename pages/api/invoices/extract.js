@@ -1,4 +1,9 @@
+import { requireAuth } from '../../../lib/session'
+
 export default async function handler(req, res) {
+  // Calls the Anthropic API — each request costs money. Management access only.
+  if (!requireAuth(req, res, { allowReadOnly: false })) return
+
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!process.env.ANTHROPIC_API_KEY) return res.status(500).json({ error: 'ANTHROPIC_API_KEY not set in Vercel' })
 

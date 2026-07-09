@@ -1,8 +1,12 @@
 import { fetchSalesReport } from '../../lib/square'
 import { kvGet } from '../../lib/redis'
 import { defaultCategory } from '../../lib/calculations'
+import { requireAuth } from '../../lib/session'
 
 export default async function handler(req, res) {
+  // Sales figures. Requires a valid session — no anonymous access.
+  if (!requireAuth(req, res)) return
+
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
