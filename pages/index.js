@@ -4295,20 +4295,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           <div style={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>BMT Management PIN</div>
                           <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>Full access — edit prices, receive orders, manage settings</div>
                         </div>
-                        <button onClick={() => { const p = prompt('Enter new BMT PIN (4–8 digits):'); if (!p || p.length < 4) return; fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemName:'_global',field:'appPin',value:p})}).then(()=>alert('✓ BMT PIN updated.')) }}
-                          style={{ padding:'6px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                          🔑 Change PIN
-                        </button>
+                        <code style={{ fontSize:11, color:'#475569', background:'#e2e8f0', padding:'3px 8px', borderRadius:4, whiteSpace:'nowrap' }}>PIN_COMMITTEE</code>
                       </div>
                       <div style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 14px', background:'#f8fafc', borderRadius:8, border:'1px solid #e2e8f0' }}>
                         <div style={{ flex:1 }}>
                           <div style={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>Read-Only PIN</div>
                           <div style={{ fontSize:11, color:'#64748b', marginTop:2 }}>View-only access — stock levels, sales, price list. No editing.</div>
                         </div>
-                        <button onClick={() => { const p = prompt('Enter new read-only PIN (4–8 digits):'); if (!p || p.length < 4) return; fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({itemName:'_global',field:'readOnlyPin',value:p})}).then(()=>alert('✓ Read-only PIN updated.')) }}
-                          style={{ padding:'6px 14px', background:'#475569', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                          🔑 Change PIN
-                        </button>
+                        <code style={{ fontSize:11, color:'#475569', background:'#e2e8f0', padding:'3px 8px', borderRadius:4, whiteSpace:'nowrap' }}>PIN_READONLY</code>
+                      </div>
+                    </div>
+
+                    <div style={{ marginTop:16, padding:'12px 14px', background:'#eff6ff', border:'1px solid #bfdbfe', borderRadius:8 }}>
+                      <div style={{ fontSize:12, fontWeight:700, color:'#1d4ed8', marginBottom:6 }}>🔒 How to change a PIN</div>
+                      <div style={{ fontSize:12, color:'#1e40af', lineHeight:1.75 }}>
+                        PINs are stored as environment variables in Vercel — never in the app&apos;s database or code. To change one:
+                        <ol style={{ margin:'6px 0 0', paddingLeft:18 }}>
+                          <li>Open Vercel → the <strong>paynter-bar-hub</strong> project → <strong>Settings → Environment Variables</strong></li>
+                          <li>Edit <code>PIN_COMMITTEE</code> or <code>PIN_READONLY</code>, then save</li>
+                          <li>Go to <strong>Deployments</strong> and click <strong>Redeploy</strong> on the latest deployment</li>
+                        </ol>
+                        <div style={{ marginTop:8 }}>
+                          The new PIN takes effect once that redeploy finishes. Anyone already signed in stays signed in until their 12-hour session expires.
+                        </div>
                       </div>
                     </div>
                   </div>
