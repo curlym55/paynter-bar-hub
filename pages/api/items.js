@@ -1,13 +1,73 @@
 import { fetchSquareData } from '../../lib/square'
 import { calculateItem, CATEGORY_ORDER } from '../../lib/calculations'
 import { kvGet, kvSet, kvDelete } from '../../lib/redis'
+import { getSession } from '../../lib/session'
 
 const CACHE_KEY = (days) => `itemsCache_${days}`
 
+// Fields the pinless public price list (?public=pricelist) is allowed to see.
+// Everything else — buy prices, suppliers, stock quantities, ordering internals —
+// is withheld. The price list only ever tests `onHand > 0` to hide sold-out
+// items, so we send a 1/0 flag rather than the real quantity.
+const PUBLIC_FIELDS = [
+  'name', 'category', 'isSpirit', 'sellPrice', 'sellPriceBottle',
+  'squareSellPrice', 'squareSellPriceBottle', 'sellUnit', 'bottleOnly',
+  'alcoholPct', 'containerML', 'nipML', 'bottleML',
+]
+
+// Cost data. Withheld from read-only users as well as the public — the read-only
+// PIN is handed out to residents, and buy prices are commercially sensitive.
+const COST_FIELDS = ['buyPrice', 'supplier']
+
+/**
+ * The cache stores the full payload, so sanitising must happen on the way OUT,
+ * on every path (cache hit, fresh fetch, and the stale-cache fallback).
+ */
+function sanitisePayload(payload, role) {
+  if (role === 'committee') return payload
+
+  if (role === 'readonly') {
+    return {
+      ...payload,
+      items: payload.items.map(it => {
+        const copy = { ...it }
+        for (const f of COST_FIELDS) delete copy[f]
+        return copy
+      }),
+      suppliers: [],
+    }
+  }
+
+  // No session at all — public price list.
+  return {
+    ...payload,
+    items: payload.items.map(it => {
+      const copy = {}
+      for (const f of PUBLIC_FIELDS) if (it[f] !== undefined) copy[f] = it[f]
+      copy.onHand = (it.onHand || 0) > 0 ? 1 : 0
+      copy.variations = (it.variations || []).map(v => ({ name: v.name, price: v.price }))
+      return copy
+    }),
+    // targetWeeks is left intact — it's a harmless global setting (e.g. 6 weeks)
+    // and the client may use it in calculations.
+    suppliers: [],
+  }
+}
+
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET');
+  // No wildcard Access-Control-Allow-Origin. It previously let any website read
+  // this endpoint — including buy prices — from a visitor's browser.
   if (req.method === 'OPTIONS') return res.status(200).end();
+
+  // Unauthenticated callers are treated as the public price list and get a
+  // heavily reduced payload. A valid session unlocks more.
+  const session = getSession(req)
+  const role = session?.role ?? 'public'
+
+  // Forcing a live Square refetch is a privileged, rate-limited operation.
+  if (req.query.refresh === 'true' && role !== 'committee') {
+    return res.status(403).json({ error: 'Refresh requires management access.' })
+  }
 
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
@@ -26,7 +86,7 @@ export default async function handler(req, res) {
         return null
       })
       if (cached) {
-        return res.status(200).json({ ...cached, fromCache: true })
+        return res.status(200).json(sanitisePayload({ ...cached, fromCache: true }, role))
       }
     }
 
@@ -89,7 +149,7 @@ export default async function handler(req, res) {
     // Save to cache keyed by daysBack (fire and forget)
     kvSet(CACHE_KEY(daysBack), payload).catch(e => console.error('Cache write failed:', e))
 
-    res.status(200).json({ ...payload, fromCache: false })
+    res.status(200).json(sanitisePayload({ ...payload, fromCache: false }, role))
   } catch (err) {
     console.error('Items API error:', err)
 
@@ -100,7 +160,7 @@ export default async function handler(req, res) {
     })
     if (stale && stale.items) {
       console.warn('Square fetch failed - serving stale cache')
-      return res.status(200).json({ ...stale, fromCache: true, stale: true })
+      return res.status(200).json(sanitisePayload({ ...stale, fromCache: true, stale: true }, role))
     }
 
     res.status(500).json({ error: err.message })
