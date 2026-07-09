@@ -19,6 +19,7 @@
 import { randomUUID } from 'crypto'
 import { getVariationIdMap, getLocationId } from '../../../lib/square'
 import { requireAuth } from '../../../lib/session'
+import { invalidateItemsCache } from '../../../lib/cache'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -101,6 +102,10 @@ export default async function handler(req, res) {
       const msg = data.errors?.[0]?.detail ?? `Square error ${sqRes.status}`
       return res.status(500).json({ error: msg })
     }
+
+    // Square's stock just changed — clear the cached items payload so the
+    // Dashboard and order wizard don't keep showing pre-delivery figures.
+    await invalidateItemsCache()
 
     return res.status(200).json({
       success: true,

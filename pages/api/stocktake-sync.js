@@ -1,6 +1,7 @@
 import { kvGet, kvSet }                                         from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postPhysicalCount } from '../../lib/square'
 import { requireAuth }                                          from '../../lib/session'
+import { invalidateItemsCache }                                  from '../../lib/cache'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 
@@ -167,6 +168,10 @@ export default async function handler(req, res) {
         const trimmed = history.filter(d => new Date(d.date) >= cutoff)
         await kvSet('stocktakeHistory', trimmed)
       }
+
+      // Physical counts were pushed to Square — the cached stock levels are now
+      // stale. Clear them so the next load reflects the corrected figures.
+      if (succeeded.length > 0) await invalidateItemsCache()
 
       return res.json({
         ok:           failed.length === 0,

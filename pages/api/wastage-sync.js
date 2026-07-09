@@ -1,6 +1,7 @@
 import { kvGet, kvSet }                                              from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postSingleWasteAdjustment } from '../../lib/square'
 import { requireAuth } from '../../lib/session'
+import { invalidateItemsCache } from '../../lib/cache'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
@@ -137,6 +138,10 @@ export default async function handler(req, res) {
                  squareQty: String(s.squareQty), conversionNote: s.note || null }
       })
       await kvSet('wastageLog', updatedLog)
+
+      // Waste adjustments reduced Square's stock — clear the cached items
+      // payload so on-hand figures reflect the loss immediately.
+      if (succeeded.length > 0) await invalidateItemsCache()
 
       const parts = []
       if (succeeded.length) parts.push(`${succeeded.length} synced to Square`)

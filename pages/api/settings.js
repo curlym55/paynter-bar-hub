@@ -1,6 +1,7 @@
-import { kvGet, kvSet, kvDelete } from '../../lib/redis'
+import { kvGet, kvSet } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
 import { requireAuth } from '../../lib/session'
+import { invalidateItemsCache } from '../../lib/cache'
 
 // ── Dual-read/write helpers ───────────────────────────────────────────────
 async function get(key, fallback = null) {
@@ -149,13 +150,10 @@ export default async function handler(req, res) {
       await set('settingsAudit', audit)
 
       await set('itemSettings', allSettings)
-      // Bust the items cache so the next load recalculates with new settings
-      // We delete all known daysBack variants (60 and 90 are the common ones)
-      await Promise.all([
-        kvDelete('itemsCache_60'),
-        kvDelete('itemsCache_90'),
-        kvDelete('itemsCache_30'),
-      ]).catch(() => {})
+      // Bust the items cache so the next load recalculates with new settings.
+      // Deletes by pattern — /api/items accepts any ?days= value, not just the
+      // 30/60/90 the UI offers, so a hardcoded list could miss keys.
+      await invalidateItemsCache()
       res.status(200).json({ ok: true })
     } catch (err) {
       res.status(500).json({ error: err.message })
