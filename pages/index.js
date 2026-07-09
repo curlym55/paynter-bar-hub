@@ -29,6 +29,16 @@ import { getSpecialPrice } from '../lib/utils/getSpecialPrice'
 
 
 
+// Sidebar colour themes. Module-scoped so both the sidebar and the
+// Settings > Appearance panel can read them.
+const THEMES = {
+  navy:     { name:'Navy',     sbBg:'#0f172a', sbBorder:'#1e293b', sbActive:'#1e3a5f', accent:'#0e7490', navText:'#f1f5f9', navMuted:'#64748b', navItem:'#94a3b8', brandBg:'#0e7490' },
+  midnight: { name:'Midnight', sbBg:'#09090b', sbBorder:'#27272a', sbActive:'#3b0764', accent:'#7c3aed', navText:'#fafafa',  navMuted:'#71717a', navItem:'#a1a1aa',  brandBg:'#7c3aed' },
+  forest:   { name:'Forest',   sbBg:'#0f1f16', sbBorder:'#1c3326', sbActive:'#1a3828', accent:'#16a34a', navText:'#f0fdf4',  navMuted:'#4d7c60', navItem:'#86efac',  brandBg:'#16a34a' },
+  slate:    { name:'Slate',    sbBg:'#1e2a3a', sbBorder:'#2d3f55', sbActive:'#2d4a6e', accent:'#3b82f6', navText:'#f1f5f9',  navMuted:'#64748b', navItem:'#93c5fd',  brandBg:'#3b82f6' },
+  light:    { name:'Light',    sbBg:'#f8fafc', sbBorder:'#e2e8f0', sbActive:'#dbeafe', accent:'#1e3a5f', navText:'#0f172a',  navMuted:'#94a3b8', navItem:'#475569',  brandBg:'#1e3a5f' },
+}
+
 export default function Home() {
   const [authed, setAuthed]             = useState(false)
   const [readOnly, setReadOnly]         = useState(false)
@@ -2548,13 +2558,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
           const navItems = NAV_ITEMS
 
-          const THEMES = {
-            navy:     { name:'Navy',     sbBg:'#0f172a', sbBorder:'#1e293b', sbActive:'#1e3a5f', accent:'#0e7490', navText:'#f1f5f9', navMuted:'#64748b', navItem:'#94a3b8', brandBg:'#0e7490' },
-            midnight: { name:'Midnight', sbBg:'#09090b', sbBorder:'#27272a', sbActive:'#3b0764', accent:'#7c3aed', navText:'#fafafa',  navMuted:'#71717a', navItem:'#a1a1aa',  brandBg:'#7c3aed' },
-            forest:   { name:'Forest',   sbBg:'#0f1f16', sbBorder:'#1c3326', sbActive:'#1a3828', accent:'#16a34a', navText:'#f0fdf4',  navMuted:'#4d7c60', navItem:'#86efac',  brandBg:'#16a34a' },
-            slate:    { name:'Slate',    sbBg:'#1e2a3a', sbBorder:'#2d3f55', sbActive:'#2d4a6e', accent:'#3b82f6', navText:'#f1f5f9',  navMuted:'#64748b', navItem:'#93c5fd',  brandBg:'#3b82f6' },
-            light:    { name:'Light',    sbBg:'#f8fafc', sbBorder:'#e2e8f0', sbActive:'#dbeafe', accent:'#1e3a5f', navText:'#0f172a',  navMuted:'#94a3b8', navItem:'#475569',  brandBg:'#1e3a5f' },
-          }
           const T = THEMES[hubTheme] || THEMES.navy
 
           return (
@@ -2606,21 +2609,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   )
                 })}
               </div>
-              {/* Theme picker + Collapse */}
+              {/* Collapse */}
               <div style={{ borderTop: `1px solid ${T.sbBorder}`, flexShrink: 0 }}>
-                {!SC && (
-                  <div style={{ padding: '8px 12px 4px', display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span style={{ fontSize: 9, color: T.navMuted, textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 2 }}>Theme</span>
-                    {Object.entries(THEMES).map(([key, th]) => (
-                      <button key={key} title={th.name}
-                        onClick={() => setHubTheme(key)}
-                        style={{ width: 16, height: 16, borderRadius: '50%', background: th.brandBg,
-                          border: hubTheme === key ? `2px solid ${T.navText}` : '2px solid transparent',
-                          cursor: 'pointer', padding: 0, flexShrink: 0,
-                          boxShadow: hubTheme === key ? '0 0 0 1px rgba(255,255,255,0.3)' : 'none' }} />
-                    ))}
-                  </div>
-                )}
+                {/* Theme picker now lives in Settings > Appearance */}
                 <button onClick={() => setSidebarCollapsed(c => !c)}
                   style={{ width: '100%', display: 'flex', alignItems: 'center', gap: 9, padding: SC ? '12px 0' : '10px 14px', minHeight: 44, background: 'none', border: 'none', cursor: 'pointer', color: T.navMuted, justifyContent: SC ? 'center' : 'flex-start', fontSize: 12 }}>
                   <span style={{ fontSize: 16, width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', textAlign: 'center' }}>{SC ? '»' : '«'}</span>
@@ -4098,7 +4089,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* Sub-tab strip */}
             <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
-              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['reorder','⚙️ Reorder Defaults'],['access','🔐 App Access']].map(([t,label]) => (
+              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['reorder','⚙️ Reorder Defaults'],['appearance','🎨 Appearance'],['access','🔐 App Access']].map(([t,label]) => (
                 <button key={t} onClick={() => setSettingsSubTab(t)}
                   style={{ padding:'8px 16px', border:'none', borderBottom: settingsSubTab===t ? '2px solid #1e3a5f' : '2px solid transparent',
                     background:'none', fontSize:13, fontWeight: settingsSubTab===t ? 700 : 500,
@@ -4107,6 +4098,43 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 </button>
               ))}
             </div>
+
+            {/* ── APPEARANCE ─────────────────────────────────────────── */}
+            {settingsSubTab === 'appearance' && (
+              <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Sidebar Theme</div>
+                <div style={{ padding:16 }}>
+                  <div style={{ fontSize:12, color:'#64748b', marginBottom:14 }}>
+                    Changes the sidebar colour scheme. This is saved on this device only — each person can pick their own.
+                  </div>
+                  <div style={{ display:'grid', gridTemplateColumns:'repeat(auto-fill, minmax(150px, 1fr))', gap:10 }}>
+                    {Object.entries(THEMES).map(([key, th]) => {
+                      const active = hubTheme === key
+                      return (
+                        <button key={key} onClick={() => setHubTheme(key)}
+                          style={{ display:'flex', alignItems:'center', gap:10, padding:'10px 12px', cursor:'pointer',
+                            background: active ? '#f0f9ff' : '#fff',
+                            border: active ? '2px solid #0e7490' : '1px solid #e2e8f0',
+                            borderRadius:8, textAlign:'left' }}>
+                          {/* Mini sidebar preview */}
+                          <div style={{ width:30, height:38, borderRadius:4, background:th.sbBg, border:`1px solid ${th.sbBorder}`,
+                            flexShrink:0, padding:3, display:'flex', flexDirection:'column', gap:2 }}>
+                            <div style={{ height:5, borderRadius:1, background:th.brandBg }} />
+                            <div style={{ height:3, borderRadius:1, background:th.sbActive }} />
+                            <div style={{ height:3, borderRadius:1, background:th.navItem, opacity:0.5 }} />
+                            <div style={{ height:3, borderRadius:1, background:th.navItem, opacity:0.5 }} />
+                          </div>
+                          <div style={{ flex:1, minWidth:0 }}>
+                            <div style={{ fontSize:13, fontWeight:700, color:'#0f172a' }}>{th.name}</div>
+                            {active && <div style={{ fontSize:10, color:'#0e7490', fontWeight:700 }}>✓ Active</div>}
+                          </div>
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* ── SUPPLIERS ──────────────────────────────────────────── */}
             {settingsSubTab === 'suppliers' && (
