@@ -31,13 +31,32 @@ export default function HelpTab() {
   const sections = [
     {
       icon: '🛒',
-      title: 'Weekly Ordering — Full Workflow',
+      title: 'Ordering — Weekly & Additional',
       highlight: true,
       content: (
         <div>
           <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
-            The ordering workflow runs entirely through the Order Wizard. Follow these steps each week when stock needs replenishing.
+            All ordering runs through the Order Wizard. There are two ways to start it from the Dashboard, and they behave differently.
           </p>
+
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 18 }}>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#1e3a5f', marginBottom: 6 }}>📋 Weekly Order</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.7 }}>
+                The normal weekly restock. Only shows items the Hub calculates as needing ordering, with suggested quantities already filled in.
+                Items already on another order show a green <strong>🛒 ON ORDER</strong> badge so you don't double up.
+              </div>
+            </div>
+            <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '12px 14px' }}>
+              <div style={{ fontSize: 12, fontWeight: 800, color: '#0e7490', marginBottom: 6 }}>➕ Additional Order</div>
+              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.7 }}>
+                For special events or one-off purchases. Shows <strong>every</strong> item for the supplier, all starting at zero, regardless of stock levels.
+                Type quantities only for what you need — anything left at 0 is excluded.
+              </div>
+            </div>
+          </div>
+
+          <Note>An item can now sit on a weekly order and an additional order at the same time. Each order tracks its own quantity, and receiving one leaves the other untouched.</Note>
 
           <STEP n="1" title="Check what needs ordering — Dashboard">
             The Dashboard shows <strong>To Order</strong> (items below target) and <strong>Critical</strong> (≤2 weeks stock). The <strong>📋 Start Weekly Order</strong> button appears when items need ordering.
@@ -335,7 +354,145 @@ export default function HelpTab() {
         </div>
       )
     },
+        {
+      icon: '📋',
+      title: 'Stocktake',
+      highlight: true,
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            Use the Stocktake tab to count physical stock and push the corrected figures to Square.
+          </p>
+
+          <STEP n="1" title="Print a blank count sheet">
+            Click <strong>🖨️ Print Blank Sheet</strong> to get a paper sheet listing every item grouped by category, with columns for your counts and Square's current On Hand figure for comparison.
+            <Note>Sparkling always starts on a fresh page, so the sheet can be split between two people.</Note>
+          </STEP>
+
+          <STEP n="2" title="Enter your counts">
+            Type the counted figures into the table. Spirits are counted in <strong>nips</strong>, wine in <strong>bottles</strong>, everything else in units. The Hub does any conversion Square needs.
+          </STEP>
+
+          <STEP n="3" title="Review before syncing">
+            Click <strong>⬆ Sync to Square</strong>. A preview lists every item that will change, showing what Square holds now and what it will be set to. Items that can't be matched to a Square variation are marked <strong>Skip</strong> with a reason.
+            <Note type="warn">Syncing sets Square's stock to your counted figure. It doesn't add or subtract — it overwrites. Check the preview.</Note>
+          </STEP>
+
+          <STEP n="4" title="Sync and record">
+            Confirm the sync. Each synced item turns green (<strong>✓ Synced</strong>) and the footer becomes <strong>✓ Done</strong>.
+            Every sync is saved to history with the before and after figures.
+          </STEP>
+
+          <STEP n="5" title="Export the record">
+            Click <strong>📋 History</strong>, then <strong>📊 Export</strong> on any past sync to download an Excel record of exactly what changed — item, category, before, set to, change, and conversion used.
+            <Note type="success">This is the audit trail. Export it after any stocktake that produced a large correction, and keep it with the bar records.</Note>
+          </STEP>
+        </div>
+      )
+    },
     {
+      icon: '🗑️',
+      title: 'Wastage Log',
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            Record breakages, spills and out-of-date stock. Entries can be synced to Square so its inventory reflects the loss.
+          </p>
+
+          <STEP n="1" title="Add an entry">
+            Choose the item, quantity and unit, pick a reason (Breakage, Spillage, Out of date, Staff drink, Other), and add a note if useful.
+          </STEP>
+
+          <STEP n="2" title="Sync to Square">
+            Unsynced entries show a <strong>Sync</strong> button. Syncing moves that quantity from IN_STOCK to WASTE in Square.
+          </STEP>
+
+          <Note type="warn">
+            <strong>Once an entry has been synced, it can no longer be edited or freely deleted.</strong> Square's stock has already been reduced, and changing the log here would <em>not</em> change Square — the two would silently disagree. Only the note and recorded-by fields stay editable.
+          </Note>
+          <Note>
+            If a synced entry was genuinely a mistake: correct the physical stock in Square first (via a Stocktake), then use the delete button and confirm the force-remove warning to clear the stale log entry.
+          </Note>
+          <Note type="success">
+            Unsynced entries can be edited or deleted freely — nothing has reached Square yet.
+          </Note>
+        </div>
+      )
+    },
+    {
+      icon: '🗓️',
+      title: 'SOH History & Trend',
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            A Stock On Hand snapshot is saved automatically on the <strong>last day of every month</strong>, capturing every item's quantity and stock value.
+          </p>
+
+          <STEP n="1" title="Read the trend chart">
+            The chart at the top plots total stock over time. Toggle between <strong>$ Value</strong> and <strong>Units</strong>, and filter to a single category to see, for example, just how Beer stock has moved. Hover any point for the exact figure.
+          </STEP>
+
+          <STEP n="2" title="Open a snapshot">
+            Click any snapshot in the list below to see the full item-by-item breakdown for that date.
+          </STEP>
+
+          <STEP n="3" title="Take an off-cycle snapshot">
+            Use <strong>📸 Snapshot Now</strong> if you need a record outside the normal month-end cycle — for example, immediately before or after a major stocktake correction.
+          </STEP>
+
+          <Note>Snapshots are the basis of the stock figure reported to the committee, so avoid deleting them.</Note>
+        </div>
+      )
+    },
+    {
+      icon: '📅',
+      title: 'Monthly Report',
+      highlight: true,
+      content: (
+        <div>
+          <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
+            A one-click summary of any month, built for committee reporting. Choose the month and year, click <strong>Generate</strong>.
+          </p>
+
+          <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 2, marginBottom: 14 }}>
+            <strong style={{ color: '#0f172a' }}>What it shows</strong>
+            <ul style={{ marginTop: 6, paddingLeft: 18 }}>
+              <li><strong>Revenue</strong> — total sales, with the percentage change against the previous month</li>
+              <li><strong>Units sold</strong> and how many distinct items sold</li>
+              <li><strong>Wastage</strong> — total cost, broken down by reason</li>
+              <li><strong>Orders placed</strong> — count per supplier, and each PO's received/pending status</li>
+              <li><strong>Average markup</strong> across all priced items</li>
+              <li><strong>Sales by category</strong>, with month-on-month movement</li>
+            </ul>
+          </div>
+
+          <Note>Click <strong>📊 Excel</strong> to download the whole report as a single formatted sheet, ready to attach to committee papers.</Note>
+          <Note type="warn">
+            Wastage is valued at each item's <strong>current</strong> buy price. Wastage entries don't record the price paid at the time, so the figure means "what this would cost to replace today", not historical cost. Items with no buy price set are excluded from the total, and the report tells you how many.
+          </Note>
+        </div>
+      )
+    },
+    {
+      icon: '🏷️',
+      title: 'Barcode Sheet & Price List',
+      content: (
+        <div>
+          <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.8, marginBottom: 14 }}>
+            <strong style={{ color: '#0f172a', fontSize: 13 }}>Barcode Sheet</strong><br />
+            Prints a reference sheet of item barcodes for bar staff to scan at the Square POS. Useful for items without a physical barcode on the packaging, or where the packaging barcode doesn't match the Square item.
+          </div>
+
+          <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.8 }}>
+            <strong style={{ color: '#0f172a', fontSize: 13 }}>Price List</strong><br />
+            The customer-facing price list. It can be printed for the bar, or shared with residents via a QR code poster that opens a read-only, PIN-free view. Control which items appear using the <strong>Show on price list</strong> toggle in Stock Items.
+          </div>
+
+          <Note>The public price list link is <code>/?public=pricelist</code> — it needs no PIN and shows prices only, no stock or cost data.</Note>
+        </div>
+      )
+    },
+{
       icon: '👁',
       title: 'Access Levels',
       content: (
