@@ -213,15 +213,18 @@ export default async function handler(req, res) {
       markups.push({ name: item.name, category, pct, isSpirit })
     }
 
-    // Spirits price at several hundred percent by nature (a ~$1.20 nip sells
-    // for ~$6), so averaging them alongside beer/wine would badly distort the
-    // headline figure. Report the two separately.
-    const nonSpirit = markups.filter(m => !m.isSpirit).map(m => m.pct)
-    const spiritOnly = markups.filter(m => m.isSpirit).map(m => m.pct)
+    // Every category is compared in matched units above, so all items can be
+    // averaged together — this is the same figure the Pricing tab shows per row.
+    // Spirits are also reported separately purely as useful detail, not because
+    // they distort the average (they sit in the same ~40-60% band as beer/wine).
+    const allPcts    = markups.map(m => m.pct)
+    const spiritOnly = markups.filter(m =>  m.isSpirit).map(m => m.pct)
+    const nonSpirit  = markups.filter(m => !m.isSpirit).map(m => m.pct)
     const avgOf = arr => arr.length ? +(arr.reduce((a, b) => a + b, 0) / arr.length).toFixed(1) : null
 
-    const avgMarkup       = avgOf(nonSpirit)
+    const avgMarkup       = avgOf(allPcts)
     const avgSpiritMarkup = avgOf(spiritOnly)
+    const avgNonSpirit    = avgOf(nonSpirit)
 
     const grossProfit = revenue > 0 ? +(revenue - wasteCost).toFixed(2) : 0
 
@@ -255,9 +258,10 @@ export default async function handler(req, res) {
         entries: wasteRows,
       },
       pricing: {
-        avgMarkupPct: avgMarkup,
-        avgSpiritMarkupPct: avgSpiritMarkup,
-        itemsPriced: nonSpirit.length,
+        avgMarkupPct: avgMarkup,              // all priced items
+        avgSpiritMarkupPct: avgSpiritMarkup,  // spirits only (per nip)
+        avgNonSpiritMarkupPct: avgNonSpirit,  // beer / wine / other
+        itemsPriced: allPcts.length,
         spiritsPriced: spiritOnly.length,
         itemsSkipped: markupSkipped,
       },
