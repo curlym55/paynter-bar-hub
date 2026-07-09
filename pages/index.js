@@ -4340,7 +4340,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const parts = key.split('__')
                           const field = parts.pop()
                           const itemName = parts.join('__')
-                          return { itemName, field, ts: val.ts, who: val.who }
+                          // Carry oldValue/newValue through — the table reads e.oldValue / e.newValue.
+                          return { itemName, field, ts: val.ts, who: val.who, oldValue: val.oldValue, newValue: val.newValue }
                         })
                         .sort((a,b) => new Date(b.ts) - new Date(a.ts))
                         .slice(0, 30)
