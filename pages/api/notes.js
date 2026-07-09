@@ -1,5 +1,5 @@
-import { kvGet, kvSet } from '../../lib/redis'
 import { requireAuth } from '../../lib/session'
+import { persistGet, persistSet } from '../../lib/persist'
 
 export default async function handler(req, res) {
   // GET is readable by any valid session; all writes require management access.
@@ -8,7 +8,7 @@ export default async function handler(req, res) {
   } else if (!requireAuth(req, res)) return
 
   try {
-    const notes = (await kvGet('barNotes').catch(() => null)) || []
+    const notes = (await persistGet('barNotes', []).catch(() => null)) || []
 
     if (req.method === 'GET') {
       return res.json({ notes: notes.sort((a, b) => b.date - a.date) })
@@ -26,7 +26,7 @@ export default async function handler(req, res) {
         date:       Date.now(),
       }
       notes.push(entry)
-      await kvSet('barNotes', notes)
+      await persistSet('barNotes', notes)
       return res.json({ entry })
     }
 
@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       const idx = notes.findIndex(e => e.id === id)
       if (idx === -1) return res.status(404).json({ error: 'not found' })
       notes[idx] = { ...notes[idx], itemName: itemName || '', comment, author: author || '', noteDate: noteDate || notes[idx].noteDate }
-      await kvSet('barNotes', notes)
+      await persistSet('barNotes', notes)
       return res.json({ entry: notes[idx] })
     }
 
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       const { id } = req.query
       if (!id) return res.status(400).json({ error: 'id required' })
       const filtered = notes.filter(e => e.id !== id)
-      await kvSet('barNotes', filtered)
+      await persistSet('barNotes', filtered)
       return res.json({ ok: true })
     }
 

@@ -1,5 +1,5 @@
-import { kvGet, kvSet } from '../../lib/redis'
 import { requireAuth } from '../../lib/session'
+import { persistGet, persistSet } from '../../lib/persist'
 
 export default async function handler(req, res) {
   // Counts are read by the Stocktake tab; writes are management-only.
@@ -9,19 +9,19 @@ export default async function handler(req, res) {
 
   try {
     if (req.method === 'GET') {
-      const counts = (await kvGet('stocktakeCounts').catch(() => null)) || {}
+      const counts = (await persistGet('stocktakeCounts', {}).catch(() => null)) || {}
       return res.json({ counts })
     }
 
     if (req.method === 'POST') {
       const { counts } = req.body
       if (!counts || typeof counts !== 'object') return res.status(400).json({ error: 'counts object required' })
-      await kvSet('stocktakeCounts', counts)
+      await persistSet('stocktakeCounts', counts)
       return res.json({ ok: true })
     }
 
     if (req.method === 'DELETE') {
-      await kvSet('stocktakeCounts', {})
+      await persistSet('stocktakeCounts', {})
       return res.json({ ok: true })
     }
 

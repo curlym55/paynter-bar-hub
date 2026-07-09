@@ -1,7 +1,8 @@
-import { kvGet, kvSet }                                              from '../../lib/redis'
+import { kvGet }                                                     from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postSingleWasteAdjustment } from '../../lib/square'
 import { requireAuth } from '../../lib/session'
 import { invalidateItemsCache } from '../../lib/cache'
+import { persistGet, persistSet } from '../../lib/persist'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
@@ -56,7 +57,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
   try {
-    const log          = (await kvGet('wastageLog'))   || []
+    const log          = (await persistGet('wastageLog', [])) || []
     const itemSettings = (await kvGet('itemSettings')) || {}
 
     // ── GET — preview unsynced entries ───────────────────────────────────────
@@ -137,7 +138,7 @@ export default async function handler(req, res) {
         return { ...e, squareSynced: true, squareSyncedAt: syncedAt,
                  squareQty: String(s.squareQty), conversionNote: s.note || null }
       })
-      await kvSet('wastageLog', updatedLog)
+      await persistSet('wastageLog', updatedLog)
 
       // Waste adjustments reduced Square's stock — clear the cached items
       // payload so on-hand figures reflect the loss immediately.

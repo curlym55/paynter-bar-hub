@@ -1,7 +1,8 @@
-import { kvGet, kvSet }                                         from '../../lib/redis'
+import { kvGet }                                                from '../../lib/redis'
 import { getLocationId, getVariationIdMap, postPhysicalCount } from '../../lib/square'
 import { requireAuth }                                          from '../../lib/session'
 import { invalidateItemsCache }                                  from '../../lib/cache'
+import { persistGet, persistSet }                               from '../../lib/persist'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 
@@ -40,7 +41,7 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
   try {
-    const counts      = (await kvGet('stocktakeCounts'))  || {}
+    const counts      = (await persistGet('stocktakeCounts', {}))  || {}
     console.log('[stocktake-sync] Redis counts keys:', Object.keys(counts).length, 'method:', req.method, 'previewOnly:', req.body?.previewOnly)
     const itemSettings = (await kvGet('itemSettings')) || {}
 
@@ -142,7 +143,7 @@ export default async function handler(req, res) {
 
       // ── Save history snapshot ────────────────────────────────────────────
       if (succeeded.length > 0) {
-        const history  = (await kvGet('stocktakeHistory')) || []
+        const history  = (await persistGet('stocktakeHistory', [])) || []
         const today    = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }) // YYYY-MM-DD
         const snapshot = {
           ts:       new Date().toISOString(),
@@ -166,7 +167,7 @@ export default async function handler(req, res) {
         const cutoff = new Date()
         cutoff.setDate(cutoff.getDate() - 90)
         const trimmed = history.filter(d => new Date(d.date) >= cutoff)
-        await kvSet('stocktakeHistory', trimmed)
+        await persistSet('stocktakeHistory', trimmed)
       }
 
       // Physical counts were pushed to Square — the cached stock levels are now

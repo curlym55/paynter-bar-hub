@@ -1,9 +1,9 @@
-import { kvGet, kvSet } from '../../lib/redis'
 import { requireAuth } from '../../lib/session'
+import { persistGet, persistSet } from '../../lib/persist'
 
 export default async function handler(req, res) {
   try {
-    const log = (await kvGet('wastageLog').catch(() => null)) || []
+    const log = (await persistGet('wastageLog', []).catch(() => null)) || []
 
     if (req.method === 'GET') {
       return res.json({ entries: log.sort((a, b) => b.date - a.date) })
@@ -25,7 +25,7 @@ export default async function handler(req, res) {
             count++
           }
         }
-        await kvSet('wastageLog', log)
+        await persistSet('wastageLog', log)
         return res.json({ ok: true, count })
       }
 
@@ -43,7 +43,7 @@ export default async function handler(req, res) {
         date:       Date.now(),
       }
       log.push(entry)
-      await kvSet('wastageLog', log)
+      await persistSet('wastageLog', log)
       return res.json({ entry })
     }
 
@@ -60,12 +60,12 @@ export default async function handler(req, res) {
       if (log[idx].squareSynced) {
         const { note, recordedBy } = req.body
         log[idx] = { ...log[idx], note: note ?? log[idx].note, recordedBy: recordedBy ?? log[idx].recordedBy }
-        await kvSet('wastageLog', log)
+        await persistSet('wastageLog', log)
         return res.json({ entry: log[idx], syncedNote: 'Only note/recorded-by updated — quantity is locked because this entry was already synced to Square.' })
       }
       const { itemName, category, qty, unit, reason, note, recordedBy, date } = req.body
       log[idx] = { ...log[idx], itemName, category: category || '', qty: Number(qty), unit: unit || 'units', reason, note: note || '', recordedBy: recordedBy || '', date }
-      await kvSet('wastageLog', log)
+      await persistSet('wastageLog', log)
       return res.json({ entry: log[idx] })
     }
 
@@ -85,7 +85,7 @@ export default async function handler(req, res) {
         })
       }
       const filtered = log.filter(e => e.id !== id)
-      await kvSet('wastageLog', filtered)
+      await persistSet('wastageLog', filtered)
       return res.json({ ok: true, forced: force === 'true' })
     }
 
