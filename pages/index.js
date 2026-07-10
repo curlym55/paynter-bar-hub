@@ -718,9 +718,10 @@ export default function Home() {
         if (item.name !== itemName) return item
         const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
-        if (['weeklyAvgOverride', 'bottleML', 'nipML', 'pack', 'minStock'].includes(field)) {
+        if (['weeklyAvgOverride', 'bottleML', 'nipML', 'pack', 'minStock', 'maxStock'].includes(field)) {
           const recalc = calculateItem(updated, {
             minStock: updated.minStock,
+            maxStock: updated.maxStock,
             targetWeeksOverride: updated.targetWeeksOverride,
             weeklyAvgOverride: updated.weeklyAvgOverride,
             stockOverride: updated.stockOverride,
@@ -3672,6 +3673,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Avg</th>
                     <th style={{ ...styles.th, textAlign: 'right', width: 60, display: showDetails ? '' : 'none' }}>Target</th>
                     <th style={{ ...styles.th, textAlign: 'right', width: 68, display: showDetails ? '' : 'none' }}>Min Stock</th>
+                    <th style={{ ...styles.th, textAlign: 'right', width: 68, display: showDetails ? '' : 'none' }}>Max Stock</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 50, display: showDetails ? '' : 'none' }}>Pack</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 60, display: showDetails ? '' : 'none' }}>Btl mL</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 52, display: showDetails ? '' : 'none' }}>Nip mL</th>
@@ -3768,7 +3770,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               setItems(prev => prev.map(i => {
                                 if (i.name !== item.name) return i
                                 const updated = { ...i, minStock: val }
-                                const recalc = calculateItem(updated, { minStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
+                                const recalc = calculateItem(updated, { minStock: val, maxStock: i.maxStock, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
                                 return { ...updated, ...recalc }
                               }))
                             }}
@@ -3779,6 +3781,45 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               borderRadius: 5, padding: '2px 4px',
                               background: item.minStock != null ? '#f0f9ff' : '#f8fafc',
                               color: item.minStock != null ? '#0369a1' : 'inherit'
+                            }}
+                          />
+                        </td>
+                        <td style={{ ...styles.td, textAlign: 'right', display: showDetails ? '' : 'none' }}>
+                          <input
+                            type="number" min="0" step="1"
+                            placeholder="—"
+                            title={item.stockLimitConflict
+                              ? 'Max is below Min — the Min floor wins, so this Max is being ignored.'
+                              : item.exceedsMaxStock
+                                ? `Ordering a full pack takes stock to ${item.projectedStock}, above this max.`
+                                : 'Never build stock above this level. Leave blank for no ceiling.'}
+                            defaultValue={item.maxStock ?? ''}
+                            key={item.name + '_maxstock'}
+                            onBlur={e => {
+                              const v = e.target.value.trim()
+                              const val = v === '' ? null : Number(v)
+                              if (val === (item.maxStock ?? null)) return
+                              saveSetting(item.name, 'maxStock', val)
+                              setItems(prev => prev.map(i => {
+                                if (i.name !== item.name) return i
+                                const updated = { ...i, maxStock: val }
+                                const recalc = calculateItem(updated, { minStock: i.minStock, maxStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
+                                return { ...updated, ...recalc }
+                              }))
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                            style={{
+                              width: 58, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 13,
+                              border: item.stockLimitConflict ? '1px solid #dc2626'
+                                    : item.exceedsMaxStock   ? '1px solid #d97706'
+                                    : item.maxStock != null  ? '1px solid #0ea5e9' : '1px solid #e2e8f0',
+                              borderRadius: 5, padding: '2px 4px',
+                              background: item.stockLimitConflict ? '#fef2f2'
+                                        : item.exceedsMaxStock   ? '#fffbeb'
+                                        : item.maxStock != null  ? '#f0f9ff' : '#f8fafc',
+                              color: item.stockLimitConflict ? '#991b1b'
+                                   : item.exceedsMaxStock   ? '#92400e'
+                                   : item.maxStock != null  ? '#0369a1' : 'inherit'
                             }}
                           />
                         </td>

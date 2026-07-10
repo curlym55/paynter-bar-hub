@@ -117,7 +117,7 @@ export default async function handler(req, res) {
       // Capture old value BEFORE updating
       const oldVal = allSettings[resolvedName]?.[field] ?? null
 
-      const numFields  = ['pack', 'bottleML', 'nipML', 'stockOverride', 'weeklyAvgOverride', 'targetWeeksOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle']
+      const numFields  = ['pack', 'bottleML', 'nipML', 'stockOverride', 'weeklyAvgOverride', 'targetWeeksOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle', 'minStock', 'maxStock']
       const boolFields = ['bottleOnly']
       if (value === null || value === '' || value === false) {
         delete allSettings[resolvedName][field]
