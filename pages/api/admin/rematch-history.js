@@ -41,8 +41,15 @@ export default async function handler(req, res) {
     if (!unmatched.length) return res.json({ ok: true, matched: 0, message: 'All rows already matched' })
 
     // Call Haiku via fetch (same pattern as extract.js)
-    const prompt = `Match each invoice description to the closest Hub item name.
-Hub items:
+    const prompt = `You are matching supplier invoice descriptions to bar stock item names.
+IMPORTANT RULES:
+- Spirits on the invoice are sold as bottles (e.g. "Bundaberg Original Rum 1l") but tracked as nips in the Hub (e.g. "Bundaberg Rum 30ml Nip"). Match them.
+- Wines on the invoice may say "Pinot Gris" and the Hub says "Pinot Gris" — match on brand/variety.
+- Ignore size differences (1l vs 700ml vs 30ml nip) — focus on brand and product name.
+- If the raw name already exactly matches a Hub name, still check if there is a BETTER match (e.g. a nip version).
+- Return null for hub if there is genuinely no match.
+
+Hub item names:
 ${hubNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
 
 Invoice descriptions to match:
@@ -51,7 +58,7 @@ ${unmatched.map((n, i) => `${i + 1}. ${n}`).join('\n')}
 Respond ONLY with valid JSON, no markdown:
 {
   "matches": [
-    { "raw": "invoice description", "hub": "Hub item name or null if no match", "confidence": "high|medium|low" }
+    { "raw": "invoice description", "hub": "exact Hub item name from the list above, or null", "confidence": "high|medium|low" }
   ]
 }`
 
@@ -87,7 +94,6 @@ Respond ONLY with valid JSON, no markdown:
         .from('buy_price_history')
         .update({ item_name_hub: hub })
         .eq('item_name_raw', raw)
-        .or(`item_name_hub.is.null,item_name_hub.eq.${raw}`)
       if (!upErr) updated++
     }
 
