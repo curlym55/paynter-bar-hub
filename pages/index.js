@@ -3153,29 +3153,21 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-                            // Save PO to OneDrive, then write the document record with the URL in one shot
-                            // (previously fire-and-forget caused a race where update_urls arrived before the row existed)
+                            fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                              body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
+                            // Link invoice to PO record if already uploaded
+                            if (wizInvoiceFile?.webUrl) {
+                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
+                            }
                             fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
                                 order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
                                 items: poItemsArr.map(i => ({ name:i.name, sku:i.sku||'', orderQty:i.orderQty, bottlesToOrder:i.bottlesToOrder||null, isSpirit:i.isSpirit||false })) }) })
-                              .then(r => r.json())
-                              .then(od => {
-                                // Create the doc record WITH the PO URL in a single upsert — no race
-                                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                  body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length,
-                                    ...(od.webUrl ? { po_onedrive_url: od.webUrl } : {}) }) }).catch(()=>null)
-                                // Link invoice if already uploaded
-                                if (wizInvoiceFile?.webUrl) {
-                                  fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                    body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
-                                }
-                              })
-                              .catch(() => {
-                                // save-po failed (network error) — still create the doc record without the URL
-                                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                  body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
-                              })
+                              .then(r => r.json()).then(od => {
+                                if (od.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) })
+                              }).catch(()=>null)
                             // Single supplier — always go to done
                             setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
                           }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
@@ -5426,12 +5418,48 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           {/* Document links — show all available links */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: '1 1 200px' }}>
                             {/* PO */}
-                            {(doc.po_onedrive_url) && (
-                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
-                                {DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
-                              </div>
-                            )}
+                            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                              <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
+                              {doc.po_onedrive_url
+                                ? DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })
+                                : !readOnly && (
+                                  <button
+                                    title="Re-generate and upload the PO Excel to OneDrive"
+                                    onClick={async e => {
+                                      const btn = e.currentTarget
+                                      btn.disabled = true; btn.textContent = '⏳'
+                                      try {
+                                        // Fetch current ordered items for this ref
+                                        const r = await fetch('/api/purchase-order')
+                                        const { ordered } = await r.json()
+                                        // Collect items for this specific PO ref
+                                        const flat = []
+                                        for (const [name, entries] of Object.entries(ordered || {})) {
+                                          const match = (Array.isArray(entries) ? entries : [entries])
+                                            .find(e => e.ref === doc.po_ref || (!doc.po_ref && e.supplier === doc.supplier))
+                                          if (match) flat.push({ name, ...match })
+                                        }
+                                        if (!flat.length) { alert('No order items found for this PO — it may have already been received and cleared.'); btn.disabled = false; btn.textContent = '☁️ Upload'; return }
+                                        const od = await fetch('/api/onedrive/save-po', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                          body: JSON.stringify({ po_ref: doc.po_ref, supplier: doc.supplier,
+                                            order_date: doc.order_date,
+                                            items: flat.map(f => ({ name: f.name, sku: f.sku||'', orderQty: f.orderQty, bottlesToOrder: f.bottlesToOrder||null, isSpirit: f.isSpirit||false })) }) })
+                                          .then(r => r.json())
+                                        if (od.webUrl) {
+                                          await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                            body: JSON.stringify({ action: 'update_urls', po_ref: doc.po_ref, po_onedrive_url: od.webUrl }) })
+                                          setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, po_onedrive_url: od.webUrl } : d))
+                                        } else {
+                                          alert('Upload failed: ' + (od.reason || od.error || 'unknown error'))
+                                          btn.disabled = false; btn.textContent = '☁️ Upload'
+                                        }
+                                      } catch(err) { alert('Error: ' + err.message); btn.disabled = false; btn.textContent = '☁️ Upload' }
+                                    }}
+                                    style={{ fontSize: 11, padding: '2px 8px', background: '#f0f9ff', color: '#0ea5e9', border: '1px solid #bae6fd', borderRadius: 4, cursor: 'pointer' }}
+                                  >☁️ Upload</button>
+                                )
+                              }
+                            </div>
                             {/* Receipt */}
                             {(doc.receipt_onedrive_url || doc.receive_url) && (
                               <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
