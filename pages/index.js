@@ -4544,7 +4544,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <thead>
                                 <tr style={{ background:'#f8fafc', borderBottom:'1px solid #e2e8f0' }}>
                                   <th style={{ padding:'5px 8px', width:32 }}></th>
-                                  {['Invoice Description','Hub Name','Match','Qty','Units/Pack','Invoice Price','Per Unit ex GST'].map(h => (
+                                  {['Invoice Description','Hub Name','Match','Qty','Units/Pack','Invoice Price','Per Unit inc GST'].map(h => (
                                     <th key={h} style={{ padding:'5px 8px', textAlign: h==='Match'?'center':'left', fontWeight:700, color:'#374151', fontSize:11 }}>{h}</th>
                                   ))}
                                 </tr>
@@ -4808,7 +4808,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               return true
                             })
                           })().map((row, i) => {
-                            const calcUnit = row.invoice_unit_price / (row._units || 1) / (row.gst_included ? 1.10 : 1.0)
+                            const calcUnit = (row.invoice_unit_price / (row._units || 1)) * (row.gst_included ? 1.0 : 1.10)
                             const saved = phManageSaving[row.item_name_raw]
                             return (
                               <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: row._dirty ? '#fffbeb' : (i%2===0?'#fff':'#f8fafc') }}>
