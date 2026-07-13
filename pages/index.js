@@ -65,7 +65,6 @@ export default function Home() {
   const [docInvoiceUploading, setDocInvoiceUploading] = useState({})
   const [docEmailSending,     setDocEmailSending]     = useState({})
   const [docEmailSent,        setDocEmailSent]        = useState({})
-  const [docPOLinkInput,      setDocPOLinkInput]      = useState({}) // { [doc.id]: url string } for paste-link flow
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsSubTab, setSettingsSubTab] = useState('suppliers')
   const [oneDriveStatus, setOneDriveStatus] = useState(null) // null=unchecked, {ok,name,email,error}
@@ -5421,79 +5420,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             {/* PO */}
                             <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                               <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
-                              {doc.po_onedrive_url
-                                ? DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })
-                                : !readOnly && (
-                                  docPOLinkInput[doc.id] === 'paste'
-                                    ? (
-                                      <span style={{ display:'flex', gap:4, alignItems:'center' }}>
-                                        <input
-                                          autoFocus
-                                          type="url"
-                                          placeholder="Paste OneDrive URL…"
-                                          defaultValue=""
-                                          style={{ fontSize:11, padding:'2px 6px', border:'1px solid #bae6fd', borderRadius:4, width:200 }}
-                                          onKeyDown={async e => {
-                                            if (e.key === 'Escape') { setDocPOLinkInput(p => ({ ...p, [doc.id]: undefined })); return }
-                                            if (e.key !== 'Enter') return
-                                            const url = e.target.value.trim()
-                                            if (!url) return
-                                            await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                              body: JSON.stringify({ action:'update_urls', po_ref: doc.po_ref, po_onedrive_url: url }) })
-                                            setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, po_onedrive_url: url } : d))
-                                            setDocPOLinkInput(p => ({ ...p, [doc.id]: undefined }))
-                                          }}
-                                        />
-                                        <button onClick={() => setDocPOLinkInput(p => ({ ...p, [doc.id]: undefined }))}
-                                          style={{ fontSize:11, padding:'2px 6px', background:'#f1f5f9', border:'1px solid #e2e8f0', borderRadius:4, cursor:'pointer' }}>✕</button>
-                                      </span>
-                                    ) : (
-                                      <span style={{ display:'flex', gap:4, alignItems:'center' }}>
-                                        <button
-                                          title="Re-generate and upload the PO Excel to OneDrive"
-                                          onClick={async e => {
-                                            const btn = e.currentTarget
-                                            btn.disabled = true; btn.textContent = '⏳'
-                                            try {
-                                              const r = await fetch('/api/purchase-order')
-                                              const { ordered } = await r.json()
-                                              const flat = []
-                                              for (const [name, entries] of Object.entries(ordered || {})) {
-                                                const match = (Array.isArray(entries) ? entries : [entries])
-                                                  .find(e => e.ref === doc.po_ref || (!doc.po_ref && e.supplier === doc.supplier))
-                                                if (match) flat.push({ name, ...match })
-                                              }
-                                              if (!flat.length) {
-                                                // Items gone — switch to paste-link mode
-                                                setDocPOLinkInput(p => ({ ...p, [doc.id]: 'paste' }))
-                                                btn.disabled = false; btn.textContent = '☁️ Upload'
-                                                return
-                                              }
-                                              const od = await fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
-                                                body: JSON.stringify({ po_ref: doc.po_ref, supplier: doc.supplier, order_date: doc.order_date,
-                                                  items: flat.map(f => ({ name:f.name, sku:f.sku||'', orderQty:f.orderQty, bottlesToOrder:f.bottlesToOrder||null, isSpirit:f.isSpirit||false })) }) })
-                                                .then(r => r.json())
-                                              if (od.webUrl) {
-                                                await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                                  body: JSON.stringify({ action:'update_urls', po_ref: doc.po_ref, po_onedrive_url: od.webUrl }) })
-                                                setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, po_onedrive_url: od.webUrl } : d))
-                                              } else {
-                                                alert('Upload failed: ' + (od.reason || od.error || 'unknown error'))
-                                                btn.disabled = false; btn.textContent = '☁️ Upload'
-                                              }
-                                            } catch(err) { alert('Error: ' + err.message); btn.disabled = false; btn.textContent = '☁️ Upload' }
-                                          }}
-                                          style={{ fontSize:11, padding:'2px 8px', background:'#f0f9ff', color:'#0ea5e9', border:'1px solid #bae6fd', borderRadius:4, cursor:'pointer' }}
-                                        >☁️ Upload</button>
-                                        <button
-                                          title="Paste an existing OneDrive URL for this PO"
-                                          onClick={() => setDocPOLinkInput(p => ({ ...p, [doc.id]: 'paste' }))}
-                                          style={{ fontSize:11, padding:'2px 8px', background:'#f8fafc', color:'#64748b', border:'1px solid #e2e8f0', borderRadius:4, cursor:'pointer' }}
-                                        >🔗 Paste link</button>
-                                      </span>
-                                    )
-                                )
-                              }
+                              {doc.po_onedrive_url && DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
                             </div>
                             {/* Receipt */}
                             {(doc.receipt_onedrive_url || doc.receive_url) && (
