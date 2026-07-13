@@ -30,7 +30,7 @@ export default async function handler(req, res) {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
     let q = sb.from('buy_price_history')
-      .select('item_name_hub, supplier, unit_price_ex_gst, qty_units, invoice_ref, invoice_date')
+      .select('item_name_hub, item_name_raw, supplier, unit_price_ex_gst, qty_units, units_per_pack, invoice_unit_price, gst_included, invoice_ref, invoice_date')
       .gte('invoice_date', cutoffStr)
       .not('item_name_hub', 'is', null)
 
@@ -43,15 +43,28 @@ export default async function handler(req, res) {
     for (const r of rows || []) {
       const hubName = r.item_name_hub
       if (!hubName || hubName === r.item_name_raw) continue  // skip unmatched rows
+      // Sanity-check units_per_pack against category default — catch pack-price errors
+      // e.g. beer stored at $45/unit when it should be $1.87/unit (units_per_pack was 1 instead of 24)
+      const DEFAULT_PACK = { Beer:24, Cider:24, PreMix:24, 'White Wine':6, 'Red Wine':6, Rose:6, Sparkling:6, Spirits:1, 'Fortified & Liqueurs':1, 'Soft Drinks':24, Snacks:18 }
+      const hubCat = (settings[hubName]?.category) || ''
+      const expectedPack = DEFAULT_PACK[hubCat] || 1
+      const storedPack = Number(r.units_per_pack) || 1
+      let unitPriceExGst = Number(r.unit_price_ex_gst) || 0
+      // If stored pack is 1 but we'd expect >1 AND the invoice_unit_price suggests a full pack price,
+      // recompute using the expected pack size
+      if (storedPack === 1 && expectedPack > 1 && r.invoice_unit_price && unitPriceExGst > 0) {
+        const recomputed = (r.gst_included ? r.invoice_unit_price / expectedPack / 1.10 : r.invoice_unit_price / expectedPack)
+        // Only correct if recomputed is plausibly smaller (i.e. the stored price looks like a pack price)
+        if (recomputed < unitPriceExGst * 0.6) unitPriceExGst = Math.round(recomputed * 10000) / 10000
+      }
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
       if (!map[hubName]) map[hubName] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
       const qty = Number(r.qty_units) || 1
-      const price = Number(r.unit_price_ex_gst) || 0
-      map[hubName].tc += price * qty
+      map[hubName].tc += unitPriceExGst * qty
       map[hubName].tu += qty
       map[hubName].inv.add(r.invoice_ref)
-      map[hubName].prices.push(price)
+      map[hubName].prices.push(unitPriceExGst)
     }
 
     const items = Object.entries(map).map(([name, d]) => {

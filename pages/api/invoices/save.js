@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { requireAuth } from '../../../lib/session'
+import { kvGet } from '../../../lib/redis'
+import { sbConfigGet } from '../../../lib/supabase-config'
+
+const DEFAULT_PACK = { Beer:24, Cider:24, PreMix:24, 'White Wine':6, 'Red Wine':6, Rose:6, Sparkling:6, Spirits:1, 'Fortified & Liqueurs':1, 'Soft Drinks':24, Snacks:18 }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -24,9 +28,32 @@ export default async function handler(req, res) {
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
+  // Load Hub settings to validate pack sizes — catches Haiku getting units_per_pack wrong
+  const hubSettings = await kvGet('itemSettings').catch(() => null) || await sbConfigGet('itemSettings').catch(() => null) || {}
+
   const rows = items.filter(i => i.include !== false).map(item => {
     const invPrice = Number(item.invoice_unit_price) || 0
-    const units = Number(item.units_per_pack) || 1
+    let units = Number(item.units_per_pack) || 1
+
+    // Validate units_per_pack against Hub item category default
+    // If units=1 but the Hub item is in a category that normally comes in packs,
+    // and the invoice price is much higher than expected, correct it automatically
+    const hubKey = item.item_name_hub || item.item_name_raw
+    const hubItem = hubSettings[hubKey]
+    if (hubItem?.category) {
+      const expectedPack = DEFAULT_PACK[hubItem.category] || 1
+      if (units === 1 && expectedPack > 1 && invPrice > 0) {
+        const pricePerUnit = gst_included ? invPrice / expectedPack / 1.10 : invPrice / expectedPack
+        const priceSingle  = gst_included ? invPrice / 1.10 : invPrice
+        // If the per-unit price using expectedPack is more plausible (< 60% of single-unit price),
+        // the invoice price is likely a pack price — use the expected pack size
+        if (pricePerUnit < priceSingle * 0.6) {
+          console.log(`[save] pack-size correction: ${hubKey} units_per_pack ${units}→${expectedPack} (invoice $${invPrice})`)
+          units = expectedPack
+        }
+      }
+    }
+
     const unitPrice = gst_included ? invPrice / units / 1.10 : invPrice / units
     return {
       invoice_ref: String(invoice_ref),
