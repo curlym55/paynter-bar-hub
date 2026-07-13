@@ -4251,6 +4251,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                   </div>
                 </div>
+                <div style={{ background:'#fff', border:'1px solid #fde68a', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#92400e', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Fix Buy Prices (One-Time)</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
+                      If buy prices were saved at pack/case/bottle level instead of per-unit, this corrects them automatically.
+                      Spirits are divided by nips-per-bottle, beer/soft drinks by 24, wine by 6.
+                      Only runs on prices above a plausibility threshold — safe to run more than once.
+                    </div>
+                    <button onClick={async () => {
+                      if (!confirm('Recalculate all buy prices that look like they were stored at pack/bottle level?\n\nThis will update buy prices in Redis. Check the Pricing tab after to confirm.')) return
+                      const r = await fetch('/api/admin/fix-buy-prices', { method:'POST' })
+                      const d = await r.json()
+                      if (!r.ok) { alert('Failed: ' + d.error); return }
+                      if (d.fixed === 0) { alert('No prices needed correction — all look correct already.'); return }
+                      await loadItems(false)
+                      alert(`✓ Fixed ${d.fixed} buy price${d.fixed !== 1 ? 's' : ''}:\n` +
+                        d.items.slice(0, 15).map(i => `${i.name}: $${i.was} → $${i.now} (${i.reason})`).join('\n') +
+                        (d.items.length > 15 ? `\n…and ${d.items.length - 15} more` : ''))
+                    }} style={{ padding:'7px 18px', background:'#92400e', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      🔧 Fix Buy Prices
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 
