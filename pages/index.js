@@ -275,6 +275,11 @@ export default function Home() {
         const od = await ro.json()
         setOrderedItems(od.ordered || {})
       }
+      // Load avg prices in background — used in pricing view
+      fetch('/api/invoices/avg-prices?days=90')
+        .then(r => r.ok ? r.json() : null)
+        .then(d => { if (d?.items) setPhAvgData(d) })
+        .catch(() => null)
 
     } catch (e) {
       setError(e.message)
@@ -3681,9 +3686,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'right', width: 68, display: showDetails ? '' : 'none' }}>Order Qty</th>
                     <th style={{ ...styles.th, textAlign: 'right', width: 52, display: showDetails ? '' : 'none' }}>Btls</th>
                     <th style={{ ...styles.th, textAlign: 'center', width: 90 }}>Priority</th>
-                    <th style={{ ...styles.th, width: 120 }}>Notes</th>
                     {viewMode === 'pricing' && <>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Buy</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#64748b', width: 76, minWidth: 76 }}>Avg Buy</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#64748b', width: 60, minWidth: 60 }}>Diff</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 90, minWidth: 90 }}>Sell</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 56, minWidth: 56 }}>Serves</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 78, minWidth: 78 }}>Markup</th>
@@ -3924,11 +3930,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           </div>
                         </td>
 
-                        <td style={styles.td}>
-                          <EditText value={item.notes || ''} onChange={v => saveSetting(item.name, 'notes', v)}
-                            saving={saving[`${item.name}_notes`]} placeholder="Add note..." readOnly={readOnly} />
-                        </td>
+
                         {viewMode === 'pricing' && (() => {
+                          const avgRow = phAvgData?.items?.find(r => r.matched_hub_key === item.name)
+                          const avgBuy = avgRow?.buy_price_inc_gst ?? null
+                          const avgDiff = avgBuy != null && item.buyPrice != null
+                            ? +(avgBuy - Number(item.buyPrice)).toFixed(3) : null
                           const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
                           const isWine    = WINE_CATS.includes(item.category)
                           const bottleML  = item.isSpirit ? (item.bottleML || 700) : 750
@@ -4003,6 +4010,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 readOnly={readOnly}
                               />
                               <div style={{ fontSize: 9, color: '#94a3b8', textAlign: 'right', marginTop: 1 }}>{buyLabel}</div>
+                            </td>
+                            {/* Avg Buy from invoices */}
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#64748b' }}>
+                              {avgBuy != null ? `$${avgBuy.toFixed(3)}` : <span style={{ color: '#e2e8f0' }}>—</span>}
+                            </td>
+                            {/* Difference: avg vs current buy */}
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12,
+                              fontWeight: avgDiff != null && Math.abs(avgDiff) >= 0.01 ? 700 : 400,
+                              color: avgDiff == null ? '#e2e8f0' : Math.abs(avgDiff) < 0.01 ? '#16a34a' : avgDiff > 0 ? '#dc2626' : '#d97706' }}>
+                              {avgDiff != null ? `${avgDiff > 0 ? '+' : ''}${avgDiff.toFixed(3)}` : '—'}
                             </td>
 
                             {/* Sell Price — primary (glass for wine, nip for spirits, unit for beer) */}
