@@ -2494,7 +2494,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     { divider: true, section: 'Manage' },
     { icon: '⭐', label: 'Specials',          tab: 'specials',     action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
     { icon: '🏷️', label: 'Price List',       tab: 'pricelist',    action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-    { icon: '💲', label: 'Pricing',           tab: 'pricing',      action: () => setMainTab(t => t==='pricing'?'reorder':'pricing') },
+    { icon: '📄', label: 'Avg Buy Prices',    tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
     ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
     { divider: true, section: 'Records' },
     { icon: '📁', label: 'PO Documents',     tab: 'documents',    action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
