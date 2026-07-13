@@ -37,76 +37,63 @@ export default async function handler(req, res) {
     const { data: rows, error } = await q
     if (error) return res.status(500).json({ error: error.message })
 
-    const [rawSettings] = await Promise.all([
-      kvGet('itemSettings').catch(() => null).then(v => v || sbConfigGet('itemSettings').catch(() => null))
-    ])
-    const settings = rawSettings || {}
-    const settingsNorm = {}
-    for (const [k, v] of Object.entries(settings)) {
-      settingsNorm[norm(k)] = { originalKey: k, ...v }
-    }
-
-    // Aggregate — filter by normalised supplier if needed
+    const settings = await kvGet('itemSettings').catch(() => null) || await sbConfigGet('itemSettings').catch(() => null) || {}
+    // Aggregate — only rows with item_name_hub set (properly matched)
     const map = {}
     for (const r of rows || []) {
+      const hubName = r.item_name_hub
+      if (!hubName || hubName === r.item_name_raw) continue  // skip unmatched rows
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
-      const k = r.item_name_hub
-      if (!map[k]) map[k] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
+      if (!map[hubName]) map[hubName] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
       const qty = Number(r.qty_units) || 1
       const price = Number(r.unit_price_ex_gst) || 0
-      map[k].tc += price * qty
-      map[k].tu += qty
-      map[k].inv.add(r.invoice_ref)
-      map[k].prices.push(price)
+      map[hubName].tc += price * qty
+      map[hubName].tu += qty
+      map[hubName].inv.add(r.invoice_ref)
+      map[hubName].prices.push(price)
     }
 
     const items = Object.entries(map).map(([name, d]) => {
-      const avg = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
-      const exactMatch = settings[name]
-      // Fuzzy match: try exact normalised, then word-overlap scoring
-      let fuzzyMatch = null
-      if (!exactMatch) {
-        fuzzyMatch = settingsNorm[norm(name)] || null
-        if (!fuzzyMatch) {
-          // Word-overlap: find the Hub item whose name words best overlap with the invoice description
-          const nameWords = new Set(norm(name).replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2))
-          let bestScore = 0, bestKey = null
-          for (const [hubNorm, hubVal] of Object.entries(settingsNorm)) {
-            const hubWords = new Set(hubNorm.replace(/[^a-z0-9 ]/g, ' ').split(/\s+/).filter(w => w.length > 2))
-            const overlap = [...nameWords].filter(w => hubWords.has(w)).length
-            const score = overlap / Math.max(hubWords.size, 1)
-            if (score > bestScore && score >= 0.5) { bestScore = score; bestKey = hubVal }
-          }
-          if (bestKey) fuzzyMatch = bestKey
-        }
-      }
-      const matched = exactMatch || fuzzyMatch
-      const currentBuy = matched?.buyPrice != null ? Number(matched.buyPrice) : null
+      // avg_unit_price_ex_gst is always per-bottle (ex GST) as stored in buy_price_history
+      const avgExGstPerBottle = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
 
-      // For spirits: convert per-bottle invoice price to per-nip
-      const bottleML = matched?.bottleML ? Number(matched.bottleML) : null
-      // Detect nip size from name — takes priority so 60ml nips like Baileys/Galway work correctly
-      const nipMLDetected = name.match(/(\d+)\s*ml\s*nip/i)
-      const nipML = nipMLDetected ? Number(nipMLDetected[1])
-        : matched?.nipML ? Number(matched.nipML)
+      // Use Hub item settings as the authoritative source for spirit conversion
+      const hubItem = settings[name]
+      const bottleML = hubItem?.bottleML ? Number(hubItem.bottleML) : null
+      const nipML    = hubItem?.nipML    ? Number(hubItem.nipML)    : null
+      const isSpirit = !!(hubItem?.isSpirit) || !!(bottleML && nipML)
+      const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0) ? bottleML / nipML : null
+
+      // Convert to inc-GST per sellable unit once — this is what buyPrice should be
+      // Spirits: per nip inc GST. Everything else: per bottle/unit inc GST.
+      const buyPriceIncGst = avgExGstPerBottle != null
+        ? Math.round((nipsPerBottle ? avgExGstPerBottle / nipsPerBottle : avgExGstPerBottle) * 1.10 * 1000) / 1000
         : null
-      const isSpirit = matched?.isSpirit || (bottleML && nipML)
-      const nipsPerBottle = (bottleML && nipML && nipML > 0) ? bottleML / nipML : null
+
+      const minBuyIncGst = d.prices.length
+        ? Math.round((nipsPerBottle ? Math.min(...d.prices) / nipsPerBottle : Math.min(...d.prices)) * 1.10 * 1000) / 1000
+        : null
+      const maxBuyIncGst = d.prices.length
+        ? Math.round((nipsPerBottle ? Math.max(...d.prices) / nipsPerBottle : Math.max(...d.prices)) * 1.10 * 1000) / 1000
+        : null
+
+      const currentBuy = hubItem?.buyPrice != null ? Number(hubItem.buyPrice) : null
 
       return {
-        item_name: name,
-        supplier: d.sup,
-        avg_unit_price_ex_gst: avg,          // always per-bottle — client converts to per-nip
-        invoice_count: d.inv.size,
-        min_price: Math.round(Math.min(...d.prices) * 10000) / 10000,
-        max_price: Math.round(Math.max(...d.prices) * 10000) / 10000,
-        total_units: d.tu,
-        current_buy_price: currentBuy,
-        matched_hub_key: exactMatch ? name : fuzzyMatch?.originalKey || null,
-        is_spirit: !!nipsPerBottle,
-        nips_per_bottle: nipsPerBottle,
-        unit_label: nipsPerBottle ? `per nip (${nipML}ml, ${Math.round(nipsPerBottle*10)/10}/btl)` : 'per unit',
+        item_name:           name,          // always the Hub name (matched_hub_key = item_name)
+        matched_hub_key:     name,
+        supplier:            d.sup,
+        avg_unit_price_ex_gst: avgExGstPerBottle,  // kept for backward compat — ex GST per bottle
+        buy_price_inc_gst:   buyPriceIncGst,        // NEW: inc GST per sellable unit — use this
+        min_price_inc_gst:   minBuyIncGst,
+        max_price_inc_gst:   maxBuyIncGst,
+        invoice_count:       d.inv.size,
+        total_units:         d.tu,
+        current_buy_price:   currentBuy,
+        is_spirit:           isSpirit,
+        nips_per_bottle:     nipsPerBottle,
+        unit_label:          nipsPerBottle ? `per nip (${nipML}ml, ${Math.round(nipsPerBottle*10)/10}/btl)` : 'per unit',
       }
     }).sort((a, b) => a.item_name.localeCompare(b.item_name))
 

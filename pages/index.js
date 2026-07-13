@@ -84,32 +84,20 @@ export default function Home() {
       const r = await fetch(`/api/invoices/avg-prices?days=${days}&supplier=${encodeURIComponent(supplier)}`)
       const d = await r.json()
       if (!r.ok || !d.items?.length) return 0
-      const updatable = d.items.filter(row => row.avg_unit_price_ex_gst != null && row.matched_hub_key)
+      // buy_price_inc_gst is computed once server-side — use directly as buyPrice
+      const updatable = d.items.filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
       if (!updatable.length) return 0
       let updated = 0
       for (const row of updatable) {
-        // Use nips_per_bottle from API, or detect from item name (e.g. "30ml Nip"), or fall back to item settings
-        const nipMLMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-        const nipMLFromName = nipMLMatch ? Number(nipMLMatch[1]) : null
-        const hubItem = items.find(i => i.name === row.matched_hub_key)
-        const bottleMLFallback = hubItem?.bottleML || null
-        const nipMLFallback = nipMLFromName || hubItem?.nipML || null
-        const nipsPerBtl = row.nips_per_bottle ?? (bottleMLFallback && nipMLFallback ? bottleMLFallback / nipMLFallback : null)
-        const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
         const r2 = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: avgIncGst }) }).catch(() => null)
+          body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: row.buy_price_inc_gst }) }).catch(() => null)
         if (r2?.ok) updated++
       }
       if (updated > 0) {
-        // Update items state directly — no Square refresh needed
         setItems(prev => prev.map(it => {
           const match = updatable.find(row => row.matched_hub_key === it.name)
           if (!match) return it
-          const nipMLMatch2 = match.item_name?.match(/(\d+)\s*ml\s*nip/i)
-          const hubItem2 = prev.find(i => i.name === match.matched_hub_key)
-          const nipsPerBtl2 = match.nips_per_bottle ?? (hubItem2?.bottleML && (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2?.nipML) ? hubItem2.bottleML / (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2.nipML) : null)
-          const newBuy = Math.round((nipsPerBtl2 ? match.avg_unit_price_ex_gst / nipsPerBtl2 : match.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-          return { ...it, buyPrice: newBuy }
+          return { ...it, buyPrice: match.buy_price_inc_gst }
         }))
       }
       return updated
@@ -1828,7 +1816,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const r = await fetch('/api/invoices/avg-prices?days=90')
       const d = await r.json()
       for (const row of d.items || [])
-        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, min: row.min_price, max: row.max_price, nips: row.nips_per_bottle }
+        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, buy: row.buy_price_inc_gst, count: row.invoice_count, min: row.min_price_inc_gst, max: row.max_price_inc_gst, nips: row.nips_per_bottle }
     } catch { alert('Failed to load invoice data'); return }
 
     ws.columns = [
@@ -1879,14 +1867,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const bottleML = item.bottleML || 700
       const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
 
-      // Avg buy price inc GST (per nip for spirits, per unit for others)
-      // avg.avg is per-bottle ex GST — divide by nipsPerBtl for spirits to get per-nip
-      const avgBuyExGst = avg?.avg != null
-        ? (item.isSpirit && nipsPerBtl ? avg.avg / nipsPerBtl : avg.avg)
-        : null
-      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
-      const minBuyIncGst = avg?.min != null ? Math.round((item.isSpirit && nipsPerBtl ? avg.min / nipsPerBtl : avg.min) * 1.10 * 1000) / 1000 : null
-      const maxBuyIncGst = avg?.max != null ? Math.round((item.isSpirit && nipsPerBtl ? avg.max / nipsPerBtl : avg.max) * 1.10 * 1000) / 1000 : null
+      // Avg buy price inc GST — computed server-side in avg-prices.js, use directly
+      const avgBuyIncGst = avg?.buy ?? null
+      const minBuyIncGst = avg?.min ?? null
+      const maxBuyIncGst = avg?.max ?? null
 
       // Current manual buy price
       const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
@@ -2013,7 +1997,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const r = await fetch('/api/invoices/avg-prices?days=90')
       const d = await r.json()
       for (const row of d.items || [])
-        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, count: row.invoice_count, nips: row.nips_per_bottle }
+        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, buy: row.buy_price_inc_gst, count: row.invoice_count, nips: row.nips_per_bottle }
     } catch { alert('Failed to load invoice data'); return }
 
     ws.columns = [
@@ -2054,10 +2038,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const bottleML = item.bottleML || 700
       const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
 
-      const avgBuyExGst = avg?.avg != null
-        ? (item.isSpirit && nipsPerBtl ? avg.avg / nipsPerBtl : avg.avg)
-        : null
-      const avgBuyIncGst = avgBuyExGst != null ? Math.round(avgBuyExGst * 1.10 * 1000) / 1000 : null
+      const avgBuyIncGst = avg?.buy ?? null
 
       const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
 
@@ -4915,9 +4896,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const effNipML   = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
                   const effBotML   = hubItem.bottleML || 700
                   const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
-                  const avgBuyPerUnit = row.avg_unit_price_ex_gst != null
-                    ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                    : null
+                  const avgBuyPerUnit   = row.buy_price_inc_gst ?? null
                   const avgBuyPerBottle = row.avg_unit_price_ex_gst != null
                     ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000
                     : null
@@ -4925,10 +4904,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   const out = []
 
                   if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
-                    const spread = (row.min_price != null && row.max_price != null && row.avg_unit_price_ex_gst > 0) ? (row.max_price - row.min_price) / row.avg_unit_price_ex_gst : 0
+                    // Anomaly detection: spread > 20% of avg → use min instead
+                    const spread = (row.min_price_inc_gst != null && row.max_price_inc_gst != null && avgBuyPerUnit > 0)
+                      ? (row.max_price_inc_gst - row.min_price_inc_gst) / avgBuyPerUnit : 0
                     const hasAnomaly = spread > 0.20
-                    const effExGst = hasAnomaly ? (nipsPerBtl ? row.min_price / nipsPerBtl : row.min_price) : (nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst)
-                    const effBuyPerUnit = Math.round(effExGst * 1.10 * 1000) / 1000
+                    const effBuyPerUnit = hasAnomaly ? (row.min_price_inc_gst ?? avgBuyPerUnit) : avgBuyPerUnit
                     const rev    = sellGlass * serves
                     const markup = effBuyPerUnit > 0 ? (rev - effBuyPerUnit) / effBuyPerUnit * 100 : 0
                     const diff   = markup - TARGET
@@ -5145,26 +5125,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   </button>
                   {phAvgData?.items?.length > 0 && !readOnly && (
                     <button onClick={async () => {
-                      const updatable = phAvgData.items.filter(row => {
-                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
-                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
-                        const avgIncGst = row.avg_unit_price_ex_gst != null
-                          ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                          : null
-                        return avgIncGst != null && row.matched_hub_key
-                      })
+                      const updatable = phAvgData.items.filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
                       if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
                       if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
-                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
-                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
-                        const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
                         try {
                           const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ itemName: row.matched_hub_key, field:'buyPrice', value: avgIncGst }) })
+                            body: JSON.stringify({ itemName: row.matched_hub_key, field:'buyPrice', value: row.buy_price_inc_gst }) })
                           if (r.ok) updated++; else failed++
                         } catch { failed++ }
                       }
@@ -5198,18 +5166,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               if (!row.matched_hub_key) return false
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
-                              const _nm = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                              const _hi = items.find(i => i.name === row.matched_hub_key)
-                              const nipsPerBottle = row.nips_per_bottle ?? (_hi?.bottleML && (_nm ? Number(_nm[1]) : _hi?.nipML) ? _hi.bottleML / (_nm ? Number(_nm[1]) : _hi.nipML) : null)
-                              const avgIncGst = row.avg_unit_price_ex_gst != null
-                                ? Math.round((nipsPerBottle ? row.avg_unit_price_ex_gst / nipsPerBottle : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                                : null
-                              const minIncGst = row.min_price != null
-                                ? Math.round((nipsPerBottle ? row.min_price / nipsPerBottle : row.min_price) * 1.10 * 1000) / 1000
-                                : null
-                              const maxIncGst = row.max_price != null
-                                ? Math.round((nipsPerBottle ? row.max_price / nipsPerBottle : row.max_price) * 1.10 * 1000) / 1000
-                                : null
+                              // buy_price_inc_gst / min / max are now computed server-side
+                              const avgIncGst  = row.buy_price_inc_gst ?? null
+                              const minIncGst  = row.min_price_inc_gst ?? null
+                              const maxIncGst  = row.max_price_inc_gst ?? null
                               const currentBuy = row.current_buy_price
                               const diff = currentBuy != null && avgIncGst != null ? avgIncGst - currentBuy : null
                               const variance = maxIncGst != null && minIncGst != null ? maxIncGst - minIncGst : 0
@@ -5418,10 +5378,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           {/* Document links — show all available links */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: '1 1 200px' }}>
                             {/* PO */}
-                            <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
-                              <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
-                              {doc.po_onedrive_url && DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
-                            </div>
+                            {(doc.po_onedrive_url) && (
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
+                                {DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
+                              </div>
+                            )}
                             {/* Receipt */}
                             {(doc.receipt_onedrive_url || doc.receive_url) && (
                               <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
