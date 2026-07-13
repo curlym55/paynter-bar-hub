@@ -29,14 +29,16 @@ export default async function handler(req, res) {
       const category  = settings.category || defaultCategory(name)
       const main      = mainSold[name]    || { units: 0, revenue: null }
       const prior     = compareSold[name] || { units: 0, revenue: null }
-      const unitsSold = main.units
-      const prevSold  = prior.units
-      const revenue   = main.revenue
-      const prevRev   = prior.revenue
-      const change    = prevSold > 0 ? +(((unitsSold - prevSold) / prevSold) * 100).toFixed(1) : null
+      const unitsSold   = main.units
+      const bottlesSold = main.bottles || 0
+      const prevSold    = prior.units
+      const prevBottles = prior.bottles || 0
+      const revenue     = main.revenue
+      const prevRev     = prior.revenue
+      const change      = prevSold > 0 ? +(((unitsSold - prevSold) / prevSold) * 100).toFixed(1) : null
 
-      if (unitsSold > 0 || prevSold > 0) {
-        itemMap[name] = { name, category, unitsSold, prevSold, change, revenue, prevRev }
+      if (unitsSold > 0 || prevSold > 0 || bottlesSold > 0) {
+        itemMap[name] = { name, category, unitsSold, bottlesSold, prevSold, prevBottles, change, revenue, prevRev }
       }
     }
 

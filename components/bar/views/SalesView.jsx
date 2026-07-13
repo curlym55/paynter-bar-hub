@@ -21,11 +21,12 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
     : []
 
   const totals = filteredItems.reduce(
-    (acc, i) => ({ units: acc.units + i.unitsSold, prev: acc.prev + i.prevSold, rev: acc.rev + (i.revenue || 0), prevRev: acc.prevRev + (i.prevRev || 0) }),
-    { units: 0, prev: 0, rev: 0, prevRev: 0 }
+    (acc, i) => ({ units: acc.units + i.unitsSold, bottles: acc.bottles + (i.bottlesSold || 0), prev: acc.prev + i.prevSold, rev: acc.rev + (i.revenue || 0), prevRev: acc.prevRev + (i.prevRev || 0) }),
+    { units: 0, bottles: 0, prev: 0, rev: 0, prevRev: 0 }
   )
 
-  const hasRev = report && report.items.some(i => i.revenue != null)
+  const hasRev     = report && report.items.some(i => i.revenue != null)
+  const hasBottles = report && report.items.some(i => i.bottlesSold > 0)
   const showCat = category === 'All'
   const soldItems = filteredItems.filter(i => i.unitsSold > 0)
   const avgTx = hasRev && totals.units > 0 ? (totals.rev / totals.units) : null
@@ -158,7 +159,8 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     <th style={{ ...styles.th, width: 28, textAlign: 'right' }}>#</th>
                     <th style={styles.th}>Item</th>
                     {showCat && <th style={styles.th}>Category</th>}
-                    <th style={{ ...styles.th, textAlign: 'right' }}>Units Sold</th>
+                    <th style={{ ...styles.th, textAlign: 'right' }}>Glasses</th>
+                    {hasBottles && <th style={{ ...styles.th, textAlign: 'right' }}>Bottles</th>}
                     {showComparison && <th style={{ ...styles.th, textAlign: 'right' }}>Prior Period</th>}
                     {showComparison && <th style={{ ...styles.th, textAlign: 'right' }}>Change</th>}
                     {hasRev && <th style={{ ...styles.th, textAlign: 'right', color: '#16a34a' }}>Revenue</th>}
@@ -174,6 +176,11 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                       <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 15, color: '#0f172a' }}>
                         {item.unitsSold || <span style={{ color: '#cbd5e1' }}>—</span>}
                       </td>
+                      {hasBottles && (
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 15, color: '#7c3aed' }}>
+                          {item.bottlesSold > 0 ? item.bottlesSold : <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </td>
+                      )}
                       {showComparison && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#64748b' }}>{item.prevSold || 0}</td>}
                       {showComparison && <td style={{ ...styles.td, textAlign: 'right' }}>{fmtChange(item.change)}</td>}
                       {hasRev && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#16a34a', fontWeight: 600 }}>{fmt(item.revenue)}</td>}
@@ -185,6 +192,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     <td style={{ ...styles.td, fontWeight: 700, fontSize: 13 }}>TOTAL</td>
                     {showCat && <td style={styles.td} />}
                     <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 15 }}>{totals.units}</td>
+                    {hasBottles && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 15, color: '#7c3aed' }}>{totals.bottles}</td>}
                     {showComparison && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#64748b' }}>{totals.prev}</td>}
                     {showComparison && <td style={styles.td} />}
                     {hasRev && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#16a34a' }}>{fmt(totals.rev)}</td>}
