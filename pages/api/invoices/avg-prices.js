@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
+import { defaultCategory } from '../../../lib/calculations'
 
-// Normalize supplier names to match Hub suppliers
 function normalizeSupplier(s) {
   const l = (s || '').toLowerCase()
   if (l.includes('dan murphy')) return "Dan Murphy's"
@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
   const { days = '90', supplier = 'all' } = req.query
-  const daysInt = Math.min(parseInt(days) || 180, 730)
+  const daysInt = Math.min(parseInt(days) || 90, 730)
   const cutoff = new Date()
   cutoff.setDate(cutoff.getDate() - daysInt)
   const cutoffStr = cutoff.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
@@ -33,12 +33,12 @@ export default async function handler(req, res) {
 
     if (error) return res.status(500).json({ error: error.message })
 
-    // Load Hub item settings — these have pack, bottleML, nipML, category, buyPrice
+    // Hub item settings — category/bottleML/nipML/buyPrice
     const settings = await kvGet('itemSettings').catch(() => null)
                   || await sbConfigGet('itemSettings').catch(() => null)
                   || {}
 
-    // Aggregate — only properly matched rows (item_name_hub differs from item_name_raw)
+    // Aggregate — only rows properly matched (hub name differs from raw name)
     const map = {}
     for (const r of rows || []) {
       const hubName = r.item_name_hub
@@ -46,7 +46,7 @@ export default async function handler(req, res) {
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
       if (!map[hubName]) map[hubName] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
-      const qty   = Number(r.qty_units)        || 1
+      const qty   = Number(r.qty_units)         || 1
       const price = Number(r.unit_price_ex_gst) || 0
       map[hubName].tc += price * qty
       map[hubName].tu += qty
@@ -55,24 +55,22 @@ export default async function handler(req, res) {
     }
 
     const items = Object.entries(map).map(([name, d]) => {
-      // unit_price_ex_gst in the DB is already per single unit (bottle for wine/beer, nip for spirits)
-      // because save.js divides invoice_unit_price by units_per_pack
-      // So avg is simply the weighted average of those per-unit ex-GST prices
       const avgExGst = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
 
-      // Use exactly what's in stock items settings — no defaults, no guessing
-      const hubItem      = settings[name] || {}
-      const isSpirit     = ['Spirits', 'Fortified & Liqueurs'].includes(hubItem.category)
-      // Use same defaults as calculations.js — 700ml bottle, 30ml nip
-      const bottleML     = hubItem.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
-      const nipML        = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
+      const hubItem  = settings[name] || {}
+      // Use stored category if set, otherwise derive from item name (same as calculations.js)
+      const category = hubItem.category || defaultCategory(name)
+      const isSpirit = ['Spirits', 'Fortified & Liqueurs'].includes(category)
+
+      // bottleML/nipML: use stored values, fall back to defaults for spirits
+      const bottleML = hubItem.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
+      const nipML    = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10
         : null
 
-      // Convert avg ex-GST per unit → inc-GST per sellable unit
-      // For spirits: unit_price_ex_gst in DB is per BOTTLE → divide by nips
-      // For everything else: unit_price_ex_gst is per bottle/can/unit already
+      // unit_price_ex_gst is per bottle (save.js divides by units_per_pack)
+      // For spirits divide by nips/bottle to get per-nip price
       const buyPriceIncGst = avgExGst != null
         ? Math.round((nipsPerBottle ? avgExGst / nipsPerBottle : avgExGst) * 1.10 * 1000) / 1000
         : null
@@ -87,19 +85,20 @@ export default async function handler(req, res) {
         : null
 
       return {
-        item_name:            name,
-        matched_hub_key:      name,
-        supplier:             d.sup,
-        avg_unit_price_ex_gst: avgExGst,        // ex-GST per bottle/unit (kept for compat)
-        buy_price_inc_gst:    buyPriceIncGst,    // inc-GST per sellable unit — use this
-        min_price_inc_gst:    minBuyIncGst,
-        max_price_inc_gst:    maxBuyIncGst,
-        invoice_count:        d.inv.size,
-        total_units:          d.tu,
-        current_buy_price:    hubItem.buyPrice != null ? Number(hubItem.buyPrice) : null,
-        is_spirit:            isSpirit,
-        nips_per_bottle:      nipsPerBottle,
-        unit_label:           nipsPerBottle
+        item_name:          name,
+        matched_hub_key:    name,
+        category,
+        supplier:           d.sup,
+        avg_unit_price_ex_gst: avgExGst,
+        buy_price_inc_gst:  buyPriceIncGst,
+        min_price_inc_gst:  minBuyIncGst,
+        max_price_inc_gst:  maxBuyIncGst,
+        invoice_count:      d.inv.size,
+        total_units:        d.tu,
+        current_buy_price:  hubItem.buyPrice != null ? Number(hubItem.buyPrice) : null,
+        is_spirit:          isSpirit,
+        nips_per_bottle:    nipsPerBottle,
+        unit_label:         nipsPerBottle
           ? `per nip (${nipML}ml, ${nipsPerBottle}/btl)`
           : 'per unit',
       }
