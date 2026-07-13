@@ -63,8 +63,9 @@ export default async function handler(req, res) {
       // Use exactly what's in stock items settings — no defaults, no guessing
       const hubItem      = settings[name] || {}
       const isSpirit     = ['Spirits', 'Fortified & Liqueurs'].includes(hubItem.category)
-      const bottleML     = hubItem.bottleML ? Number(hubItem.bottleML) : null
-      const nipML        = hubItem.nipML    ? Number(hubItem.nipML)    : null
+      // Use same defaults as calculations.js — 700ml bottle, 30ml nip
+      const bottleML     = hubItem.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
+      const nipML        = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10
         : null
