@@ -46,6 +46,7 @@ export default function Home() {
   const [pin, setPin]                   = useState('')
   const [pinError, setPinError]         = useState(false)
   const [items, setItems]               = useState([])
+  const [phAvgData, setPhAvgData] = useState(null)
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
   const [error, setError]               = useState(null)
@@ -75,7 +76,6 @@ export default function Home() {
   const [phExtracting, setPhExtracting] = useState(false)
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
-  const [phAvgData, setPhAvgData] = useState(null)
 
   const autoUpdateBuyPrices = async (supplier, days = 90) => {
     try {
@@ -114,28 +114,7 @@ export default function Home() {
     } catch (e) { console.error('[autoUpdateBuyPrices]', e); return 0 }
   }
 
-  const loadPhReport = async (days, sup) => {
-    setPhLoading(true)
-    setPhAvgData(null)
-    try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Load failed')
-      setPhAvgData(d)
-      const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
-      setPhDbSuppliers(sups)
-    } catch (e) {
-      alert('Failed to load report: ' + e.message)
-    }
-    setPhLoading(false)
-  }
-  const [phSupFilter, setPhSupFilter] = useState('all')
-  const [phDbSuppliers, setPhDbSuppliers] = useState([])
-  const [phLoading, setPhLoading] = useState(false)
-  const [priceReviewModal, setPriceReviewModal] = useState(false)
-  const [pricingSubTab, setPricingSubTab] = useState('avgprices')
-  const [showPriceDetail, setShowPriceDetail] = useState(false)
-  const [phActiveOnly, setPhActiveOnly] = useState(true)
+
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phMatching, setPhMatching] = useState(false)
@@ -2499,7 +2478,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     { divider: true, section: 'Manage' },
     { icon: '⭐', label: 'Specials',          tab: 'specials',     action: () => setMainTab(t => t==='specials'?'reorder':'specials') },
     { icon: '🏷️', label: 'Price List',       tab: 'pricelist',    action: () => setMainTab(t => t==='pricelist'?'reorder':'pricelist') },
-    { icon: '📄', label: 'Avg Buy Prices',    tab: 'pricehistory', action: () => setMainTab(t => t==='pricehistory'?'reorder':'pricehistory') },
     ...(!readOnly ? [{ icon: '📝', label: 'Notes', tab: 'notes', action: () => { const n=mainTab==='notes'?'reorder':'notes'; setMainTab(n); if(n==='notes'&&!notesLoaded) loadNotes() } }] : []),
     { divider: true, section: 'Records' },
     { icon: '📁', label: 'PO Documents',     tab: 'documents',    action: () => { const n=mainTab==='documents'?'reorder':'documents'; setMainTab(n); if(n==='documents') loadDocuments() } },
@@ -4443,88 +4421,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         )}
 
 
-        {mainTab === 'pricehistory' && (
-          <div style={{ padding: '16px 0' }}>
-
-            {/* ── AVERAGE BUY PRICES — auto-loads, printable reference ── */}
-            {(() => {
-              // Auto-load on first render
-              if (!phAvgData && !phLoading) {
-                setTimeout(() => loadPhReport(90, 'all'), 0)
-              }
-              const rows = (phAvgData?.items || [])
-                .filter(row => items.length === 0 || items.some(it => it.name === row.matched_hub_key))
-                .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.item_name.localeCompare(b.item_name))
-
-              return (
-                <div>
-                  {/* Toolbar — hidden on print */}
-                  <div className="no-print" style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                    <button onClick={() => loadPhReport(90, 'all')}
-                      style={{ padding:'6px 16px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                      {phLoading ? '⏳ Loading…' : '🔄 Refresh'}
-                    </button>
-                    <button onClick={() => window.print()}
-                      style={{ padding:'6px 16px', background:'#047857', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                      🖨️ Print
-                    </button>
-                    {phAvgData && (
-                      <span style={{ fontSize:11, color:'#94a3b8' }}>
-                        {rows.length} items · 90-day avg · {new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Printable table */}
-                  {phLoading ? (
-                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>Loading…</div>
-                  ) : !phAvgData ? null : rows.length === 0 ? (
-                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>No price history found. Import some invoices first.</div>
-                  ) : (
-                    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                      <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }} className="print-header">
-                        Paynter Bar — Average Buy Prices (inc GST) · 90 days to {new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}
-                      </div>
-                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                        <thead>
-                          <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                            {['Item','Avg Buy (inc GST)','Unit','# Invoices','Current Buy','Difference'].map(h => (
-                              <th key={h} style={{ padding:'7px 10px', textAlign: ['Avg Buy (inc GST)','# Invoices','Current Buy','Difference'].includes(h) ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((row, i) => {
-                            const avg = row.buy_price_inc_gst
-                            const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
-                            const diff = avg != null && cur != null ? +(avg - cur).toFixed(3) : null
-                            const diffColor = diff == null ? '#94a3b8' : Math.abs(diff) < 0.01 ? '#16a34a' : diff > 0 ? '#dc2626' : '#d97706'
-                            return (
-                              <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0 ? '#fff' : '#f8fafc' }}>
-                                <td style={{ padding:'6px 10px', fontWeight:600 }}>{row.item_name}</td>
-                                <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, fontFamily:'IBM Plex Mono, monospace', color:'#1e3a5f' }}>
-                                  {avg != null ? `$${avg.toFixed(3)}` : '—'}
-                                </td>
-                                <td style={{ padding:'6px 10px', fontSize:11, color:'#94a3b8' }}>{row.unit_label}</td>
-                                <td style={{ padding:'6px 10px', textAlign:'right', color:'#64748b' }}>{row.invoice_count}</td>
-                                <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'IBM Plex Mono, monospace', color:'#64748b' }}>
-                                  {cur != null ? `$${cur.toFixed(3)}` : '—'}
-                                </td>
-                                <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'IBM Plex Mono, monospace', fontWeight:600, color: diffColor }}>
-                                  {diff != null ? `${diff > 0 ? '+' : ''}${diff.toFixed(3)}` : '—'}
-                                </td>
-                              </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
-              )
-            })()}
-          </div>
-        )}
 
         {mainTab === 'documents' && (
           <div style={{ padding: '16px 0' }}>
