@@ -3682,12 +3682,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'center', width: 90 }}>Priority</th>
                     <th style={{ ...styles.th, width: 120 }}>Notes</th>
                     {viewMode === 'pricing' && <>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 72, minWidth: 72 }}>Buy</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 68, minWidth: 68 }}>Sell</th>
-                      <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 58, minWidth: 58 }}>Unit</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 48, minWidth: 48 }}>×</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 68, minWidth: 68 }}>Markup</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 72, minWidth: 72 }}>Sugg</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Buy</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 90, minWidth: 90 }}>Sell</th>
+                      <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 56, minWidth: 56 }}>Serves</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 78, minWidth: 78 }}>Markup</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Sugg (40%)</th>
                     </>}
                   </tr>
                 </thead>
