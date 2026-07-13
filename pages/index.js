@@ -504,23 +504,44 @@ export default function Home() {
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
 
           // Auto-extract prices into buy_price_history (background, non-blocking)
+          // Haiku name-matching runs first so rows land with correct item_name_hub
           if (invoiceFile.mimeType === 'application/pdf' || invoiceFile.name.toLowerCase().endsWith('.pdf')) {
-            fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
-              body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
-              .then(r => r.ok ? r.json() : null)
-              .then(d => {
+            ;(async () => {
+              try {
+                const extRes = await fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
+                  body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
+                if (!extRes.ok) return
+                const d = await extRes.json()
                 if (!d?.items?.length) return
-                return fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
+
+                // Run Haiku name-matching so rows land with proper item_name_hub
+                let matchMap = {}
+                const hubNames = items.map(i => i.name).filter(Boolean)
+                if (hubNames.length) {
+                  try {
+                    const mRes = await fetch('/api/invoices/match-names', { method:'POST', headers:{'Content-Type':'application/json'},
+                      body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
+                    if (mRes.ok) {
+                      const mData = await mRes.json()
+                      for (const m of mData.matches || []) if (m.hub) matchMap[m.raw] = m.hub
+                    }
+                  } catch { /* matching failed — save with raw names as fallback */ }
+                }
+
+                await fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({
                     invoice_ref: d.invoice_ref || poRef,
                     supplier: d.supplier || supplier,
                     invoice_date: d.invoice_date || dateStr,
                     gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
-                    items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_hub || i.item_name_raw })),
+                    items: d.items.map(i => ({
+                      ...i, include: true,
+                      item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
+                    })),
                   })
                 })
-              })
-              .catch(() => null) // silent — never block the receive flow
+              } catch { /* silent — never block the receive flow */ }
+            })()
           }
         }
         setReceiveModal(null)
