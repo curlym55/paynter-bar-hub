@@ -71,36 +71,23 @@ export default function Home() {
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
-  const [pricingSubTab, setPricingSubTab] = useState('avgprices')
+
   const [showPriceDetail, setShowPriceDetail] = useState(false)
   const [phPdf, setPhPdf] = useState(null)
   const [phExtracting, setPhExtracting] = useState(false)
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
-  const [phAvgData, setPhAvgData] = useState(null)
 
-  // autoUpdateBuyPrices removed — update logic is inline in the Average Prices tab
 
-  const loadPhReport = async (days, sup) => {
-    setPhLoading(true)
-    setPhAvgData(null)
-    try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days || 90}&supplier=${encodeURIComponent(sup)}`)
-      const d = await r.json()
-      if (!r.ok) throw new Error(d.error || 'Load failed')
-      setPhAvgData(d)
-      const sups = d.db_suppliers || [...new Set(d.items?.map(i => i.supplier).filter(Boolean))].sort()
-      setPhDbSuppliers(sups)
-    } catch (e) {
-      alert('Failed to load report: ' + e.message)
-    }
-    setPhLoading(false)
-  }
+
+
+
   const [phSupFilter, setPhSupFilter] = useState('all')
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
+  const [phAvgData, setPhAvgData] = useState(null)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
-  const [priceReviewModal, setPriceReviewModal] = useState(false)
+
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phMatching, setPhMatching] = useState(false)
@@ -504,44 +491,23 @@ export default function Home() {
             body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
 
           // Auto-extract prices into buy_price_history (background, non-blocking)
-          // Haiku name-matching runs first so rows land with correct item_name_hub
           if (invoiceFile.mimeType === 'application/pdf' || invoiceFile.name.toLowerCase().endsWith('.pdf')) {
-            ;(async () => {
-              try {
-                const extRes = await fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
-                if (!extRes.ok) return
-                const d = await extRes.json()
+            fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
+              .then(r => r.ok ? r.json() : null)
+              .then(d => {
                 if (!d?.items?.length) return
-
-                // Run Haiku name-matching so rows land with proper item_name_hub
-                let matchMap = {}
-                const hubNames = items.map(i => i.name).filter(Boolean)
-                if (hubNames.length) {
-                  try {
-                    const mRes = await fetch('/api/invoices/match-names', { method:'POST', headers:{'Content-Type':'application/json'},
-                      body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
-                    if (mRes.ok) {
-                      const mData = await mRes.json()
-                      for (const m of mData.matches || []) if (m.hub) matchMap[m.raw] = m.hub
-                    }
-                  } catch { /* matching failed — save with raw names as fallback */ }
-                }
-
-                await fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                return fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
                   body: JSON.stringify({
                     invoice_ref: d.invoice_ref || poRef,
                     supplier: d.supplier || supplier,
                     invoice_date: d.invoice_date || dateStr,
                     gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
-                    items: d.items.map(i => ({
-                      ...i, include: true,
-                      item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
-                    })),
+                    items: d.items.map(i => ({ ...i, include: true, item_name_hub: i.item_name_hub || i.item_name_raw })),
                   })
                 })
-              } catch { /* silent — never block the receive flow */ }
-            })()
+              })
+              .catch(() => null) // silent — never block the receive flow
           }
         }
         setReceiveModal(null)
@@ -1790,187 +1756,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     w.focus()
   }
 
-  async function exportAvgPriceReport() {
-    if (!window.ExcelJS) {
-      const s = document.createElement('script')
-      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
-      document.head.appendChild(s)
-      await new Promise(r => { s.onload = r })
-    }
-    const ExcelJS = window.ExcelJS
-    const wb = new ExcelJS.Workbook()
-    const ws = wb.addWorksheet('Avg Price Review')
-    const TARGET = 40
-    const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
-    const mceil  = (v, m) => Math.ceil(v / m) * m
-    const NAVY   = '0F172A'
-    const GREEN  = '166534'
-    const AMBER  = '92400E'
-    const RED    = '991B1B'
 
-    // Fetch avg prices (all time, all suppliers)
-    let avgPriceMap = {}
-    try {
-      const r = await fetch('/api/invoices/avg-prices?days=90')
-      const d = await r.json()
-      for (const row of d.items || [])
-        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, buy: row.buy_price_inc_gst, count: row.invoice_count, min: row.min_price_inc_gst, max: row.max_price_inc_gst, nips: row.nips_per_bottle }
-    } catch { alert('Failed to load invoice data'); return }
-
-    ws.columns = [
-      { header: 'Item',                  key: 'name',         width: 38 },
-      { header: 'Category',              key: 'cat',          width: 16 },
-      { header: 'Supplier',              key: 'sup',          width: 14 },
-      { header: 'Current Buy Price',     key: 'curBuy',       width: 16 },
-      { header: 'Avg Invoice Price',     key: 'avgBuy',       width: 16 },
-      { header: '# Invoices',            key: 'invCount',     width: 12 },
-      { header: 'Min Buy',               key: 'minBuy',       width: 12 },
-      { header: 'Max Buy',               key: 'maxBuy',       width: 12 },
-      { header: 'Sell (glass/unit)',     key: 'sell',         width: 13 },
-      { header: 'Markup % (glass/unit)', key: 'curMarkup',    width: 15 },
-      { header: 'Avg Markup % (glass)',  key: 'avgMarkup',    width: 15 },
-      { header: 'Sell (bottle)',         key: 'sellBtl',      width: 13 },
-      { header: 'Markup % (bottle)',     key: 'curMarkupBtl', width: 15 },
-      { header: 'Avg Markup % (bottle)', key: 'avgMarkupBtl', width: 15 },
-      { header: 'Sugg Sell (40%)',       key: 'suggSell',     width: 14 },
-      { header: 'Notes',                 key: 'notes',        width: 32 },
-    ]
-
-    const hRow = ws.getRow(1)
-    hRow.eachCell(cell => {
-      cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:'FF'+NAVY } }
-      cell.font = { bold:true, color:{ argb:'FFFFFFFF' }, size:11 }
-      cell.alignment = { vertical:'middle', horizontal:'center', wrapText:true }
-    })
-    hRow.height = 32
-
-    const mColor = (p) => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
-    const mFont  = (p) => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
-
-    const allItems = [...items].filter(i => !rundownItems[i.name]).sort((a,b) => {
-      const co = { Beer:0,Cider:1,PreMix:2,'White Wine':3,'Red Wine':4,Rose:5,Sparkling:6,'Fortified & Liqueurs':7,Spirits:8,'Soft Drinks':9,Snacks:10 }
-      return ((co[a.category]??99)-(co[b.category]??99)) || a.name.localeCompare(b.name)
-    })
-
-    let rNum = 1
-    for (const item of allItems) {
-      const isWine   = WINE_C.includes(item.category)
-      const avg      = avgPriceMap[item.name] || null
-      const vars     = item.variations || []
-      const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
-      const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-      const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip'))
-
-      const nipML    = item.nipML || 30
-      const bottleML = item.bottleML || 700
-      const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
-
-      // Avg buy price inc GST — computed server-side in avg-prices.js, use directly
-      const avgBuyIncGst = avg?.buy ?? null
-      const minBuyIncGst = avg?.min ?? null
-      const maxBuyIncGst = avg?.max ?? null
-
-      // Current manual buy price
-      const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
-
-      // Sell price
-      const serves = isWine && glassVar ? (item.servesPerBottle || (50/11)) : 1  // 50/11 = 4.545 — matches Square's 11/50-bottle-per-glass portion (includes overpour buffer)
-      const sellPrice = item.isSpirit
-        ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (item.sellPrice ? Number(item.sellPrice) : null)
-        : glassVar?.price != null ? Number(glassVar.price)
-        : bottleVar?.price != null ? Number(bottleVar.price)
-        : item.squareSellPrice != null ? Number(item.squareSellPrice) : null
-
-      const revenue = sellPrice != null ? sellPrice * serves : null
-      const curMarkup  = curBuy  != null && curBuy  > 0 && revenue != null ? Math.round((revenue - curBuy)  / curBuy  * 1000) / 10 : null
-      const avgMarkup  = avgBuyIncGst != null && avgBuyIncGst > 0 && revenue != null ? Math.round((revenue - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
-      const suggSell   = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / serves, 0.25) : null
-
-      // Bottle sell price & markup — for wines that also have a bottle variation
-      const bottleSellPrice = bottleVar?.price != null ? Number(bottleVar.price) : (item.sellPriceBottle ? Number(item.sellPriceBottle) : null)
-      const curMarkupBtl  = isWine && bottleSellPrice != null && curBuy != null && curBuy > 0
-        ? Math.round((bottleSellPrice - curBuy) / curBuy * 1000) / 10 : null
-      const avgMarkupBtl  = isWine && bottleSellPrice != null && avgBuyIncGst != null && avgBuyIncGst > 0
-        ? Math.round((bottleSellPrice - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
-
-      rNum++
-      const row = ws.addRow({
-        name:         item.name,
-        cat:          item.category,
-        sup:          item.supplier || '',
-        curBuy:       curBuy ?? '',
-        avgBuy:       avgBuyIncGst ?? '',
-        invCount:     avg?.count ?? '',
-        minBuy:       minBuyIncGst ?? '',
-        maxBuy:       maxBuyIncGst ?? '',
-        sell:         sellPrice ?? '',
-        curMarkup:    curMarkup ?? '',
-        avgMarkup:    avgMarkup ?? '',
-        sellBtl:      bottleSellPrice ?? '',
-        curMarkupBtl: curMarkupBtl ?? '',
-        avgMarkupBtl: avgMarkupBtl ?? '',
-        suggSell:     suggSell ?? '',
-        notes:        '',
-      })
-
-      const fmt3 = '"$"#,##0.000'
-      const fmt2 = '"$"#,##0.00'
-      const fmtPct = '0.0"%"'
-      if (curBuy != null)       row.getCell('curBuy').numFmt    = fmt3
-      if (avgBuyIncGst != null) row.getCell('avgBuy').numFmt    = fmt3
-      if (minBuyIncGst != null) row.getCell('minBuy').numFmt    = fmt3
-      if (maxBuyIncGst != null) row.getCell('maxBuy').numFmt    = fmt3
-      if (sellPrice != null)    row.getCell('sell').numFmt      = fmt2
-      if (suggSell != null)     row.getCell('suggSell').numFmt  = fmt2
-      if (curMarkup != null) {
-        row.getCell('curMarkup').numFmt = fmtPct
-        const mc = mColor(curMarkup); if (mc) row.getCell('curMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
-        const mf = mFont(curMarkup); if (mf) row.getCell('curMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
-      }
-      if (avgMarkup != null) {
-        row.getCell('avgMarkup').numFmt = fmtPct
-        const mc = mColor(avgMarkup); if (mc) row.getCell('avgMarkup').fill = { type:'pattern', pattern:'solid', fgColor:mc }
-        const mf = mFont(avgMarkup); if (mf) row.getCell('avgMarkup').font = { bold:true, color:{ argb:'FF'+mf } }
-      }
-      if (bottleSellPrice != null) row.getCell('sellBtl').numFmt = fmt2
-      if (curMarkupBtl != null) {
-        row.getCell('curMarkupBtl').numFmt = fmtPct
-        const mc = mColor(curMarkupBtl); if (mc) row.getCell('curMarkupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc }
-        const mf = mFont(curMarkupBtl); if (mf) row.getCell('curMarkupBtl').font = { bold:true, color:{ argb:'FF'+mf } }
-      }
-      if (avgMarkupBtl != null) {
-        row.getCell('avgMarkupBtl').numFmt = fmtPct
-        const mc = mColor(avgMarkupBtl); if (mc) row.getCell('avgMarkupBtl').fill = { type:'pattern', pattern:'solid', fgColor:mc }
-        const mf = mFont(avgMarkupBtl); if (mf) row.getCell('avgMarkupBtl').font = { bold:true, color:{ argb:'FF'+mf } }
-      }
-      // Highlight if avg buy differs from current buy by >10%
-      if (curBuy != null && avgBuyIncGst != null) {
-        const diff = Math.abs(curBuy - avgBuyIncGst) / avgBuyIncGst
-        if (diff > 0.10) {
-          row.getCell('notes').value = `⚠ Buy price differs from avg by ${(diff*100).toFixed(0)}%`
-          row.getCell('notes').font  = { italic:true, color:{ argb:'FF'+AMBER }, size:9 }
-        }
-      }
-
-      const rowBg = rNum % 2 === 0 ? 'FFFFFFFF' : 'FFF8FAFC'
-      row.eachCell({ includeEmpty:true }, cell => {
-        if (!cell.fill || !cell.fill.fgColor || cell.fill.fgColor.argb === rowBg)
-          cell.fill = { type:'pattern', pattern:'solid', fgColor:{ argb:rowBg } }
-        cell.alignment = { vertical:'middle' }
-      })
-    }
-
-    ws.views = [{ state:'frozen', ySplit:1 }]
-    ws.autoFilter = { from:'A1', to:'M1' }
-
-    const buf  = await wb.xlsx.writeBuffer()
-    const blob = new Blob([buf], { type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    const date = new Date().toLocaleDateString('en-AU', { day:'2-digit', month:'2-digit', year:'numeric' }).replace(/\//g,'-')
-    a.href = url; a.download = `AvgPriceReview-${date}.xlsx`; a.click()
-    URL.revokeObjectURL(url)
-  }
 
   async function exportBelow40Report() {
     if (!window.ExcelJS) {
@@ -1989,21 +1775,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const mColor = p => p == null ? null : p >= 40 ? { argb:'FFF0FDF4' } : p >= 25 ? { argb:'FFFEF3C7' } : { argb:'FFFEE2E2' }
     const mFont  = p => p == null ? null : p >= 40 ? GREEN : p >= 25 ? AMBER : RED
 
-    // Fetch avg prices
-    let avgPriceMap = {}
-    try {
-      const r = await fetch('/api/invoices/avg-prices?days=90')
-      const d = await r.json()
-      for (const row of d.items || [])
-        avgPriceMap[row.matched_hub_key] = { avg: row.avg_unit_price_ex_gst, buy: row.buy_price_inc_gst, count: row.invoice_count, nips: row.nips_per_bottle }
-    } catch { alert('Failed to load invoice data'); return }
-
     ws.columns = [
       { header: 'Item',               key: 'name',         width: 38 },
       { header: 'Category',           key: 'cat',          width: 16 },
       { header: 'Supplier',           key: 'sup',          width: 14 },
       { header: 'Buy Price',          key: 'curBuy',       width: 14 },
-      { header: 'Avg Invoice Price',  key: 'avgBuy',       width: 16 },
       { header: 'Sell Price',         key: 'sell',         width: 12 },
       { header: 'Sell Unit',          key: 'sellUnit',     width: 12 },
       { header: 'Markup %',           key: 'markup',       width: 13 },
@@ -2026,17 +1802,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     let rNum = 1
     for (const item of allItems) {
       const isWine   = WINE_C.includes(item.category)
-      const avg      = avgPriceMap[item.name] || null
       const vars     = item.variations || []
       const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
       const bottleVar= vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
       const nipVar   = vars.find(v => v.name?.toLowerCase().includes('nip'))
-
-      const nipML    = item.nipML || 30
-      const bottleML = item.bottleML || 700
-      const nipsPerBtl = item.isSpirit ? (avg?.nips ?? (bottleML / nipML)) : null
-
-      const avgBuyIncGst = avg?.buy ?? null
 
       const curBuy = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice) : null
 
@@ -2058,18 +1827,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       for (const sc of scenarios) {
         const revenue    = sc.sell * sc.serves
         const curMarkup  = curBuy != null && curBuy > 0 ? Math.round((revenue - curBuy) / curBuy * 1000) / 10 : null
-        const avgMarkup  = avgBuyIncGst != null && avgBuyIncGst > 0 ? Math.round((revenue - avgBuyIncGst) / avgBuyIncGst * 1000) / 10 : null
-        const below = (curMarkup != null && curMarkup < 40) || (avgMarkup != null && avgMarkup < 40)
-        if (!below) continue
-
-        const suggSell = (avgBuyIncGst ?? curBuy) != null ? mceil((avgBuyIncGst ?? curBuy) * 1.40 / sc.serves, 0.25) : null
+        if (curMarkup == null || curMarkup >= 40) continue
+        const suggSell = curBuy != null ? mceil(curBuy * 1.40 / sc.serves, 0.25) : null
         rNum++
         const row = ws.addRow({
           name:      item.name,
           cat:       item.category,
           sup:       item.supplier || '',
           curBuy:    curBuy ?? '',
-          avgBuy:    avgBuyIncGst ?? '',
           sell:      sc.sell,
           sellUnit:  sc.unit,
           markup:    curMarkup ?? '',
@@ -2078,7 +1843,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
         const fmt3 = '"$"#,##0.000', fmt2 = '"$"#,##0.00', fmtPct = '0.0"%"'
         if (curBuy != null)       row.getCell('curBuy').numFmt   = fmt3
-        if (avgBuyIncGst != null) row.getCell('avgBuy').numFmt   = fmt3
         row.getCell('sell').numFmt     = fmt2
         if (suggSell != null)     row.getCell('suggSell').numFmt = fmt2
         if (curMarkup != null) {
@@ -4251,29 +4015,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                   </div>
                 </div>
-                <div style={{ background:'#fff', border:'1px solid #fde68a', borderRadius:10, overflow:'hidden' }}>
-                  <div style={{ background:'#92400e', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Fix Buy Prices (One-Time)</div>
-                  <div style={{ padding:16 }}>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
-                      If buy prices were saved at pack/case/bottle level instead of per-unit, this corrects them automatically.
-                      Spirits are divided by nips-per-bottle, beer/soft drinks by 24, wine by 6.
-                      Only runs on prices above a plausibility threshold — safe to run more than once.
-                    </div>
-                    <button onClick={async () => {
-                      if (!confirm('Recalculate all buy prices that look like they were stored at pack/bottle level?\n\nThis will update buy prices in Redis. Check the Pricing tab after to confirm.')) return
-                      const r = await fetch('/api/admin/fix-buy-prices', { method:'POST' })
-                      const d = await r.json()
-                      if (!r.ok) { alert('Failed: ' + d.error); return }
-                      if (d.fixed === 0) { alert('No prices needed correction — all look correct already.'); return }
-                      await loadItems(false)
-                      alert(`✓ Fixed ${d.fixed} buy price${d.fixed !== 1 ? 's' : ''}:\n` +
-                        d.items.slice(0, 15).map(i => `${i.name}: $${i.was} → $${i.now} (${i.reason})`).join('\n') +
-                        (d.items.length > 15 ? `\n…and ${d.items.length - 15} more` : ''))
-                    }} style={{ padding:'7px 18px', background:'#92400e', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      🔧 Fix Buy Prices
-                    </button>
-                  </div>
-                </div>
               </div>
             )}
 
@@ -4882,237 +4623,19 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             )}
 
             {/* ── PRICE REVIEW MODAL ──────────────────────────────────────── */}
-            {priceReviewModal && (() => {
-              const TARGET  = 40
-              const WINE_C  = ['White Wine','Red Wine','Rose','Sparkling']
-              const mceil   = (v, m) => Math.ceil(v / m) * m
-              const supColour = { "Dan Murphy's": '#1e3a5f', 'Coles Woolies': '#166534', 'ACW': '#92400e' }
-
-              const rows = (phAvgData?.items || [])
-                .filter(row => row.matched_hub_key && row.supplier === priceReviewModal)
-                .flatMap(row => {
-                  const hubItem = items.find(i => i.name === row.matched_hub_key)
-                  if (!hubItem || rundownItems[hubItem.name]) return []
-
-                  const isWine     = WINE_C.includes(hubItem.category)
-                  const bottleOnly = hubItem.bottleOnly === true || hubItem.bottleOnly === 'yes' || hubItem.category === 'Sparkling'
-                  const glassWine  = isWine && !bottleOnly
-                  const serves     = glassWine ? 5 : 1
-                  const vars       = hubItem.variations || []
-                  const glassVar   = vars.find(v => v.name?.toLowerCase().includes('glass'))
-                  const bottleVar  = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
-                  const nipVar     = vars.find(v => v.name?.toLowerCase().includes('nip') || v.name?.toLowerCase().includes('30ml'))
-
-                  const sellGlass = hubItem.isSpirit
-                    ? (nipVar||bottleVar||glassVar)?.price != null ? Number((nipVar||bottleVar||glassVar).price) : (hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : (hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null))
-                    : glassVar?.price != null ? Number(glassVar.price)
-                    : bottleVar?.price != null ? Number(bottleVar.price)
-                    : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice)
-                    : hubItem.sellPrice != null ? Number(hubItem.sellPrice) : null
-                  const sellBottle = bottleVar?.price != null ? Number(bottleVar.price)
-                    : hubItem.squareSellPriceBottle != null ? Number(hubItem.squareSellPriceBottle)
-                    : hubItem.squareSellPrice != null ? Number(hubItem.squareSellPrice) : null
-
-                  const nipMLDetected = row.item_name.match(/(\d+)\s*ml\s*nip/i)
-                  const effNipML   = nipMLDetected ? Number(nipMLDetected[1]) : (hubItem.nipML || 30)
-                  const effBotML   = hubItem.bottleML || 700
-                  const nipsPerBtl = hubItem.isSpirit ? effBotML / effNipML : null
-                  const avgBuyPerUnit   = row.buy_price_inc_gst ?? null
-                  const avgBuyPerBottle = row.avg_unit_price_ex_gst != null
-                    ? Math.round(row.avg_unit_price_ex_gst * 1.10 * 1000) / 1000
-                    : null
-
-                  const out = []
-
-                  if (!bottleOnly && avgBuyPerUnit != null && sellGlass != null && sellGlass > 0) {
-                    // Anomaly detection: spread > 20% of avg → use min instead
-                    const spread = (row.min_price_inc_gst != null && row.max_price_inc_gst != null && avgBuyPerUnit > 0)
-                      ? (row.max_price_inc_gst - row.min_price_inc_gst) / avgBuyPerUnit : 0
-                    const hasAnomaly = spread > 0.20
-                    const effBuyPerUnit = hasAnomaly ? (row.min_price_inc_gst ?? avgBuyPerUnit) : avgBuyPerUnit
-                    const rev    = sellGlass * serves
-                    const markup = effBuyPerUnit > 0 ? (rev - effBuyPerUnit) / effBuyPerUnit * 100 : 0
-                    const diff   = markup - TARGET
-                    if (markup < TARGET) out.push({
-                      name: row.matched_hub_key, cat: hubItem.category,
-                      unit: hubItem.isSpirit ? `nip (${effNipML}ml)` : 'glass',
-                      sell: sellGlass, avgBuy: effBuyPerUnit / serves, avgBuyBottle: glassWine ? effBuyPerUnit : null,
-                      markup, diff, hasAnomaly, spread,
-                      suggSell: mceil(effBuyPerUnit * (1 + TARGET/100) / serves, 0.25)
-                    })
-                  }
-
-                  if (isWine && avgBuyPerBottle != null && sellBottle != null && sellBottle > 0) {
-                    const markup = avgBuyPerBottle > 0 ? (sellBottle - avgBuyPerBottle) / avgBuyPerBottle * 100 : 0
-                    const diff   = markup - TARGET
-                    if (markup < TARGET) out.push({
-                      name: row.matched_hub_key, cat: hubItem.category,
-                      unit: 'bottle', sell: sellBottle, avgBuy: avgBuyPerBottle, markup, diff,
-                      suggSell: mceil(avgBuyPerBottle * (1 + TARGET/100), 0.25)
-                    })
-                  }
-
-                  return out
-                })
-                .sort((a,b) => {
-                  if (a.name !== b.name) return a.name.localeCompare(b.name)
-                  const uOrder = { glass: 0, bottle: 1 }
-                  return (uOrder[a.unit] ?? 2) - (uOrder[b.unit] ?? 2)
-                })
-              const tooLow  = rows.length
-
-              const tableId = 'price-review-table'
-
-              return (
-                <div style={{ position:'fixed', inset:0, background:'rgba(0,0,0,0.5)', zIndex:2000, display:'flex', alignItems:'center', justifyContent:'center', padding:16 }}
-                  onClick={() => setPriceReviewModal(false)}>
-                  <div style={{ background:'#fff', borderRadius:12, padding:24, width:'100%', maxWidth:860, maxHeight:'88vh', overflowY:'auto', boxShadow:'0 20px 60px rgba(0,0,0,0.3)' }}
-                    onClick={e => e.stopPropagation()}>
-
-                    {/* Header */}
-                    <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:14 }}>
-                      <div>
-                        <div style={{ fontSize:16, fontWeight:800, color: supColour[priceReviewModal] || '#0f172a' }}>
-                          📊 {priceReviewModal} — Price Review
-                        </div>
-                        <div style={{ fontSize:12, color:'#64748b', marginTop:2 }}>
-                          {tooLow} item{tooLow !== 1 ? 's' : ''} below {TARGET}% target · 90-day avg buy (inc GST) · sugg sell rounds up to nearest $0.25
-                        </div>
-                      </div>
-                      <div style={{ display:'flex', gap:8, alignItems:'center', flexWrap:'wrap', justifyContent:'flex-end' }}>
-                        {/* Switch supplier */}
-                        {["Dan Murphy's",'Coles Woolies','ACW'].filter(s => s !== priceReviewModal).map(s => (
-                          <button key={s} onClick={() => setPriceReviewModal(s)}
-                            style={{ padding:'3px 10px', background:'#f1f5f9', color:'#475569', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
-                            {s}
-                          </button>
-                        ))}
-                        {/* Print */}
-                        <button onClick={() => {
-                          const tbl = document.getElementById(tableId)
-                          if (!tbl) return
-                          const w = window.open('', '_blank')
-                          w.document.write(`<html><head><title>${priceReviewModal} Price Review</title>
-                            <style>body{font-family:Arial,sans-serif;font-size:12px;padding:20px}
-                            h2{color:#1e3a5f;margin-bottom:4px}p{color:#64748b;margin:0 0 12px}
-                            table{border-collapse:collapse;width:100%}th{background:#1e3a5f;color:#fff;padding:7px 10px;text-align:left}
-                            td{padding:6px 10px;border-bottom:1px solid #e2e8f0}
-                            tr:nth-child(even){background:#f8fafc}
-                            .red{color:#dc2626;font-weight:700}.blue{color:#0369a1;font-weight:700}
-                            .pill{display:inline-block;padding:1px 6px;border-radius:8px;font-size:11px}
-                            .r{text-align:right}</style></head><body>
-                            <h2>📊 ${priceReviewModal} — Price Review</h2>
-                            <p>${tooLow} item${tooLow !== 1 ? 's' : ''} below ${TARGET}% markup target · sugg sell rounded up to nearest $0.25</p>
-                            ${tbl.outerHTML}</body></html>`)
-                          w.document.close(); w.print()
-                        }} style={{ padding:'3px 10px', background:'#f8fafc', color:'#374151', border:'1px solid #e2e8f0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
-                          🖨 Print
-                        </button>
-                        {/* Export CSV */}
-                        <button onClick={() => {
-                          const csv = ['Item,Category,Unit,Avg Buy (inc GST),Current Sell,Markup %,vs Target %,Sugg Sell']
-                            .concat(rows.map(r => `"${r.name}","${r.cat}","${r.unit}",${r.avgBuy.toFixed(3)},${r.sell.toFixed(2)},${r.markup.toFixed(1)},${r.diff.toFixed(1)},${r.suggSell.toFixed(2)}`))
-                            .join('\n')
-                          const blob = new Blob([csv], { type:'text/csv' })
-                          const a = document.createElement('a')
-                          a.href = URL.createObjectURL(blob)
-                          a.download = `PriceReview-${priceReviewModal.replace(/[^a-z]/gi,'')}-${TARGET}pct.csv`
-                          a.click()
-                        }} style={{ padding:'3px 10px', background:'#f0fdf4', color:'#166534', border:'1px solid #bbf7d0', borderRadius:5, fontSize:11, cursor:'pointer', fontWeight:600 }}>
-                          📥 CSV
-                        </button>
-                        <button onClick={() => setPriceReviewModal(false)} style={{ background:'none', border:'none', fontSize:20, cursor:'pointer', color:'#94a3b8' }}>×</button>
-                      </div>
-                    </div>
-
-                    {phLoading ? (
-                      <div style={{ padding:48, textAlign:'center', color:'#64748b' }}>⏳ Loading price data…</div>
-                    ) : rows.length === 0 ? (
-                      <div style={{ padding:32, textAlign:'center', color:'#64748b' }}>
-                        {phAvgData
-                          ? <span>✓ All {priceReviewModal} items are at or above the {TARGET}% markup target.</span>
-                          : <span>⏳ Loading price data…</span>}
-                      </div>
-                    ) : (
-                      <table id={tableId} style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                        <thead>
-                          <tr style={{ background: supColour[priceReviewModal] || '#1e3a5f', color:'#fff' }}>
-                            {['Item','Category','Unit','Avg Buy (inc GST)','Current Sell','Markup','vs Target','Sugg Sell','Change'].map(h => (
-                              <th key={h} style={{ padding:'8px 10px', textAlign:['Avg Buy (inc GST)','Current Sell','Markup','vs Target','Sugg Sell','Change'].includes(h)?'right':'left', fontWeight:700, fontSize:11 }}>{h}</th>
-                            ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {rows.map((r, i) => {
-                            const isNewItem = i === 0 || rows[i-1].name !== r.name
-                            const hasPair   = rows.some((r2, j) => j !== i && r2.name === r.name)
-                            return (
-                            <tr key={i} style={{
-                              background: isNewItem && hasPair ? '#f0f9ff' : i%2===0?'#fff':'#f8fafc',
-                              borderBottom: hasPair && !isNewItem ? '2px solid #bae6fd' : '1px solid #f1f5f9',
-                              borderTop: isNewItem && hasPair ? '2px solid #bae6fd' : undefined
-                            }}>
-                              <td style={{ padding:'7px 10px', fontWeight:600, color:'#0f172a', maxWidth:200 }}>{r.name}</td>
-                              <td style={{ padding:'7px 10px', color:'#64748b', fontSize:11 }}>{r.cat}</td>
-                              <td style={{ padding:'7px 10px' }}>
-                                <span style={{ padding:'1px 7px', borderRadius:10, fontSize:10, fontWeight:700, background:'#e0f2fe', color:'#0369a1' }}>{r.unit}</span>
-                              </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.avgBuy.toFixed(3)}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontFamily:'monospace' }}>${r.sell.toFixed(2)}</td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color: r.markup < TARGET ? '#dc2626' : '#16a34a' }}>
-                                {r.markup.toFixed(1)}%
-                              </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:600, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
-                                {r.diff > 0 ? '+' : ''}{r.diff.toFixed(1)}%
-                              </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right' }}>
-                                <span style={{ fontWeight:800, fontSize:13,
-                                  color: r.diff < 0 ? '#b91c1c' : '#0c4a6e',
-                                  background: r.diff < 0 ? '#fee2e2' : '#e0f2fe',
-                                  padding:'2px 8px', borderRadius:4 }}>
-                                  ${r.suggSell.toFixed(2)}
-                                </span>
-                              </td>
-                              <td style={{ padding:'7px 10px', textAlign:'right', fontSize:12, fontWeight:700, color: r.diff < 0 ? '#dc2626' : '#0369a1' }}>
-                                {r.suggSell > r.sell ? '↑' : r.suggSell < r.sell ? '↓' : '—'}
-                                {r.suggSell !== r.sell ? ` $${Math.abs(r.suggSell - r.sell).toFixed(2)}` : ''}
-                              </td>
-                            </tr>
-                            )
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                    <div style={{ marginTop:10, fontSize:11, color:'#94a3b8' }}>
-                      Sugg sell = min price for {TARGET}% markup, rounded UP to nearest $0.25 · Glass wine = sell × 5/btl
-                    </div>
-                  </div>
-                </div>
-              )
-            })()}
           </div>
         )}
 
         {mainTab === 'pricing' && (
           <div style={{ padding: '16px 0' }}>
             {/* Sub-tab strip */}
-            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              {[['avgprices','📊 Average Prices'],['markup','$ Markup / Sell Prices']].map(([t,label]) => (
-                <button key={t} onClick={() => { setPricingSubTab(t); if (t === 'avgprices' && !phAvgData && !phLoading) loadPhReport(90, phSupFilter) }}
-                  style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
-                    background: pricingSubTab===t ? '#1e3a5f' : '#f8fafc', color: pricingSubTab===t ? '#fff' : '#374151' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
+  
 
             {/* ── AVERAGE PRICES ─────────────────────────────────── */}
-            {pricingSubTab === 'avgprices' && (
-              <div>
-                {!phAvgData && !phLoading && (() => { loadPhReport(90, phSupFilter); return null })()} {/* auto-load on first open */}
+            <div>
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
                   <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
+                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) { setPhAvgData(null) } }}
                     style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
                     <option value="all">All Suppliers</option>
                     {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
@@ -5121,14 +4644,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
                     Active items only
                   </label>
-                  {["Dan Murphy's",'Coles Woolies','ACW'].map(sup => (
-                    <button key={sup} onClick={() => { setPriceReviewModal(sup); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}
-                      style={{ padding:'6px 12px', background: sup==="Dan Murphy's"?'#1e3a5f':sup==='Coles Woolies'?'#166534':'#92400e',
-                        color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:11, cursor:'pointer' }}>
-                      📊 {sup}
-                    </button>
-                  ))}
-                  <button onClick={() => loadPhReport(90, phSupFilter)}
+
+                  <button onClick={async () => {
+                      setPhLoading(true); setPhAvgData(null)
+                      try {
+                        const r = await fetch(`/api/invoices/avg-prices?days=90&supplier=${encodeURIComponent(phSupFilter)}`)
+                        const d = await r.json()
+                        if (!r.ok) throw new Error(d.error)
+                        setPhAvgData(d)
+                        setPhDbSuppliers(d.db_suppliers || [])
+                      } catch(e) { alert('Failed to load: ' + e.message) }
+                      setPhLoading(false)
+                    }}
                     style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     {phLoading ? '⏳ Loading…' : '📊 Load Report'}
                   </button>
@@ -5137,47 +4664,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       background: showPriceDetail ? '#eff6ff' : '#f8fafc', color: showPriceDetail ? '#1d4ed8' : '#64748b' }}>
                     {showPriceDetail ? '▾ Hide detail' : '▸ Show min/max/variance'}
                   </button>
-                  <button onClick={() => exportAvgPriceReport()}
-                    style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    📥 Avg Price Report
-                  </button>
+
                   <button onClick={() => exportBelow40Report()}
                     style={{ padding:'5px 14px', background:'#dc2626', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     🚨 Below 40% Report
                   </button>
-                  {!readOnly && (
-                    <button onClick={async () => {
-                      // Fetch fresh data so this always works, even if report wasn't loaded
-                      let data = phAvgData
-                      if (!data) {
-                        try {
-                          const r = await fetch(`/api/invoices/avg-prices?days=90&supplier=${encodeURIComponent(phSupFilter)}`)
-                          data = await r.json()
-                          if (r.ok) setPhAvgData(data)
-                        } catch(e) { alert('Failed to load avg prices: ' + e.message); return }
-                      }
-                      const updatable = (data?.items || []).filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
-                      if (!updatable.length) { alert('No items with avg buy prices to update. Import and match some invoices first.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)?\n\nThis will overwrite existing buy prices.`)) return
-                      let updated = 0, failed = 0
-                      for (const row of updatable) {
-                        try {
-                          const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ itemName: row.matched_hub_key, field:'buyPrice', value: row.buy_price_inc_gst }) })
-                          if (r.ok) updated++; else failed++
-                        } catch { failed++ }
-                      }
-                      if (updated > 0) {
-                        setItems(prev => {
-                          const byHub = Object.fromEntries(updatable.map(r => [r.matched_hub_key, r.buy_price_inc_gst]))
-                          return prev.map(it => byHub[it.name] != null ? { ...it, buyPrice: byHub[it.name] } : it)
-                        })
-                      }
-                      alert(`✓ Updated ${updated} buy prices.${failed ? ` ${failed} failed.` : ''}`)
-                    }} style={{ padding:'5px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                      ↑ Update All Buy Prices
-                    </button>
-                  )}
                 </div>
                 {phAvgData && (
                   phAvgData.items?.length === 0 ? (
@@ -5197,12 +4688,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             </tr>
                           </thead>
                           <tbody>
-                            {phAvgData.items?.filter(row => {
+                            {(phAvgData.items || []).filter(row => {
                               if (!phActiveOnly) return true
-                              if (!row.matched_hub_key) return false
                               return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
                             }).map((row, i) => {
-                              // buy_price_inc_gst / min / max are now computed server-side
+                              // buy_price_inc_gst computed server-side — use directly
                               const avgIncGst  = row.buy_price_inc_gst ?? null
                               const minIncGst  = row.min_price_inc_gst ?? null
                               const maxIncGst  = row.max_price_inc_gst ?? null
@@ -5256,33 +4746,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   )
                 )}
               </div>
-            )}
 
-            {/* ── MARKUP / SELL PRICES ───────────────────────────── */}
-            {pricingSubTab === 'markup' && (
-              <div>
-                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:24, marginBottom:16 }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>$ Markup & Sell Price Analysis</div>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:20 }}>
-                    Full pricing analysis with buy prices, markup %, sell prices and margin. Opens in the Stock Items pricing view.
-                  </div>
-                  <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                    <button onClick={() => { setMainTab('reorder'); setViewMode('pricing') }}
-                      style={{ padding:'10px 22px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      $ Open Pricing View
-                    </button>
-                    <button onClick={printPricingSheet}
-                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      🖨️ Print
-                    </button>
-                    <button onClick={() => exportPricingExcel(40)}
-                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      📥 Excel
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
         )}
 
