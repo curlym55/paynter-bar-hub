@@ -58,19 +58,20 @@ export default async function handler(req, res) {
       const avgExGst = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
 
       const hubItem  = settings[name] || {}
-      // Use stored category if set, otherwise derive from item name (same as calculations.js)
+      // Category: use stored value or derive from name (same as calculations.js)
       const category = hubItem.category || defaultCategory(name)
       const isSpirit = ['Spirits', 'Fortified & Liqueurs'].includes(category)
 
-      // bottleML/nipML: use stored values, fall back to defaults for spirits
+      // For spirits: use bottleML/nipML from Stock Items to get nips per bottle
       const bottleML = hubItem.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
       const nipML    = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10
         : null
 
-      // unit_price_ex_gst is per bottle (save.js divides by units_per_pack)
-      // For spirits divide by nips/bottle to get per-nip price
+      // buy_price_inc_gst: for spirits divide bottle price by nips, for everything else use as-is
+      // unit_price_ex_gst in DB is per-bottle/unit (save.js divides by units_per_pack from invoice)
+      // If units_per_pack was wrong on the invoice, fix it in Manage History — not here
       const buyPriceIncGst = avgExGst != null
         ? Math.round((nipsPerBottle ? avgExGst / nipsPerBottle : avgExGst) * 1.10 * 1000) / 1000
         : null
