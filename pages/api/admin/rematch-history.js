@@ -30,10 +30,11 @@ export default async function handler(req, res) {
 
     if (!hubNames.length) return res.status(400).json({ error: 'No Hub items found' })
 
-    // Find unique unmatched raw names
+    // Find unique unmatched raw names — includes rows where hub name doesn't exist in Hub settings
+    const hubSet = new Set(hubNames)
     const unmatched = [...new Set(
       (rows || [])
-        .filter(r => !r.item_name_hub || r.item_name_hub === r.item_name_raw)
+        .filter(r => !r.item_name_hub || r.item_name_hub === r.item_name_raw || !hubSet.has(r.item_name_hub))
         .map(r => r.item_name_raw)
         .filter(Boolean)
     )]
