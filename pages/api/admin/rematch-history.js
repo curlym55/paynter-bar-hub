@@ -7,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
+import Anthropic from '@anthropic-ai/sdk'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -40,18 +41,30 @@ export default async function handler(req, res) {
 
     if (!unmatched.length) return res.json({ ok: true, matched: 0, message: 'All rows already matched' })
 
-    // Call Haiku match-names API
-    const base = process.env.NEXT_PUBLIC_VERCEL_URL
-      ? `https://${process.env.NEXT_PUBLIC_VERCEL_URL}`
-      : 'http://localhost:3000'
+    // Call Haiku directly to match names
+    const client = new Anthropic()
+    const prompt = `Match each invoice description to the closest Hub item name.
+Hub items:
+${hubNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
 
-    const mRes = await fetch(`${base}/api/invoices/match-names`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ raw_names: unmatched, hub_names: hubNames })
+Invoice descriptions to match:
+${unmatched.map((n, i) => `${i + 1}. ${n}`).join('\n')}
+
+Respond ONLY with valid JSON:
+{
+  "matches": [
+    { "raw": "invoice description", "hub": "Hub item name or null if no match", "confidence": "high|medium|low" }
+  ]
+}`
+
+    const aiRes = await client.messages.create({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: 4096,
+      messages: [{ role: 'user', content: prompt }]
     })
-    if (!mRes.ok) return res.status(500).json({ error: 'match-names failed' })
-    const mData = await mRes.json()
+    const text = aiRes.content[0]?.text || ''
+    const clean = text.replace(/```json|```/g, '').trim()
+    const mData = JSON.parse(clean)
 
     // Build match map
     const matchMap = {}
