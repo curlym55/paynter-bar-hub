@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
-import { defaultCategory } from '../../../lib/calculations'
+import { defaultCategory, defaultPack } from '../../../lib/calculations'
 
 function normalizeSupplier(s) {
   const l = (s || '').toLowerCase()
@@ -71,7 +71,8 @@ export default async function handler(req, res) {
       const nipML        = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10 : null
-      const hubPack = hubItem.pack ? Number(hubItem.pack) : 1
+      // Use stored pack or derive from category — same as calculations.js
+      const hubPack = hubItem.pack ? Number(hubItem.pack) : defaultPack(category)
 
       // Convert avg invoice price → per sellable unit inc GST
       // Step 1: divide by hub pack to get per-bottle/can price ex GST
