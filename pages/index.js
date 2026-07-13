@@ -71,8 +71,6 @@ export default function Home() {
   const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
-  const [pricingSubTab, setPricingSubTab] = useState('avgprices')
-  const [showPriceDetail, setShowPriceDetail] = useState(false)
   const [phPdf, setPhPdf] = useState(null)
   const [phExtracting, setPhExtracting] = useState(false)
   const [phExtracted, setPhExtracted] = useState(null)
@@ -135,7 +133,6 @@ export default function Home() {
   const [phDbSuppliers, setPhDbSuppliers] = useState([])
   const [phLoading, setPhLoading] = useState(false)
   const [phActiveOnly, setPhActiveOnly] = useState(true)
-  const [priceReviewModal, setPriceReviewModal] = useState(false)
   const [phManageData, setPhManageData] = useState(null)
   const [phManageLoading, setPhManageLoading] = useState(false)
   const [phMatching, setPhMatching] = useState(false)
@@ -983,6 +980,8 @@ export default function Home() {
   @media print {
     body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .hdr, .cat-hdr { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .no-print { display: none !important; }
+    .print-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
@@ -5101,188 +5100,84 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               ))}
             </div>
 
-            {/* ── AVERAGE PRICES ─────────────────────────────────── */}
-            {pricingSubTab === 'avgprices' && (
-              <div>
-                <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
-                  <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
-                  <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
-                    style={{ padding:'5px 10px', border:'1px solid #e2e8f0', borderRadius:5, fontSize:12 }}>
-                    <option value="all">All Suppliers</option>
-                    {(phDbSuppliers.length > 0 ? phDbSuppliers : suppliers).map(s => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                  <label style={{ display:'flex', alignItems:'center', gap:5, fontSize:12, color:'#64748b', cursor:'pointer', userSelect:'none' }}>
-                    <input type="checkbox" checked={phActiveOnly} onChange={e => setPhActiveOnly(e.target.checked)} />
-                    Active items only
-                  </label>
-                  {["Dan Murphy's",'Coles Woolies','ACW'].map(sup => (
-                    <button key={sup} onClick={() => { setPriceReviewModal(sup); if (!phAvgData && !phLoading) loadPhReport(90, 'all') }}
-                      style={{ padding:'6px 12px', background: sup==="Dan Murphy's"?'#1e3a5f':sup==='Coles Woolies'?'#166534':'#92400e',
-                        color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:11, cursor:'pointer' }}>
-                      📊 {sup}
-                    </button>
-                  ))}
-                  <button onClick={() => loadPhReport(90, phSupFilter)}
-                    style={{ padding:'5px 14px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    {phLoading ? '⏳ Loading…' : '📊 Load Report'}
-                  </button>
-                  <button onClick={() => setShowPriceDetail(v => !v)}
-                    style={{ padding:'5px 12px', borderRadius:5, border:'1px solid #e2e8f0', fontSize:11, fontWeight:600, cursor:'pointer',
-                      background: showPriceDetail ? '#eff6ff' : '#f8fafc', color: showPriceDetail ? '#1d4ed8' : '#64748b' }}>
-                    {showPriceDetail ? '▾ Hide detail' : '▸ Show min/max/variance'}
-                  </button>
-                  <button onClick={() => exportAvgPriceReport()}
-                    style={{ padding:'5px 14px', background:'#065f46', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    📥 Avg Price Report
-                  </button>
-                  <button onClick={() => exportBelow40Report()}
-                    style={{ padding:'5px 14px', background:'#dc2626', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                    🚨 Below 40% Report
-                  </button>
-                  {phAvgData?.items?.length > 0 && !readOnly && (
-                    <button onClick={async () => {
-                      const updatable = phAvgData.items.filter(row => {
-                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
-                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
-                        const avgIncGst = row.avg_unit_price_ex_gst != null
-                          ? Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                          : null
-                        return avgIncGst != null && row.matched_hub_key
-                      })
-                      if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
-                      let updated = 0, failed = 0
-                      for (const row of updatable) {
-                        const _nipMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                        const _hubItem = items.find(i => i.name === row.matched_hub_key)
-                        const nipsPerBtl = row.nips_per_bottle ?? (_hubItem?.bottleML && (_nipMatch ? Number(_nipMatch[1]) : _hubItem?.nipML) ? _hubItem.bottleML / (_nipMatch ? Number(_nipMatch[1]) : _hubItem.nipML) : null)
-                        const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                        try {
-                          const r = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ itemName: row.matched_hub_key, field:'buyPrice', value: avgIncGst }) })
-                          if (r.ok) updated++; else failed++
-                        } catch { failed++ }
-                      }
-                      if (updated > 0) loadItems(false)
-                      alert(`✓ Updated ${updated} buy prices.${failed ? ` ${failed} failed.` : ''}`)
-                    }} style={{ padding:'5px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
-                      ↑ Update All Buy Prices
-                    </button>
-                  )}
-                </div>
-                {phAvgData && (
-                  phAvgData.items?.length === 0 ? (
-                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>No price history found for this period. Import some invoices first.</div>
-                  ) : (
-                    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                      <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>
-                        Average Buy Prices — last {phAvgData.period_days} days (inc GST) · {phAvgData.items?.length} items
-                      </div>
-                      <div style={{ overflowX:'auto' }}>
-                        <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
-                          <thead>
-                            <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                              {['Item','Supplier','Avg Buy Price (inc GST)','# Invoices',...(showPriceDetail?['Min (inc GST)','Max (inc GST)','Variance']:[]),'Current Hub Price','Action'].map(h => (
-                                <th key={h} style={{ padding:'8px 10px', textAlign: h.includes('Price')||h.includes('Min')||h.includes('Max')||h.includes('Var') ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
-                              ))}
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {phAvgData.items?.filter(row => {
-                              if (!phActiveOnly) return true
-                              if (!row.matched_hub_key) return false
-                              return items.length === 0 || items.some(it => it.name === row.matched_hub_key)
-                            }).map((row, i) => {
-                              const _nm = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-                              const _hi = items.find(i => i.name === row.matched_hub_key)
-                              const nipsPerBottle = row.nips_per_bottle ?? (_hi?.bottleML && (_nm ? Number(_nm[1]) : _hi?.nipML) ? _hi.bottleML / (_nm ? Number(_nm[1]) : _hi.nipML) : null)
-                              const avgIncGst = row.avg_unit_price_ex_gst != null
-                                ? Math.round((nipsPerBottle ? row.avg_unit_price_ex_gst / nipsPerBottle : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-                                : null
-                              const minIncGst = row.min_price != null
-                                ? Math.round((nipsPerBottle ? row.min_price / nipsPerBottle : row.min_price) * 1.10 * 1000) / 1000
-                                : null
-                              const maxIncGst = row.max_price != null
-                                ? Math.round((nipsPerBottle ? row.max_price / nipsPerBottle : row.max_price) * 1.10 * 1000) / 1000
-                                : null
-                              const currentBuy = row.current_buy_price
-                              const diff = currentBuy != null && avgIncGst != null ? avgIncGst - currentBuy : null
-                              const variance = maxIncGst != null && minIncGst != null ? maxIncGst - minIncGst : 0
-                              return (
-                                <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0?'#fff':'#f8fafc' }}>
-                                  <td style={{ padding:'7px 10px', fontWeight:600 }}>{row.item_name}</td>
-                                  <td style={{ padding:'7px 10px', color:'#64748b' }}>{row.supplier}</td>
-                                  <td style={{ padding:'7px 10px', textAlign:'right', fontWeight:700, color:'#1e3a5f' }}>
-                                    {avgIncGst != null ? `$${avgIncGst.toFixed(3)}` : '—'}
-                                    {row.is_spirit && <div style={{ fontSize:9, color:'#94a3b8', fontWeight:400 }}>{row.unit_label}</div>}
-                                  </td>
-                                  <td style={{ padding:'7px 10px', textAlign:'center', color:'#64748b' }}>{row.invoice_count}</td>
-                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{minIncGst != null ? `$${minIncGst.toFixed(3)}` : '—'}</td>}
-                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color:'#64748b' }}>{maxIncGst != null ? `$${maxIncGst.toFixed(3)}` : '—'}</td>}
-                                  {showPriceDetail && <td style={{ padding:'7px 10px', textAlign:'right', color: variance > 0.5 ? '#d97706' : '#64748b' }}>${variance.toFixed(3)}</td>}
-                                  <td style={{ padding:'7px 10px', textAlign:'right' }}>
-                                    {currentBuy != null ? (
-                                      <span style={{ color: diff > 0.02 ? '#dc2626' : diff < -0.02 ? '#16a34a' : '#64748b' }}>
-                                        ${Number(currentBuy).toFixed(3)}
-                                        {diff != null && <span style={{ fontSize:10, marginLeft:4 }}>({diff > 0 ? '+' : ''}{diff.toFixed(3)})</span>}
-                                      </span>
-                                    ) : <span style={{ color:'#94a3b8' }}>—</span>}
-                                  </td>
-                                  <td style={{ padding:'7px 10px' }}>
-                                    {avgIncGst != null && (
-                                      <button onClick={async () => {
-                                        const hubKey = row.matched_hub_key || row.item_name
-                                        if (!confirm(`Update buy price for "${hubKey}" to $${avgIncGst.toFixed(3)} (inc GST)?`)) return
-                                        const r2 = await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                                          body: JSON.stringify({ itemName: hubKey, field:'buyPrice', value: avgIncGst }) })
-                                        if (r2.ok) {
-                                          // Update items state directly — no Square refresh needed
-                                          setItems(prev => prev.map(it => it.name === hubKey ? { ...it, buyPrice: avgIncGst } : it))
-                                          alert('✓ Buy price updated.')
-                                        } else alert('Failed to update buy price.')
-                                      }} style={{ padding:'2px 8px', background:'#eff6ff', color:'#1d4ed8', border:'1px solid #bfdbfe', borderRadius:4, fontSize:11, fontWeight:700, cursor:'pointer', whiteSpace:'nowrap' }}>
-                                        ↑ Update
-                                      </button>
-                                    )}
-                                  </td>
-                                </tr>
-                              )
-                            })}
-                          </tbody>
-                        </table>
-                      </div>
-                    </div>
-                  )
-                )}
-              </div>
-            )}
+            {/* ── AVERAGE BUY PRICES — auto-loads, printable reference ── */}
+            {pricingSubTab === 'avgprices' && (() => {
+              // Auto-load on first render
+              if (!phAvgData && !phLoading) {
+                setTimeout(() => loadPhReport(90, 'all'), 0)
+              }
+              const rows = (phAvgData?.items || [])
+                .filter(row => items.length === 0 || items.some(it => it.name === row.matched_hub_key))
+                .sort((a, b) => (a.category || '').localeCompare(b.category || '') || a.item_name.localeCompare(b.item_name))
 
-            {/* ── MARKUP / SELL PRICES ───────────────────────────── */}
-            {pricingSubTab === 'markup' && (
-              <div>
-                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, padding:24, marginBottom:16 }}>
-                  <div style={{ fontSize:15, fontWeight:800, color:'#0f172a', marginBottom:6 }}>$ Markup & Sell Price Analysis</div>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:20 }}>
-                    Full pricing analysis with buy prices, markup %, sell prices and margin. Opens in the Stock Items pricing view.
-                  </div>
-                  <div style={{ display:'flex', gap:10, flexWrap:'wrap' }}>
-                    <button onClick={() => { setMainTab('reorder'); setViewMode('pricing') }}
-                      style={{ padding:'10px 22px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      $ Open Pricing View
+              return (
+                <div>
+                  {/* Toolbar — hidden on print */}
+                  <div className="no-print" style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
+                    <button onClick={() => loadPhReport(90, 'all')}
+                      style={{ padding:'6px 16px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
+                      {phLoading ? '⏳ Loading…' : '🔄 Refresh'}
                     </button>
-                    <button onClick={printPricingSheet}
-                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                    <button onClick={() => window.print()}
+                      style={{ padding:'6px 16px', background:'#047857', color:'#fff', border:'none', borderRadius:6, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       🖨️ Print
                     </button>
-                    <button onClick={() => exportPricingExcel(40)}
-                      style={{ padding:'10px 18px', background:'#f0fdf4', color:'#047857', border:'1px solid #86efac', borderRadius:8, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      📥 Excel
-                    </button>
+                    {phAvgData && (
+                      <span style={{ fontSize:11, color:'#94a3b8' }}>
+                        {rows.length} items · 90-day avg · {new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}
+                      </span>
+                    )}
                   </div>
+
+                  {/* Printable table */}
+                  {phLoading ? (
+                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>Loading…</div>
+                  ) : !phAvgData ? null : rows.length === 0 ? (
+                    <div style={{ textAlign:'center', padding:40, color:'#64748b' }}>No price history found. Import some invoices first.</div>
+                  ) : (
+                    <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                      <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }} className="print-header">
+                        Paynter Bar — Average Buy Prices (inc GST) · 90 days to {new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })}
+                      </div>
+                      <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
+                        <thead>
+                          <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
+                            {['Item','Category','Avg Buy (inc GST)','Unit','# Invoices','Current Buy','Difference'].map(h => (
+                              <th key={h} style={{ padding:'7px 10px', textAlign: ['Avg Buy (inc GST)','# Invoices','Current Buy','Difference'].includes(h) ? 'right' : 'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
+                            ))}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {rows.map((row, i) => {
+                            const avg = row.buy_price_inc_gst
+                            const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
+                            const diff = avg != null && cur != null ? +(avg - cur).toFixed(3) : null
+                            const diffColor = diff == null ? '#94a3b8' : Math.abs(diff) < 0.01 ? '#16a34a' : diff > 0 ? '#dc2626' : '#d97706'
+                            return (
+                              <tr key={i} style={{ borderBottom:'1px solid #f1f5f9', background: i%2===0 ? '#fff' : '#f8fafc' }}>
+                                <td style={{ padding:'6px 10px', fontWeight:600 }}>{row.item_name}</td>
+                                <td style={{ padding:'6px 10px', color:'#64748b', fontSize:11 }}>{row.category || '—'}</td>
+                                <td style={{ padding:'6px 10px', textAlign:'right', fontWeight:700, fontFamily:'IBM Plex Mono, monospace', color:'#1e3a5f' }}>
+                                  {avg != null ? `$${avg.toFixed(3)}` : '—'}
+                                </td>
+                                <td style={{ padding:'6px 10px', fontSize:11, color:'#94a3b8' }}>{row.unit_label}</td>
+                                <td style={{ padding:'6px 10px', textAlign:'right', color:'#64748b' }}>{row.invoice_count}</td>
+                                <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'IBM Plex Mono, monospace', color:'#64748b' }}>
+                                  {cur != null ? `$${cur.toFixed(3)}` : '—'}
+                                </td>
+                                <td style={{ padding:'6px 10px', textAlign:'right', fontFamily:'IBM Plex Mono, monospace', fontWeight:600, color: diffColor }}>
+                                  {diff != null ? `${diff > 0 ? '+' : ''}${diff.toFixed(3)}` : '—'}
+                                </td>
+                              </tr>
+                            )
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         )}
 
