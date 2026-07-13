@@ -4793,7 +4793,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <table style={{ width:'100%', borderCollapse:'collapse', fontSize:12 }}>
                         <thead>
                           <tr style={{ background:'#f1f5f9', borderBottom:'2px solid #e2e8f0' }}>
-                            {['Invoice Description','Hub Name','Sup','Inv. Unit Price','Units/Pack','Per Unit ex GST','Lines','Action'].map(h => (
+                            {['Invoice Description','Hub Name','Sup','Inv. Unit Price','Units/Pack','Per Unit inc GST','Lines','Action'].map(h => (
                               <th key={h} style={{ padding:'7px 8px', textAlign:'left', fontWeight:700, color:'#374151', fontSize:11, whiteSpace:'nowrap' }}>{h}</th>
                             ))}
                           </tr>
