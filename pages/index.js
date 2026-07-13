@@ -4429,19 +4429,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'pricehistory' && (
           <div style={{ padding: '16px 0' }}>
 
-            {/* Sub-tab strip */}
-            <div style={{ display:'flex', gap:8, marginBottom:20 }}>
-              {[['avgprices','📊 Average Prices'],['markup','$ Markup / Sell Prices']].map(([t,label]) => (
-                <button key={t} onClick={() => setPricingSubTab(t)}
-                  style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
-                    background: pricingSubTab===t ? '#1e3a5f' : '#f8fafc', color: pricingSubTab===t ? '#fff' : '#374151' }}>
-                  {label}
-                </button>
-              ))}
-            </div>
-
             {/* ── AVERAGE BUY PRICES — auto-loads, printable reference ── */}
-            {pricingSubTab === 'avgprices' && (() => {
+            {(() => {
               // Auto-load on first render
               if (!phAvgData && !phLoading) {
                 setTimeout(() => loadPhReport(90, 'all'), 0)
