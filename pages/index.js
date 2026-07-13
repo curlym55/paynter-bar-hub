@@ -4264,6 +4264,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                   </div>
                 </div>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#7c3aed', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Re-match Invoice History</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
+                      Runs AI name-matching on all unmatched invoice history rows so they show in the Avg Buy columns in Stock Items. Run once after initial setup or if avg prices are missing.
+                    </div>
+                    <button onClick={async () => {
+                      if (!confirm('Re-run name matching on all unmatched invoice rows? This may take 10-20 seconds.')) return
+                      const r = await fetch('/api/admin/rematch-history', { method:'POST' })
+                      const d = await r.json()
+                      if (!r.ok) { alert('Failed: ' + d.error); return }
+                      fetch('/api/invoices/avg-prices?days=90').then(r=>r.json()).then(d=>{ if(d?.items) setPhAvgData(d) })
+                      alert('✓ Matched ' + d.matched + ' of ' + d.unmatched_count + ' unmatched items.' + (d.skipped ? ' ' + d.skipped + ' skipped (low confidence).' : ''))
+                    }} style={{ padding:'7px 18px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      🤖 Re-match Invoice History
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
 

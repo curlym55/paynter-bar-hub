@@ -42,8 +42,15 @@ export default async function handler(req, res) {
     // Aggregate — weighted average of invoice_unit_price (before any pack division)
     const map = {}
     for (const r of rows || []) {
-      const hubName = r.item_name_hub
-      if (!hubName || hubName === r.item_name_raw) continue
+      // Use hub name if properly matched, otherwise try to match raw name to Hub items
+      let hubName = r.item_name_hub
+      if (!hubName) continue
+      // If hub name was never matched (equals raw), try to find the Hub item by exact match
+      if (hubName === r.item_name_raw) {
+        // Check if raw name exactly matches a Hub item name
+        if (!settings[hubName]) continue  // no Hub item with this name — skip
+        // Raw name matches a Hub item exactly — use it
+      }
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
       const invPrice = Number(r.invoice_unit_price) || 0
