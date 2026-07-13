@@ -3153,21 +3153,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-                            fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
-                            // Link invoice to PO record if already uploaded
-                            if (wizInvoiceFile?.webUrl) {
-                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
-                            }
+                            // Save PO to OneDrive, then write the document record with the URL in one shot
+                            // (previously fire-and-forget caused a race where update_urls arrived before the row existed)
                             fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
                                 order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
                                 items: poItemsArr.map(i => ({ name:i.name, sku:i.sku||'', orderQty:i.orderQty, bottlesToOrder:i.bottlesToOrder||null, isSpirit:i.isSpirit||false })) }) })
-                              .then(r => r.json()).then(od => {
-                                if (od.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                  body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) })
-                              }).catch(()=>null)
+                              .then(r => r.json())
+                              .then(od => {
+                                // Create the doc record WITH the PO URL in a single upsert — no race
+                                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length,
+                                    ...(od.webUrl ? { po_onedrive_url: od.webUrl } : {}) }) }).catch(()=>null)
+                                // Link invoice if already uploaded
+                                if (wizInvoiceFile?.webUrl) {
+                                  fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                    body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
+                                }
+                              })
+                              .catch(() => {
+                                // save-po failed (network error) — still create the doc record without the URL
+                                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
+                              })
                             // Single supplier — always go to done
                             setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
                           }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
