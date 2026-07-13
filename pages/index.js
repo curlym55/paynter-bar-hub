@@ -79,30 +79,7 @@ export default function Home() {
   const [phSaving, setPhSaving] = useState(false)
   const [phAvgData, setPhAvgData] = useState(null)
 
-  const autoUpdateBuyPrices = async (supplier, days = 90) => {
-    try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days}&supplier=${encodeURIComponent(supplier)}`)
-      const d = await r.json()
-      if (!r.ok || !d.items?.length) return 0
-      // buy_price_inc_gst is computed once server-side — use directly as buyPrice
-      const updatable = d.items.filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
-      if (!updatable.length) return 0
-      let updated = 0
-      for (const row of updatable) {
-        const r2 = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: row.buy_price_inc_gst }) }).catch(() => null)
-        if (r2?.ok) updated++
-      }
-      if (updated > 0) {
-        setItems(prev => prev.map(it => {
-          const match = updatable.find(row => row.matched_hub_key === it.name)
-          if (!match) return it
-          return { ...it, buyPrice: match.buy_price_inc_gst }
-        }))
-      }
-      return updated
-    } catch (e) { console.error('[autoUpdateBuyPrices]', e); return 0 }
-  }
+  // autoUpdateBuyPrices removed — update logic is inline in the Average Prices tab
 
   const loadPhReport = async (days, sup) => {
     setPhLoading(true)
@@ -5077,7 +5054,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {/* Sub-tab strip */}
             <div style={{ display:'flex', gap:8, marginBottom:20 }}>
               {[['avgprices','📊 Average Prices'],['markup','$ Markup / Sell Prices']].map(([t,label]) => (
-                <button key={t} onClick={() => setPricingSubTab(t)}
+                <button key={t} onClick={() => { setPricingSubTab(t); if (t === 'avgprices' && !phAvgData && !phLoading) loadPhReport(90, phSupFilter) }}
                   style={{ padding:'7px 18px', borderRadius:6, border:'1px solid #e2e8f0', fontWeight:700, fontSize:13, cursor:'pointer',
                     background: pricingSubTab===t ? '#1e3a5f' : '#f8fafc', color: pricingSubTab===t ? '#fff' : '#374151' }}>
                   {label}
@@ -5088,6 +5065,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             {/* ── AVERAGE PRICES ─────────────────────────────────── */}
             {pricingSubTab === 'avgprices' && (
               <div>
+                {!phAvgData && !phLoading && (() => { loadPhReport(90, phSupFilter); return null })()} {/* auto-load on first open */}
                 <div style={{ display:'flex', gap:10, alignItems:'center', marginBottom:16, flexWrap:'wrap' }}>
                   <span style={{ fontSize:12, color:'#64748b', fontWeight:600 }}>Last 90 days</span>
                   <select value={phSupFilter} onChange={e => { const v = e.target.value; setPhSupFilter(v); if (phAvgData) loadPhReport(90, v) }}
@@ -5123,11 +5101,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     style={{ padding:'5px 14px', background:'#dc2626', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                     🚨 Below 40% Report
                   </button>
-                  {phAvgData?.items?.length > 0 && !readOnly && (
+                  {!readOnly && (
                     <button onClick={async () => {
-                      const updatable = phAvgData.items.filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
-                      if (!updatable.length) { alert('No items with avg buy prices to update.'); return }
-                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)? This will overwrite existing buy prices.`)) return
+                      // Fetch fresh data so this always works, even if report wasn't loaded
+                      let data = phAvgData
+                      if (!data) {
+                        try {
+                          const r = await fetch(`/api/invoices/avg-prices?days=90&supplier=${encodeURIComponent(phSupFilter)}`)
+                          data = await r.json()
+                          if (r.ok) setPhAvgData(data)
+                        } catch(e) { alert('Failed to load avg prices: ' + e.message); return }
+                      }
+                      const updatable = (data?.items || []).filter(row => row.buy_price_inc_gst != null && row.matched_hub_key)
+                      if (!updatable.length) { alert('No items with avg buy prices to update. Import and match some invoices first.'); return }
+                      if (!confirm(`Update Hub buy prices for ALL ${updatable.length} items to their 90-day average (inc GST)?\n\nThis will overwrite existing buy prices.`)) return
                       let updated = 0, failed = 0
                       for (const row of updatable) {
                         try {
@@ -5136,7 +5123,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           if (r.ok) updated++; else failed++
                         } catch { failed++ }
                       }
-                      if (updated > 0) loadItems(false)
+                      if (updated > 0) {
+                        setItems(prev => {
+                          const byHub = Object.fromEntries(updatable.map(r => [r.matched_hub_key, r.buy_price_inc_gst]))
+                          return prev.map(it => byHub[it.name] != null ? { ...it, buyPrice: byHub[it.name] } : it)
+                        })
+                      }
                       alert(`✓ Updated ${updated} buy prices.${failed ? ` ${failed} failed.` : ''}`)
                     }} style={{ padding:'5px 14px', background:'#16a34a', color:'#fff', border:'none', borderRadius:5, fontSize:12, fontWeight:700, cursor:'pointer' }}>
                       ↑ Update All Buy Prices
