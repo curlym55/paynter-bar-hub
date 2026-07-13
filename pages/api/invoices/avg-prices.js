@@ -72,10 +72,13 @@ export default async function handler(req, res) {
       const avgExGstPerBottle = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
 
       // Use Hub item settings as the authoritative source for spirit conversion
+      // isSpirit is not stored in itemSettings — derive from category (same as calculations.js)
       const hubItem = settings[name]
-      const bottleML = hubItem?.bottleML ? Number(hubItem.bottleML) : null
-      const nipML    = hubItem?.nipML    ? Number(hubItem.nipML)    : null
-      const isSpirit = !!(hubItem?.isSpirit) || !!(bottleML && nipML)
+      const SPIRIT_CATS = new Set(['Spirits', 'Fortified & Liqueurs'])
+      const isSpirit = SPIRIT_CATS.has(hubItem?.category)
+      // bottleML/nipML default to 700/30 if not explicitly set (same as calculations.js)
+      const bottleML = hubItem?.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
+      const nipML    = hubItem?.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0) ? bottleML / nipML : null
 
       // Convert to inc-GST per sellable unit once — this is what buyPrice should be
