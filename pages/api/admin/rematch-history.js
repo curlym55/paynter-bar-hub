@@ -1,7 +1,7 @@
 /**
  * POST /api/admin/rematch-history
- * Re-runs Haiku name matching on all buy_price_history rows where
- * item_name_hub is null or equals item_name_raw (unmatched).
+ * Re-runs Haiku name matching ONLY on rows where item_name_hub is null
+ * or equals item_name_raw (genuinely unmatched). Never overwrites existing matches.
  */
 import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
@@ -15,40 +15,37 @@ export default async function handler(req, res) {
   try {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-    // Get all unmatched rows (hub = raw or hub is null)
     const { data: rows, error } = await sb
       .from('buy_price_history')
       .select('item_name_raw, item_name_hub')
 
     if (error) return res.status(500).json({ error: error.message })
 
-    // Get Hub item names
     const settings = await kvGet('itemSettings').catch(() => null)
                   || await sbConfigGet('itemSettings').catch(() => null)
                   || {}
     const hubNames = Object.keys(settings)
-
     if (!hubNames.length) return res.status(400).json({ error: 'No Hub items found' })
 
-    // Find unique unmatched raw names — includes rows where hub name doesn't exist in Hub settings
-    const hubSet = new Set(hubNames)
+    // ONLY match rows where hub is null or hub === raw (never matched)
+    // Never touch rows that already have a proper hub name set
     const unmatched = [...new Set(
       (rows || [])
-        .filter(r => !r.item_name_hub || r.item_name_hub === r.item_name_raw || !hubSet.has(r.item_name_hub))
+        .filter(r => !r.item_name_hub || r.item_name_hub === r.item_name_raw)
         .map(r => r.item_name_raw)
         .filter(Boolean)
     )]
 
     if (!unmatched.length) return res.json({ ok: true, matched: 0, message: 'All rows already matched' })
 
-    // Call Haiku via fetch (same pattern as extract.js)
     const prompt = `You are matching supplier invoice descriptions to bar stock item names.
 IMPORTANT RULES:
 - Spirits on the invoice are sold as bottles (e.g. "Bundaberg Original Rum 1l") but tracked as nips in the Hub (e.g. "Bundaberg Rum 30ml Nip"). Match them.
-- Wines on the invoice may say "Pinot Gris" and the Hub says "Pinot Gris" — match on brand/variety.
-- Ignore size differences (1l vs 700ml vs 30ml nip) — focus on brand and product name.
-- If the raw name already exactly matches a Hub name, still check if there is a BETTER match (e.g. a nip version).
+- Wines: match on brand and variety name, ignore size.
+- Beers: match on brand name, ignore size/pack.
+- Ignore size differences — focus on brand and product name.
 - Return null for hub if there is genuinely no match.
+- Only return HIGH confidence matches — if unsure, return null.
 
 Hub item names:
 ${hubNames.map((n, i) => `${i + 1}. ${n}`).join('\n')}
@@ -82,19 +79,20 @@ Respond ONLY with valid JSON, no markdown:
     const clean = text.replace(/```json|```/g, '').trim()
     const mData = JSON.parse(clean)
 
-    // Build match map
+    // Only apply HIGH confidence matches
     const matchMap = {}
     for (const m of mData.matches || []) {
-      if (m.hub && m.confidence !== 'low') matchMap[m.raw] = m.hub
+      if (m.hub && m.confidence === 'high') matchMap[m.raw] = m.hub
     }
 
-    // Update rows in Supabase
+    // Update ONLY rows where hub is still null or equals raw — never overwrite existing matches
     let updated = 0
     for (const [raw, hub] of Object.entries(matchMap)) {
       const { error: upErr } = await sb
         .from('buy_price_history')
         .update({ item_name_hub: hub })
         .eq('item_name_raw', raw)
+        .or('item_name_hub.is.null,item_name_hub.eq.' + raw)
       if (!upErr) updated++
     }
 
