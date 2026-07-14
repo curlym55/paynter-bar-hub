@@ -255,7 +255,7 @@ export default function Home() {
         setOrderedItems(od.ordered || {})
       }
       // Load avg prices in background — used in pricing view
-      fetch('/api/invoices/avg-prices?days=90')
+      fetch('/api/invoices/avg-prices?days=365')
         .then(r => r.ok ? r.json() : null)
         .then(d => { if (d?.items) setPhAvgData(d) })
         .catch(() => null)
@@ -268,7 +268,14 @@ export default function Home() {
     }
   }, [daysBack])
 
-  useEffect(() => { loadItems(); loadLastOrderSummary(); loadDocuments() }, [loadItems])
+  useEffect(() => {
+    // Load from cache immediately, then refresh from Square in background
+    loadItems(false)
+    loadLastOrderSummary()
+    loadDocuments()
+    // Auto-refresh from Square after initial cache load
+    setTimeout(() => loadItems(true), 1500)
+  }, [loadItems])
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
