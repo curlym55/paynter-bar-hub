@@ -46,7 +46,6 @@ export default function Home() {
   const [pin, setPin]                   = useState('')
   const [pinError, setPinError]         = useState(false)
   const [items, setItems]               = useState([])
-  const [phAvgData, setPhAvgData] = useState(null)
   const [loading, setLoading]           = useState(true)
   const [refreshing, setRefreshing]     = useState(false)
   const [error, setError]               = useState(null)
@@ -254,11 +253,7 @@ export default function Home() {
         const od = await ro.json()
         setOrderedItems(od.ordered || {})
       }
-      // Load avg prices in background — used in pricing view
-      fetch('/api/invoices/avg-prices?days=365')
-        .then(r => r.ok ? r.json() : null)
-        .then(d => { if (d?.items) setPhAvgData(d) })
-        .catch(() => null)
+
 
     } catch (e) {
       setError(e.message)
@@ -2003,6 +1998,52 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     URL.revokeObjectURL(url)
   }
 
+  async function exportAvgPriceReport() {
+    try {
+      const r = await fetch('/api/invoices/avg-prices?days=365')
+      const d = await r.json()
+      if (!r.ok || !d.items?.length) { alert('No avg price data found. Import some invoices first.'); return }
+
+      const wb = new ExcelJS.Workbook()
+      const ws = wb.addWorksheet('Avg Buy Prices')
+      const fmt3 = '"$"#,##0.000'
+      const fmtDiff = '+$#,##0.000;-$#,##0.000;"-"'
+
+      ws.columns = [
+        { header: 'Item',              key: 'name',    width: 36 },
+        { header: 'Avg Buy (inc GST)', key: 'avg',     width: 16 },
+        { header: 'Unit',              key: 'unit',    width: 18 },
+        { header: '# Invoices',        key: 'count',   width: 11 },
+        { header: 'Current Buy',       key: 'cur',     width: 14 },
+        { header: 'Difference',        key: 'diff',    width: 14 },
+      ]
+      const hdr = ws.getRow(1)
+      hdr.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+      hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
+      hdr.alignment = { horizontal: 'center' }
+
+      for (const row of d.items) {
+        const avg = row.buy_price_inc_gst
+        const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
+        const diff = avg != null && cur != null ? +(avg - cur).toFixed(3) : null
+        const r2 = ws.addRow({ name: row.item_name, avg: avg ?? '', unit: row.unit_label, count: row.invoice_count, cur: cur ?? '', diff: diff ?? '' })
+        if (avg != null) r2.getCell('avg').numFmt = fmt3
+        if (cur != null) r2.getCell('cur').numFmt = fmt3
+        if (diff != null) {
+          r2.getCell('diff').numFmt = fmtDiff
+          r2.getCell('diff').font = { color: { argb: diff > 0.01 ? 'FFDC2626' : diff < -0.01 ? 'FFCA8A04' : 'FF16A34A' } }
+        }
+      }
+      ws.addRow({})
+      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · 365-day average` })
+
+      const buf = await wb.xlsx.writeBuffer()
+      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+      const a = document.createElement('a'); a.href = url; a.download = 'Avg-Buy-Prices.xlsx'; a.click()
+      URL.revokeObjectURL(url)
+    } catch(e) { alert('Export failed: ' + e.message) }
+  }
+
   async function exportBelow40Report() {
     if (!window.ExcelJS) {
       const s = document.createElement('script')
@@ -3636,6 +3677,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
+                    <button onClick={exportAvgPriceReport}
+                      style={{ ...styles.tab, color: '#0369a1', borderColor: '#0369a1', background: '#f0f9ff' }}>
+                      📊 Avg Buy Report
+                    </button>
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
@@ -3693,8 +3738,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <th style={{ ...styles.th, textAlign: 'center', width: 90 }}>Priority</th>
                     {viewMode === 'pricing' && <>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Buy</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#64748b', width: 76, minWidth: 76 }}>Avg Buy</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#64748b', width: 60, minWidth: 60 }}>Diff</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 90, minWidth: 90 }}>Sell</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 56, minWidth: 56 }}>Serves</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 78, minWidth: 78 }}>Markup</th>
@@ -3937,10 +3980,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
 
                         {viewMode === 'pricing' && (() => {
-                          const avgRow = phAvgData?.items?.find(r => r.matched_hub_key === item.name)
-                          const avgBuy = avgRow?.buy_price_inc_gst ?? null
-                          const avgDiff = avgBuy != null && item.buyPrice != null
-                            ? +(avgBuy - Number(item.buyPrice)).toFixed(3) : null
                           const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
                           const isWine    = WINE_CATS.includes(item.category)
                           const bottleML  = item.isSpirit ? (item.bottleML || 700) : 750
@@ -4029,16 +4068,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               />
                               <div style={{ fontSize: 9, color: '#94a3b8', textAlign: 'right', marginTop: 1 }}>{buyLabel}</div>
                             </td>
-                            {/* Avg Buy from invoices */}
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12, color: '#64748b' }}>
-                              {avgBuy != null ? `$${avgBuy.toFixed(3)}` : <span style={{ color: '#e2e8f0' }}>—</span>}
-                            </td>
-                            {/* Difference: avg vs current buy */}
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontSize: 12,
-                              fontWeight: avgDiff != null && Math.abs(avgDiff) >= 0.01 ? 700 : 400,
-                              color: avgDiff == null ? '#e2e8f0' : Math.abs(avgDiff) < 0.01 ? '#16a34a' : avgDiff > 0 ? '#dc2626' : '#d97706' }}>
-                              {avgDiff != null ? `${avgDiff > 0 ? '+' : ''}${avgDiff.toFixed(3)}` : '—'}
-                            </td>
+
 
                             {/* Sell Price — primary (glass for wine, nip for spirits, unit for beer) */}
                             <td style={{ ...styles.td, textAlign: 'right' }}>
@@ -4315,7 +4345,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       const r = await fetch('/api/admin/rematch-history', { method:'POST' })
                       const d = await r.json()
                       if (!r.ok) { alert('Failed: ' + d.error); return }
-                      fetch('/api/invoices/avg-prices?days=90').then(r=>r.json()).then(d=>{ if(d?.items) setPhAvgData(d) })
                       alert('✓ Matched ' + d.matched + ' of ' + d.unmatched_count + ' unmatched items.' + (d.skipped ? ' ' + d.skipped + ' skipped (low confidence).' : ''))
                     }} style={{ padding:'7px 18px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
                       🤖 Re-match Invoice History
