@@ -92,7 +92,6 @@ Respond ONLY with valid JSON, no markdown:
         .from('buy_price_history')
         .update({ item_name_hub: hub })
         .eq('item_name_raw', raw)
-        .or('item_name_hub.is.null,item_name_hub.eq.' + raw)
       if (!upErr) updated++
     }
 
