@@ -3975,11 +3975,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
                           // Suggested sell at 40% markup
                           const mceil2  = (v, m) => Math.ceil(v / m) * m
-                          const suggSell = buy != null
-                            ? item.isSpirit ? `$${mceil2(buy * 1.40, 0.25).toFixed(2)}/nip`
-                            : isWine && sellGlass != null ? `$${mceil2(buy * 1.40 / serves, 0.25).toFixed(2)}/glass`
-                            : `$${mceil2(buy * 1.40, 0.25).toFixed(2)}`
+                          const suggNum = buy != null
+                            ? item.isSpirit ? mceil2(buy * 1.40, 0.25)
+                            : isWine && sellGlass != null ? mceil2(buy * 1.40 / serves, 0.25)
+                            : mceil2(buy * 1.40, 0.25)
+                            : null
+                          const suggSell = suggNum != null
+                            ? item.isSpirit ? `$${suggNum.toFixed(2)}/nip`
+                            : isWine && sellGlass != null ? `$${suggNum.toFixed(2)}/glass`
+                            : `$${suggNum.toFixed(2)}`
                             : '—'
+                          // Compare sugg to actual sell price to colour-code
+                          const actualSell = item.isSpirit ? sellNip
+                            : isWine ? (sellGlass ?? sellBottle)
+                            : sellPrimary != null ? Number(sellPrimary) : null
+                          const suggColor = suggNum == null || actualSell == null ? '#7c3aed'
+                            : actualSell >= suggNum ? '#16a34a'   // at or above target — green
+                            : actualSell >= suggNum * 0.95 ? '#d97706' // within 5% — amber
+                            : '#dc2626'                              // below target — red
 
                           return <>
                             {/* Buy Price — labelled clearly */}
@@ -4066,8 +4079,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               )}
                             </td>
 
-                            {/* Suggested sell at 40% */}
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#7c3aed' }}>
+                            {/* Suggested sell at 40% — colour shows actual vs target */}
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: suggColor }}>
                               {suggSell}
                             </td>
                           </>
