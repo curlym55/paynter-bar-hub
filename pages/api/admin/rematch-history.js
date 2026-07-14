@@ -27,11 +27,17 @@ export default async function handler(req, res) {
     const hubNames = Object.keys(settings)
     if (!hubNames.length) return res.status(400).json({ error: 'No Hub items found' })
 
-    // ONLY match rows where hub is null or hub === raw (never matched)
-    // Never touch rows that already have a proper hub name set
+    // ONLY match rows where hub is null or hub === raw AND raw is not itself a valid Hub item
+    // If raw === hub AND raw exists in Hub settings, it's already correctly matched — skip it
+    const hubSet = new Set(hubNames)
     const unmatched = [...new Set(
       (rows || [])
-        .filter(r => !r.item_name_hub || r.item_name_hub === r.item_name_raw)
+        .filter(r => {
+          if (!r.item_name_hub) return true              // hub is null — unmatched
+          if (r.item_name_hub !== r.item_name_raw) return false  // hub differs from raw — already matched
+          // hub === raw — only treat as unmatched if raw name is NOT a valid Hub item
+          return !hubSet.has(r.item_name_raw)
+        })
         .map(r => r.item_name_raw)
         .filter(Boolean)
     )]
