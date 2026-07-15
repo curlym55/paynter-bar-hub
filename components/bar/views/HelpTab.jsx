@@ -133,9 +133,9 @@ export default function HelpTab() {
             Click <strong>📎 Attach Supplier Invoice</strong> and select the PDF from your device. This is needed to:
             <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
               <li>Include as an attachment in the treasurer email</li>
-              <li>Automatically extract line item prices into Price History</li>
+              <li>Automatically extract line item prices for the Avg Buy Report (AI name-matching runs in the background)</li>
             </ul>
-            <Note type="warn">Without an invoice attached, the treasurer email will be sent without an attachment and buy prices won't update from this delivery.</Note>
+            <Note type="warn">Without an invoice attached, the treasurer email will be sent without an attachment and this delivery won't be captured in the Avg Buy Report. Either way, Stock Items buy prices are set manually and are not affected.</Note>
             <Note>The invoice uploads to OneDrive <strong>as soon as you select the file</strong> — you'll see ✓ saved to OneDrive appear. You don't need to wait until you click Confirm Delivery.</Note>
           </STEP>
 
@@ -145,7 +145,7 @@ export default function HelpTab() {
               <li>Updates Square inventory for all received items</li>
               <li>Saves a receive report (CSV) to OneDrive</li>
               <li>Saves the invoice to OneDrive (if attached)</li>
-              <li>Extracts invoice line item prices to Price History</li>
+              <li>Extracts invoice line item prices into invoice history, feeding the Avg Buy Report (Stock Items buy prices are unaffected — set those manually)</li>
               <li>Updates the PO Documents record to Received</li>
               <li>Removes items from the on-order list</li>
             </ul>
@@ -239,7 +239,7 @@ export default function HelpTab() {
             ['Reading the table', 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.'],
             ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Min Stock, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns. Hidden by default to keep the view clean.'],
             ['Supplier tabs', 'Click a supplier name to filter the table to just that supplier.'],
-            ['Pricing view', 'Click 💲 Pricing to switch to pricing mode — shows Buy Price, Sell Price and Markup % for all items. Export to Excel from here.'],
+            ['Pricing view', 'Click 💲 Pricing to switch to pricing mode. Buy Price is a manual entry — the single source of truth for markup, suggested sell price and stock value, so keep it current. Sell Price shows both glass and bottle prices inline for wine (no toggle needed). A ⚠️ banner and $ missing tag flag any item without a buy price set. Print, Excel and 📊 Avg Buy Report all export from here.'],
             ['Editing inline', 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and order quantities recalculate immediately.'],
             ['Min Stock', 'Type a value in the Min Stock column (visible under Show Details) to set a minimum stock floor. The order quantity will always be enough to reach this level, even if the calculated target is lower. Leave blank to use the calculated target only.'],
             ['Rundown items', 'Tick the Rundown checkbox on any item to flag it for running down — excluded from order calculations and pricing exports.'],
@@ -280,31 +280,10 @@ export default function HelpTab() {
       content: (
         <div>
           {[
-            ['Average Prices tab', 'Shows the 90-day weighted average buy price per item from actual invoices. Compare against current Hub buy price — use ↑ Update All Buy Prices to sync them.'],
-            ['Markup calculation', 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. For wines, glass markup uses 5 glasses per bottle.'],
-            ['Sell prices', 'All sell prices come directly from Square. Changes must be made in Square — the Hub reflects current Square prices on every Refresh.'],
-            ['Below 40% Report', 'Click 🚨 Below 40% Report to export an Excel list of all items below the 40% markup target, with suggested sell prices. Wines show both glass and bottle markup separately.'],
-            ['Avg Price Report', 'Click 📥 Avg Price Report for a full Excel export of all items with average buy prices, current Hub prices, markup % and suggested sell prices.'],
-          ].map(([q, a], i, arr) => (
-            <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
-              <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
-              <div style={{ fontSize: 12, color: '#4b5563', lineHeight: 1.65 }}>{a}</div>
-            </div>
-          ))}
-        </div>
-      )
-    },
-    {
-      icon: '📄',
-      title: 'Price History',
-      content: (
-        <div>
-          {[
-            ['What is Price History?', 'Records actual buy prices from supplier invoices over time. Lives under Records → Price History. Two sub-tabs: Import Invoice and Manage History.'],
-            ['Automatic import', 'When you attach a PDF invoice in the receive modal and confirm a delivery, price history is updated automatically in the background — no manual import needed.'],
-            ['Manual import', 'Go to Price History → Import Invoice. Select one or more supplier PDFs. Claude AI extracts line items — review, check Hub Name matches (green ✓ = matched, red ✗ = fix the name), then Save to History.'],
-            ['Manage History tab', 'Fix item name mappings and Units/Pack values. Saving recalculates all historical per-unit prices.'],
-            ['GST handling', 'Dan Murphy\'s and Coles/Woolies invoice prices include GST — the Hub divides by 1.10 automatically when saving. ACW invoices are typically ex GST.'],
+            ['Buy Price — manual entry', 'Buy Price is entered and kept up to date by hand in Stock Items → Pricing. It is the single source of truth for markup, suggested sell price and stock value — nothing updates it automatically from invoices.'],
+            ['Markup calculation', 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. For wine sold by the glass, markup is calculated on revenue per bottle (glasses per bottle × glass price) against the bottle buy price.'],
+            ['Sell prices', 'All sell prices come directly from Square. Changes must be made in Square — the Hub reflects current Square prices on every Refresh. Wine shows both glass and bottle sell prices side by side.'],
+            ['📊 Avg Buy Report', 'Click 📊 Avg Buy Report (Stock Items → Pricing) to download an Excel export of the 365-day average buy price per item from actual supplier invoices, alongside your current Hub buy price and the difference. This is a reference report only — it does not change any Hub prices. Use it at the January/July review to spot items whose buy price has drifted.'],
           ].map(([q, a], i, arr) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>
@@ -323,6 +302,7 @@ export default function HelpTab() {
             ['Opening', 'Click 📊 Sales Report under Analytics. Data is fetched live from Square — allow a few seconds.'],
             ['Period selector', 'This Month, Last Month, Last 3 Months, Financial Year (May–Apr), Single Day or Custom Range.'],
             ['Category filter', 'Click any category pill to filter the item table to that category. Click again to clear.'],
+            ['Glasses / Bottles split', 'Wine sold both ways shows separate Glasses and Bottles columns. The Bottles column only appears when at least one item has bottle sales in the selected period.'],
             ['Comparison columns', 'Prior Period, Change % and Prior Revenue are hidden by default. Click ▸ Show comparison to reveal them.'],
             ['Export', 'Click 📊 Excel for a formatted spreadsheet with category breakdown and revenue columns.'],
           ].map(([q, a], i, arr) => (
@@ -341,8 +321,8 @@ export default function HelpTab() {
         <div>
           {[
             ['Suppliers tab', 'Add or remove suppliers. Assign items to suppliers by clicking the Supplier column inline in Stock Items.'],
-            ['Square Mappings tab', 'Map each Hub supplier name to its Square vendor name — used to match invoices in Price History.'],
-            ['Reorder Defaults tab', 'Set the default target weeks and manually sync data from Redis to Supabase backup.'],
+            ['Square Mappings tab', 'Map each Hub supplier name to its Square vendor name — used to match invoices feeding the Avg Buy Report.'],
+            ['Reorder Defaults tab', 'Set the default target weeks, manually sync data from Redis to Supabase backup, and run 🤖 Re-match Invoice History — AI name-matching on any unmatched invoice rows so they appear correctly in the Avg Buy Report. Run this once after setup or if avg prices look incomplete.'],
             ['App Access tab', 'Check OneDrive connection status, reconnect OneDrive (must be paynterbar@gemwoods.com.au), change BMT PIN and Read-Only PIN, view recent settings changes audit log.'],
             ['Shared settings', 'All settings are saved to the cloud and shared instantly across all management sessions.'],
           ].map(([q, a], i, arr) => (
