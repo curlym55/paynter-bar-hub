@@ -45,6 +45,7 @@ export default async function handler(req, res) {
         status: 'ordered',
         item_count,
         ...(po_onedrive_url ? { po_onedrive_url } : {}),
+        ...(invoice_onedrive_url ? { invoice_onedrive_url } : {}),
       })
     }
 

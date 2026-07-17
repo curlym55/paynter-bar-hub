@@ -3205,13 +3205,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+                            // Include the invoice link (if already uploaded) in this SAME write —
+                            // firing a separate 'update_urls' call here raced with this 'order' call,
+                            // since both could run their exists-check before either row was committed,
+                            // producing two rows for one po_ref with the invoice link orphaned on the second.
                             fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
-                            // Link invoice to PO record if already uploaded
-                            if (wizInvoiceFile?.webUrl) {
-                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, invoice_onedrive_url: wizInvoiceFile.webUrl }) }).catch(()=>null)
-                            }
+                              body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length,
+                                ...(wizInvoiceFile?.webUrl ? { invoice_onedrive_url: wizInvoiceFile.webUrl } : {}) }) }).catch(()=>null)
                             fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
                                 order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
