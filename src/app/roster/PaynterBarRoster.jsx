@@ -223,6 +223,7 @@ export default function PaynterBarRoster() {
   const [statsTab, setStatsTab] = useState('alltime');
   const [statsSort, setStatsSort] = useState('shifts');
   const [editNotice, setEditNotice] = useState(null);
+  const [showPastSessions, setShowPastSessions] = useState(false);
   
   // Toast and loading states
   const [toasts, setToasts] = useState([]);
@@ -345,6 +346,12 @@ export default function PaynterBarRoster() {
       }, 300);
     }
   }, [scrollTarget]);
+
+  // Collapse past sessions again whenever the viewed month changes,
+  // so returning to the current month always starts collapsed
+  useEffect(() => {
+    setShowPastSessions(false);
+  }, [year, month]);
 
   function showStatus(msg) {
     setStatusMsg(msg);
@@ -1657,6 +1664,14 @@ export default function PaynterBarRoster() {
     groupedByDay[day].sort((a, b) => parseTime(a.time) - parseTime(b.time));
   });
 
+  // Collapse past days in the current month by default (less scrolling to reach today)
+  const todayMidnight = new Date();
+  todayMidnight.setHours(0, 0, 0, 0);
+  const isCurrentMonthView = year === now.getFullYear() && month === now.getMonth();
+  const dayKeys = Object.keys(groupedByDay);
+  const pastDayKeys = isCurrentMonthView ? dayKeys.filter(day => new Date(day) < todayMidnight) : [];
+  const visibleDayKeys = (isCurrentMonthView && !showPastSessions) ? dayKeys.filter(day => !pastDayKeys.includes(day)) : dayKeys;
+
   return (
     <div style={c.page} className="page-container">
       <style>{`
@@ -1801,13 +1816,26 @@ export default function PaynterBarRoster() {
         {monthSessions.length === 0 ? (
           <div style={{ textAlign: "center", padding: 60, fontSize: 16, color: "#999" }}>No sessions this month.</div>
         ) : (
-          Object.entries(groupedByDay).map(([day, daySessions]) => (
-            <div key={day}>
-              {daySessions.map((se, idx) => (
-                <SessionCard key={se.id} se={se} isLastOfDay={idx === daySessions.length - 1} />
-              ))}
-            </div>
-          ))
+          <>
+            {isCurrentMonthView && pastDayKeys.length > 0 && (
+              <button
+                onClick={() => setShowPastSessions(s => !s)}
+                style={{ ...c.navBtn, width: "100%", marginBottom: 12, textAlign: "center", color: "#666", borderColor: "#ccc" }}
+              >
+                {showPastSessions ? `▲ Hide earlier sessions (${pastDayKeys.length})` : `▼ Show earlier sessions this month (${pastDayKeys.length})`}
+              </button>
+            )}
+            {visibleDayKeys.map(day => {
+              const daySessions = groupedByDay[day];
+              return (
+                <div key={day}>
+                  {daySessions.map((se, idx) => (
+                    <SessionCard key={se.id} se={se} isLastOfDay={idx === daySessions.length - 1} />
+                  ))}
+                </div>
+              );
+            })}
+          </>
         )}
       </div>
 
