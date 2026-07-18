@@ -615,7 +615,7 @@ export default function PaynterBarRoster() {
 
   // ─── Styles ─────────────────────────────────────
   const c = {
-    page: { fontFamily: "system-ui, -apple-system, sans-serif", background: "#f5f7fa", minHeight: "100vh", padding: "12px 10px" },
+    page: { fontFamily: "system-ui, -apple-system, sans-serif", background: "#f5f7fa", minHeight: "100vh", padding: "calc(12px + env(safe-area-inset-top)) 10px 12px" },
     header: { maxWidth: 1000, margin: "0 auto 12px", display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 8 },
     logo: { fontSize: 22, fontWeight: 800, color: "#1a237e", letterSpacing: "-0.5px" },
     nav: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" },
@@ -1668,7 +1668,7 @@ export default function PaynterBarRoster() {
           to { transform: rotate(360deg); }
         }
         @media (max-width: 768px) {
-          .page-container { padding: 8px 6px !important; }
+          .page-container { padding: calc(8px + env(safe-area-inset-top)) 6px 8px !important; }
           .header-container { margin-bottom: 8px !important; gap: 6px !important; padding: 0 4px; }
           .logo-text { font-size: 18px !important; }
           .nav-container { gap: 6px !important; }
