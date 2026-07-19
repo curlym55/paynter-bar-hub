@@ -8,7 +8,7 @@
  * each other. Bump CACHE_VERSION whenever you change this file.
  */
 
-const CACHE_VERSION = 'pbh-hub-v2';
+const CACHE_VERSION = 'pbh-hub-v3';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline-hub.html';
 
