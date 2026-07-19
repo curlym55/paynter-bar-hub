@@ -272,6 +272,31 @@ export default function Home() {
     setTimeout(() => loadItems(true), 1500)
   }, [loadItems])
 
+  // On mobile, opening the Hub from the home-screen icon (or switching back to
+  // the tab) often just resumes the existing page instead of a full reload,
+  // so the mount-time effect above never re-fires and stale/cached data sits
+  // on screen until a manual refresh. Re-run the Square refresh whenever the
+  // app comes back to the foreground, throttled so quick tab-switches don't
+  // spam Square.
+  useEffect(() => {
+    let lastAutoRefresh = Date.now()
+    const MIN_INTERVAL = 20000 // 20s
+    const refreshIfStale = () => {
+      if (document.visibilityState !== 'visible') return
+      const now = Date.now()
+      if (now - lastAutoRefresh < MIN_INTERVAL) return
+      lastAutoRefresh = now
+      loadItems(true)
+    }
+    document.addEventListener('visibilitychange', refreshIfStale)
+    window.addEventListener('focus', refreshIfStale)
+    window.addEventListener('pageshow', (e) => { if (e.persisted) refreshIfStale() })
+    return () => {
+      document.removeEventListener('visibilitychange', refreshIfStale)
+      window.removeEventListener('focus', refreshIfStale)
+    }
+  }, [loadItems])
+
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.suppliers) setSuppliers(data.suppliers)
@@ -2231,6 +2256,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       <Head>
         <title>Paynter Bar Hub</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link rel="manifest" href="/manifest-hub.json" />
+        <meta name="theme-color" content="#0f172a" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+        <meta name="apple-mobile-web-app-title" content="Bar Hub" />
+        <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
         <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet" />
         <style>{`
           .sidebar { display: flex !important; }
