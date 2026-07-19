@@ -1711,6 +1711,7 @@ export default function PaynterBarRoster() {
         <div style={c.logo} className="logo-text">🍺 Paynter Bar</div>
         <div style={c.nav} className="nav-container">
           <button style={c.navBtn} className="nav-button" onClick={async () => { showToast("Refreshing..."); const [vols, , anns] = await Promise.all([getVolunteers(), loadDeletedDates(), getAnnouncements()]); setVolunteers(vols); setAnnouncements(anns || []); const data = await getSessionsForMonth(year, month + 1); setSessions(data.map(s => ({...s, date: new Date(s.date)}))); showToast("Data refreshed"); }}>🔄</button>
+          <a href="/PaynterBarRosterProcedures.pdf" target="_blank" rel="noopener noreferrer" style={{ ...c.navBtn, textDecoration: "none", display: "inline-flex", alignItems: "center" }} className="nav-button">📖 Procedures</a>
           <button style={c.navBtn} className="nav-button" onClick={() => setView("volunteers")}>👥 Volunteers</button>
           <button style={c.navBtn} className="nav-button" onClick={() => setView("notices")}>📢 Notices{announcements.length > 0 ? ` (${announcements.length})` : ""}</button>
           <button style={c.navBtn} className="nav-button" onClick={() => { if (currentUserId) setView("myshifts"); else setShowIdentify(true); }}>📅 My Shifts</button>
