@@ -8,15 +8,15 @@
  * each other. Bump CACHE_VERSION whenever you change this file.
  */
 
-const CACHE_VERSION = 'pbh-hub-v1';
+const CACHE_VERSION = 'pbh-hub-v2';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline-hub.html';
 
 const PRECACHE = [
   OFFLINE_URL,
   '/manifest-hub.json',
-  '/icons/icon-192.png',
-  '/icons/icon-512.png',
+  '/icons/icon-hub-192.png',
+  '/icons/icon-hub-512.png',
 ];
 
 self.addEventListener('install', (event) => {
