@@ -53,6 +53,10 @@ export default function Home() {
   const [targetWeeks, setTargetWeeks]   = useState(6)
   const [view, setView]                 = useState('all')
   const [showDetails, setShowDetails]   = useState(false)
+  const [installPrompt, setInstallPrompt] = useState(null)   // captured beforeinstallprompt event
+  const [isStandalone, setIsStandalone]   = useState(false)   // already installed / running as PWA
+  const [isIos, setIsIos]                 = useState(false)
+  const [showIosInstall, setShowIosInstall] = useState(false)
 
   const [saving, setSaving]             = useState({})
   const [rundownItems, setRundownItems]   = useState({})
@@ -296,6 +300,47 @@ export default function Home() {
       window.removeEventListener('focus', refreshIfStale)
     }
   }, [loadItems])
+
+  // Install-app support: capture the browser's native install prompt (Chrome/Edge/
+  // Android), detect iOS (which has no beforeinstallprompt — needs manual
+  // "Add to Home Screen" instructions instead), and detect if we're already
+  // running installed so the Install button can hide itself.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const standalone = window.matchMedia?.('(display-mode: standalone)').matches || window.navigator.standalone === true
+    setIsStandalone(!!standalone)
+
+    const ua = window.navigator.userAgent || ''
+    setIsIos(/iPad|iPhone|iPod/.test(ua) && !window.MSStream)
+
+    const onBeforeInstallPrompt = (e) => {
+      e.preventDefault()
+      setInstallPrompt(e)
+    }
+    const onAppInstalled = () => {
+      setInstallPrompt(null)
+      setIsStandalone(true)
+    }
+    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+    window.addEventListener('appinstalled', onAppInstalled)
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', onAppInstalled)
+    }
+  }, [])
+
+  async function handleInstallClick() {
+    if (installPrompt) {
+      installPrompt.prompt()
+      try { await installPrompt.userChoice } catch {}
+      setInstallPrompt(null)
+      return
+    }
+    if (isIos) {
+      setShowIosInstall(true)
+    }
+  }
 
   useEffect(() => {
     fetch('/api/settings').then(r => r.json()).then(data => {
@@ -2398,6 +2443,30 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               {lastUpdated && <span style={{ fontSize: 11, color: '#94a3b8', fontFamily: "'IBM Plex Mono', monospace" }}>Updated {new Date(lastUpdated).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit' })}</span>}
+              {!isStandalone && (installPrompt || isIos) && (
+                <div style={{ position: 'relative' }}>
+                  <button
+                    style={{ ...styles.btn, padding: '7px 16px', fontSize: 12, background: '#0e7490', borderColor: '#0e7490', color: '#fff' }}
+                    onClick={handleInstallClick}
+                  >
+                    ⬇ Install App
+                  </button>
+                  {showIosInstall && (
+                    <>
+                      <div onClick={() => setShowIosInstall(false)} style={{ position: 'fixed', inset: 0, zIndex: 200 }} />
+                      <div style={{ position: 'absolute', top: '110%', right: 0, zIndex: 201, background: '#fff', color: '#0f172a', borderRadius: 10, boxShadow: '0 8px 30px rgba(0,0,0,0.25)', padding: '16px 18px', width: 260, fontSize: 13, lineHeight: 1.5 }}>
+                      <strong style={{ display: 'block', marginBottom: 6 }}>Install on iPhone/iPad</strong>
+                      1. Tap the <strong>Share</strong> icon in Safari<br />
+                      2. Scroll down and tap <strong>"Add to Home Screen"</strong><br />
+                      3. Tap <strong>Add</strong>
+                      <div style={{ marginTop: 10, textAlign: 'right' }}>
+                        <button onClick={() => setShowIosInstall(false)} style={{ background: 'none', border: 'none', color: '#0e7490', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>Got it</button>
+                      </div>
+                    </div>
+                    </>
+                  )}
+                </div>
+              )}
               <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
             </div>
           </div>
