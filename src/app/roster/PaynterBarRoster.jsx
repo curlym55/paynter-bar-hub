@@ -809,7 +809,7 @@ export default function PaynterBarRoster() {
   };
 
   const VolunteerForm = () => {
-    const [f, setF] = useState(editVol || { name: "", villa: "", email: "", rsa: false, dm: false, active: true });
+    const [f, setF] = useState(editVol || { name: "", villa: "", rsa: false, dm: false, active: true });
     const isSaving = savingStates['volunteer'];
     const fi = { width: "100%", padding: "8px", fontSize: 13, border: "2px solid #ddd", borderRadius: 8, outline: "none", boxSizing: "border-box" };
     const fl = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 3 };
@@ -820,9 +820,6 @@ export default function PaynterBarRoster() {
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
           <div style={{ flex: "1 1 180px" }}><label style={fl}>Name</label><input style={fi} value={f.name} onChange={e => setF({ ...f, name: e.target.value })} placeholder="Full name" /></div>
           <div style={{ flex: "0 0 100px" }}><label style={fl}>Villa</label><input style={fi} type="number" value={f.villa} onChange={e => setF({ ...f, villa: Number(e.target.value) })} placeholder="#" /></div>
-        </div>
-        <div style={{ marginBottom: 10 }}>
-          <label style={fl}>Email</label><input style={fi} type="email" value={f.email || ""} onChange={e => setF({ ...f, email: e.target.value })} placeholder="email@example.com" />
         </div>
         <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 12, fontSize: 13 }}>
           <label style={{ display: "flex", alignItems: "center", gap: 5, cursor: "pointer" }}><input type="checkbox" checked={f.rsa} onChange={e => setF({ ...f, rsa: e.target.checked })} />RSA</label>
@@ -1203,21 +1200,6 @@ export default function PaynterBarRoster() {
           <div style={c.nav}>
             <button style={c.navBtn} onClick={() => setView("roster")}>Back to Roster</button>
             {isAdmin && <button style={c.pBtn} onClick={() => { setEditVol(null); setShowVolForm(true); }}>+ Add Volunteer</button>}
-            {isAdmin && (() => {
-              const bccEmails = volunteers.filter(v => v.active && v.email).map(v => v.email).join(',');
-              return bccEmails ? (<>
-                <a href={`mailto:?cc=paynterbar@gemwoods.com.au&bcc=${encodeURIComponent(bccEmails)}&subject=${encodeURIComponent('Paynter Bar Volunteers')}`}
-                  style={{ ...c.pBtn, textDecoration: "none", display: "inline-block", background: "#388E3C" }}>
-                  ✉️ Email All
-                </a>
-                <button style={{ ...c.pBtn, background: "#1565C0" }} onClick={() => {
-                  const list = bccEmails.replace(/,/g, '; ');
-                  navigator.clipboard.writeText(list).then(() => showToast("BCC list copied to clipboard")).catch(() => {
-                    const ta = document.createElement('textarea'); ta.value = list; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta); showToast("BCC list copied to clipboard");
-                  });
-                }}>📋 Copy BCC</button>
-              </>) : null;
-            })()}
           </div>
         </div>
         <div style={c.container}>
@@ -1229,7 +1211,6 @@ export default function PaynterBarRoster() {
                 <div>
                   <div style={c.volName}>{v.name}</div>
                   <div style={c.volInfo}>Villa {v.villa}</div>
-                  {isAdmin && v.email && <div style={{ fontSize: 11, color: "#1a237e", marginTop: 1 }}><a href={`mailto:${v.email}`} style={{ color: "#1a237e", textDecoration: "none" }}>{v.email}</a></div>}
                   <div style={c.volBadges}>
                     {v.rsa && <span style={c.badge("#4CAF50")}>RSA</span>}
                     {v.dm && <span style={c.badge("#2196F3")}>DM</span>}
@@ -1254,7 +1235,6 @@ export default function PaynterBarRoster() {
                   <div>
                     <div style={c.volName}>{v.name}</div>
                     <div style={c.volInfo}>Villa {v.villa}</div>
-                    {isAdmin && v.email && <div style={{ fontSize: 11, color: "#1a237e", marginTop: 1 }}><a href={`mailto:${v.email}`} style={{ color: "#1a237e", textDecoration: "none" }}>{v.email}</a></div>}
                     <div style={c.volBadges}>
                       {v.rsa && <span style={c.badge("#4CAF50")}>RSA</span>}
                       {v.dm && <span style={c.badge("#2196F3")}>DM</span>}
@@ -1426,15 +1406,8 @@ export default function PaynterBarRoster() {
       { title: "👥 Managing Volunteers List", items: [
         "Tap 👥 Volunteers in the nav to see all volunteers",
         "In admin mode: Add, Edit, or Delete volunteers",
-        "Each volunteer has: Name, Villa, Email, RSA status, DM qualification, Active/Inactive",
-        "Email addresses are shown in admin mode and are clickable (opens mail client)",
+        "Each volunteer has: Name, Villa, RSA status, DM qualification, Active/Inactive",
         "Inactive volunteers are shown separately at the bottom"
-      ]},
-      { title: "✉️ Email All Volunteers", items: [
-        "In admin mode on the Volunteers page, tap the green '✉️ Email All' button",
-        "Opens your mail client with all active volunteer emails in BCC",
-        "CC is set to paynterbar@gemwoods.com.au",
-        "Subject line pre-filled as 'Paynter Bar Volunteers'"
       ]},
       { title: "👤 Volunteer Sign-In (Non-Admin)", items: [
         "Volunteers can sign in using the dropdown bar below the header",

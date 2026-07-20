@@ -53,7 +53,6 @@ export async function getVolunteers() {
     name: v.name,
     villa: v.villa,
     phone: v.phone,
-    email: v.email,
     rsa: v.rsa,
     dm: v.duty_manager,
     active: v.active

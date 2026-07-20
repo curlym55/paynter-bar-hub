@@ -68,14 +68,14 @@ export default async function handler(req, res) {
       case 'addVolunteer': {
         const v = payload
         const dbVolunteer = {
-          name: v.name, villa: v.villa, phone: v.phone, email: v.email,
+          name: v.name, villa: v.villa, phone: v.phone,
           rsa: v.rsa, duty_manager: v.dm, active: v.active,
         }
         const { data, error } = await supabase.from('volunteers').insert([dbVolunteer]).select().single()
         if (error) throw error
         return res.json({ result: {
           id: data.id, name: data.name, villa: data.villa, phone: data.phone,
-          email: data.email, rsa: data.rsa, dm: data.duty_manager, active: data.active,
+          rsa: data.rsa, dm: data.duty_manager, active: data.active,
         }})
       }
 
@@ -85,7 +85,6 @@ export default async function handler(req, res) {
         if (updates.name !== undefined) dbUpdates.name = updates.name
         if (updates.villa !== undefined) dbUpdates.villa = updates.villa
         if (updates.phone !== undefined) dbUpdates.phone = updates.phone
-        if (updates.email !== undefined) dbUpdates.email = updates.email
         if (updates.rsa !== undefined) dbUpdates.rsa = updates.rsa
         if (updates.dm !== undefined) dbUpdates.duty_manager = updates.dm
         if (updates.active !== undefined) dbUpdates.active = updates.active
@@ -93,7 +92,7 @@ export default async function handler(req, res) {
         if (error) throw error
         return res.json({ result: {
           id: data.id, name: data.name, villa: data.villa, phone: data.phone,
-          email: data.email, rsa: data.rsa, dm: data.duty_manager, active: data.active,
+          rsa: data.rsa, dm: data.duty_manager, active: data.active,
         }})
       }
 
