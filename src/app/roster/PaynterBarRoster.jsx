@@ -229,7 +229,6 @@ export default function PaynterBarRoster() {
   const [toasts, setToasts] = useState([]);
   const [savingStates, setSavingStates] = useState({});
   
-  const ADMIN_PIN = "3838";
 
   // Toast management
   const showToast = (message, type = 'success') => {
@@ -383,19 +382,34 @@ export default function PaynterBarRoster() {
       setPinError("");
     } else {
       setIsAdmin(false);
+      fetch("/api/roster/auth", { method: "DELETE" }).catch(() => {});
       showToast("Admin mode disabled");
     }
   };
 
-  const handlePinSubmit = () => {
-    if (pinInput === ADMIN_PIN) {
-      setIsAdmin(true);
-      setShowPinDialog(false);
-      setPinInput("");
-      setPinError("");
-      showToast("Admin mode enabled");
-    } else {
-      setPinError("Incorrect PIN");
+  const handlePinSubmit = async () => {
+    try {
+      const res = await fetch("/api/roster/auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: pinInput }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.ok) {
+        setIsAdmin(true);
+        setShowPinDialog(false);
+        setPinInput("");
+        setPinError("");
+        showToast("Admin mode enabled");
+      } else if (res.status === 429) {
+        setPinError(data.error || "Too many attempts — please wait 15 minutes.");
+        setPinInput("");
+      } else {
+        setPinError("Incorrect PIN");
+        setPinInput("");
+      }
+    } catch {
+      setPinError("Network error — try again");
       setPinInput("");
     }
   };
