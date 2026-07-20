@@ -104,13 +104,6 @@ export default async function handler(req, res) {
       }
 
       // ── SESSIONS ─────────────────────────────────────────────────────────
-      case 'generateSessionsForMonth': {
-        const { year, month } = payload
-        const { error } = await supabase.rpc('generate_monthly_sessions', { p_year: year, p_month: month })
-        if (error) throw error
-        return res.json({ result: true })
-      }
-
       case 'addExtraSession': {
         const session = payload
         const localDate = new Date(session.date)
