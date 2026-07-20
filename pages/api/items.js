@@ -24,7 +24,7 @@ const COST_FIELDS = ['buyPrice', 'supplier']
  * on every path (cache hit, fresh fetch, and the stale-cache fallback).
  */
 function sanitisePayload(payload, role) {
-  if (role === 'committee') return payload
+  if (role === 'bmt') return payload
 
   if (role === 'readonly') {
     return {
@@ -65,7 +65,7 @@ export default async function handler(req, res) {
   const role = session?.role ?? 'public'
 
   // Forcing a live Square refetch is a privileged, rate-limited operation.
-  if (req.query.refresh === 'true' && role !== 'committee') {
+  if (req.query.refresh === 'true' && role !== 'bmt') {
     return res.status(403).json({ error: 'Refresh requires management access.' })
   }
 

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   }
 
   let role = null
-  if (pin === PIN_COMMITTEE) role = 'committee'
+  if (pin === PIN_COMMITTEE) role = 'bmt'
   else if (pin === PIN_READONLY) role = 'readonly'
 
   if (!role) {

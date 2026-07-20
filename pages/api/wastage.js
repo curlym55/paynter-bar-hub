@@ -9,7 +9,7 @@ export default async function handler(req, res) {
       return res.json({ entries: log.sort((a, b) => b.date - a.date) })
     }
 
-    // GET is readable by any valid session; all writes require committee access.
+    // GET is readable by any valid session; all writes require BMT access.
     if (['POST', 'PUT', 'DELETE'].includes(req.method) && !requireAuth(req, res, { allowReadOnly: false })) return
 
     if (req.method === 'POST') {
