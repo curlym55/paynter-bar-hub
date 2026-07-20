@@ -619,6 +619,13 @@ export default function PaynterBarRoster() {
       console.log('Result from addExtraSessionDB:', added);
       if (added) {
         setSessions(prev => [...prev, added].sort((a, b) => a.date - b.date));
+        // Server-side addExtraSession un-deletes this date in the deleted_dates
+        // table if it was previously deleted, but the client's in-memory
+        // deletedDatesCache doesn't know that happened — without this, the
+        // date stays hidden by shouldSkipDate() until a full page reload.
+        const d = added.date;
+        const dStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+        deletedDatesCache = deletedDatesCache.filter(dd => dd !== dStr);
         showToast("Session added");
       } else {
         console.error('Failed to add session - addExtraSessionDB returned null/falsy');
@@ -1920,7 +1927,11 @@ function InlineNewDayForm({ onClose, onAdd, isSaving, initialDate = "", initialD
     if (!date) return;
     const [year, month, day] = date.split('-').map(Number);
     const d = new Date(year, month - 1, day, 0, 0, 0, 0);
-    const dow = initialDayType || ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
+    // Always derive the day-of-week from whichever date is actually in the
+    // form right now — never from initialDayType, which reflects whatever
+    // day the form happened to be opened from and goes stale the moment the
+    // date field is changed.
+    const dow = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"][d.getDay()];
     const finalName = eventName === "Other" ? customEvent.trim() : eventName;
     onAdd({
       date: d, dayType: dow, eventType: null, eventName: finalName,
