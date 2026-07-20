@@ -106,11 +106,10 @@ export default async function handler(req, res) {
       // ── SESSIONS ─────────────────────────────────────────────────────────
       case 'addExtraSession': {
         const session = payload
-        const localDate = new Date(session.date)
-        const y = localDate.getFullYear()
-        const m = String(localDate.getMonth() + 1).padStart(2, '0')
-        const d = String(localDate.getDate()).padStart(2, '0')
-        const dateStr = `${y}-${m}-${d}`
+        // dateStr is computed client-side (correct local timezone) and passed
+        // through as-is — no Date object reconstruction here, since this
+        // function runs in UTC on Vercel and would land on the wrong day.
+        const dateStr = session.dateStr
 
         await supabase.from('deleted_dates').delete().eq('date', dateStr)
 
