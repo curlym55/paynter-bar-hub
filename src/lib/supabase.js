@@ -24,6 +24,13 @@ async function rosterWrite(action, payload) {
     return null;
   }
   const { result } = await res.json();
+  // Session objects carry a `date` field that was a JS Date on the server —
+  // JSON has no Date type, so it crosses the wire as an ISO string. Re-hydrate
+  // it here so every caller still gets a real Date object, exactly as before
+  // when these functions talked to Supabase directly in the browser.
+  if (result && typeof result === 'object' && typeof result.date === 'string') {
+    result.date = new Date(result.date);
+  }
   return result;
 }
 
@@ -137,7 +144,15 @@ export async function getSessionsForMonth(year, month) {
 }
 
 export async function generateSessionsForMonth(year, month) {
-  await rosterWrite('generateSessionsForMonth', { year, month });
+  try {
+    await fetch('/api/roster/generate-sessions', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ year, month }),
+    });
+  } catch (e) {
+    console.error('generateSessionsForMonth:', e);
+  }
 }
 
 export async function addExtraSessionDB(session) {
