@@ -156,7 +156,17 @@ export async function generateSessionsForMonth(year, month) {
 }
 
 export async function addExtraSessionDB(session) {
-  return await rosterWrite('addExtraSession', session);
+  // Compute the calendar date string client-side (correct local timezone)
+  // before it ever crosses the network — JSON has no Date type, so sending
+  // a Date object and reconstructing it server-side is timezone-fragile
+  // (Vercel functions run in UTC, not Brisbane time, and would land on the
+  // wrong day for anything after 2pm local).
+  const localDate = new Date(session.date);
+  const year = localDate.getFullYear();
+  const month = String(localDate.getMonth() + 1).padStart(2, '0');
+  const day = String(localDate.getDate()).padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  return await rosterWrite('addExtraSession', { ...session, dateStr });
 }
 
 export async function deleteSessionDB(id) {
