@@ -3401,7 +3401,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {error && items.length === 0 && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
         {error && items.length > 0 && (
           <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', margin: '8px 20px', padding: '8px 14px', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-            ⚠️ Refresh failed — showing cached data. <button onClick={() => loadItems(true)} style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, background: 'none', border: '1px solid #d97706', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#92400e' }}>Retry</button>
+            ⚠️ {error === 'Refresh requires management access.' ? 'Log in for a live Square refresh' : error} — showing cached data. <button onClick={() => loadItems(true)} style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, background: 'none', border: '1px solid #d97706', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#92400e' }}>Retry</button>
           </div>
         )}
 
