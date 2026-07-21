@@ -54,10 +54,27 @@ async function loadSessionById(supabase, sessionId) {
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
-  if (!requireRosterAuth(req, res)) return
 
   const { action, payload } = req.body || {}
   if (!action) return res.status(400).json({ error: 'action required' })
+
+  // Some actions are genuine self-service — any volunteer who has identified
+  // themselves by name in the roster UI (no PIN at all) can sign themselves
+  // up/out of a session, or claim Duty Manager / Morning Clean on one. This
+  // mirrors the UI's own gating (currentUserId, not isAdmin) for these
+  // specific actions/fields. Everything else — editing a session's event
+  // details, volunteers, announcements, deleted dates — stays admin-only.
+  const SELF_SERVICE_ACTIONS = ['addVolunteerToSession', 'removeVolunteerFromSession']
+  const SELF_SERVICE_SESSION_FIELDS = ['dutyManager', 'morningClean', 'morningCleanOverride']
+
+  const isSelfServiceUpdateSession =
+    action === 'updateSession' &&
+    payload?.updates &&
+    Object.keys(payload.updates).every(k => SELF_SERVICE_SESSION_FIELDS.includes(k))
+
+  if (!SELF_SERVICE_ACTIONS.includes(action) && !isSelfServiceUpdateSession) {
+    if (!requireRosterAuth(req, res)) return
+  }
 
   const supabase = sb()
 
