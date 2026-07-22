@@ -1,6 +1,7 @@
 import { kvGet, kvSet } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
 import { requireAuth } from '../../lib/session'
+import { deleteFile } from '../../lib/onedrive'
 
 const SUPPLIER_ABBR = {
   'dan murphy':   'DAN',
@@ -184,6 +185,22 @@ export default async function handler(req, res) {
         else delete ordered[name]
       }
       await set('orderedItems', ordered)
+
+      // Best-effort: also remove the matching OneDrive PO file, if one was
+      // ever saved (save-po.js uses this exact folder/filename pattern).
+      // A missing/already-deleted file, or OneDrive being unavailable, must
+      // never block the actual order-record deletion above.
+      if (ref) {
+        try {
+          const safeSupplier = (supplier || 'Unknown').replace(/[^a-zA-Z0-9 ]/g, '').trim()
+          const filename = ref.replace(/\s/g, '_') + '-PO.xlsx'
+          const folder = 'POs Invoices and Receive Reports/Purchase Orders/' + safeSupplier
+          await deleteFile(folder, filename)
+        } catch (e) {
+          console.warn('[purchase-order] deleteOrder: could not remove OneDrive file:', e.message)
+        }
+      }
+
       return res.json({ ok: true, ordered })
     }
 
