@@ -1,6 +1,7 @@
 import { fetchSalesReport } from '../../lib/square'
 import { kvGet, kvSet } from '../../lib/redis'
 import { nowAEST, startOfDayAEST, endOfDayAEST } from '../../lib/timezone'
+import { getSession } from '../../lib/session'
 
 const CACHE_KEY = 'fyChartCache'
 
@@ -9,6 +10,15 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
   const forceRefresh = req.query.refresh === 'true'
+
+  // Forcing a live Square refetch is a privileged, rate-limited operation --
+  // same restriction items.js already applies to its own ?refresh=true.
+  if (forceRefresh) {
+    const session = getSession(req)
+    if (session?.role !== 'bmt') {
+      return res.status(403).json({ error: 'Refresh requires management access.' })
+    }
+  }
 
   if (!forceRefresh) {
     const cached = await kvGet(CACHE_KEY).catch(() => null)

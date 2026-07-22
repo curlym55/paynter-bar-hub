@@ -1,6 +1,6 @@
 import { kvGet, kvSet } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
-import { requireAuth } from '../../lib/session'
+import { requireAuth, getSession } from '../../lib/session'
 import { invalidateItemsCache } from '../../lib/cache'
 
 // ── Dual-read/write helpers ───────────────────────────────────────────────
@@ -28,6 +28,13 @@ async function set(key, value) {
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
+    // Buy prices, revenue targets, and vendor names are BMT-only data --
+    // require at least a logged-in session for any of this endpoint, and
+    // strip the sensitive fields below for non-BMT roles, mirroring the
+    // same pattern items.js already uses via sanitisePayload.
+    if (!requireAuth(req, res)) return
+    const session = getSession(req)
+    const isBmt = session?.role === 'bmt'
     try {
       if (req.query.action === 'getAudit') {
         const audit = (await get('settingsAudit', {}))
@@ -58,7 +65,27 @@ export default async function handler(req, res) {
       if (migrated) await set('itemSettings', settings)
       const fixedSuppliers = suppliers.map(s => s === 'Dan Murphys' ? 'Dan Murphy' : s)
       if (fixedSuppliers.some((s, i) => s !== suppliers[i])) await set('suppliers', fixedSuppliers)
-      res.status(200).json({ settings, targetWeeks, revenueTarget, suppliers: fixedSuppliers, supplierVendorNames })
+      if (isBmt) {
+        res.status(200).json({ settings, targetWeeks, revenueTarget, suppliers: fixedSuppliers, supplierVendorNames })
+      } else {
+        // Strip buy-price / per-item-supplier / revenue-target / vendor-name
+        // data for non-BMT sessions -- same class of cost data items.js
+        // already protects via sanitisePayload.
+        const sanitisedSettings = {}
+        for (const [itemNameKey, s] of Object.entries(settings)) {
+          const copy = { ...s }
+          delete copy.buyPrice
+          delete copy.supplier
+          sanitisedSettings[itemNameKey] = copy
+        }
+        res.status(200).json({
+          settings: sanitisedSettings,
+          targetWeeks,
+          revenueTarget: null,
+          suppliers: fixedSuppliers,
+          supplierVendorNames: {},
+        })
+      }
     } catch (err) {
       res.status(500).json({ error: err.message })
     }

@@ -3,14 +3,17 @@ import { persistGet, persistSet } from '../../lib/persist'
 
 export default async function handler(req, res) {
   try {
+    // GET is readable by any valid session; all writes require BMT access.
+    // (Auth is checked before the GET branch below runs, not after --
+    // previously GET returned data before this check was ever reached.)
+    if (req.method === 'GET' && !requireAuth(req, res)) return
+    if (['POST', 'PUT', 'DELETE'].includes(req.method) && !requireAuth(req, res, { allowReadOnly: false })) return
+
     const log = (await persistGet('wastageLog', []).catch(() => null)) || []
 
     if (req.method === 'GET') {
       return res.json({ entries: log.sort((a, b) => b.date - a.date) })
     }
-
-    // GET is readable by any valid session; all writes require BMT access.
-    if (['POST', 'PUT', 'DELETE'].includes(req.method) && !requireAuth(req, res, { allowReadOnly: false })) return
 
     if (req.method === 'POST') {
       // Bulk mark all unsynced entries as already synced (no Square API call)

@@ -1,4 +1,5 @@
 import { getLocationId, fetchSquareData } from '../../lib/square'
+import { requireAuth } from '../../lib/session'
 import { calculateItem } from '../../lib/calculations'
 
 const BASE_URL = 'https://connect.squareup.com/v2'
@@ -64,6 +65,7 @@ async function getAdjustmentsSince(token, locationId, afterISO) {
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
+  if (!requireAuth(req, res)) return
 
   const token = process.env.SQUARE_ACCESS_TOKEN
   if (!token) return res.status(500).json({ error: 'No Square token' })
