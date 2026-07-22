@@ -42,6 +42,12 @@ const THEMES = {
 export default function Home() {
   const [authed, setAuthed]             = useState(false)
   const [readOnly, setReadOnly]         = useState(false)
+  // readOnly (state) drives rendering; readOnlyRef mirrors it for code that
+  // needs the CURRENT value at some later async moment (e.g. inside a
+  // setTimeout callback scheduled on mount) rather than whatever value was
+  // in scope back when that code was scheduled -- state alone can't do that
+  // without the closure going stale.
+  const readOnlyRef = useRef(false)
   const [publicMode, setPublicMode]     = useState(false)
   const [pin, setPin]                   = useState('')
   const [pinError, setPinError]         = useState(false)
@@ -176,7 +182,10 @@ export default function Home() {
   useEffect(() => {
     if (sessionStorage.getItem('bar_authed') === 'yes') {
       setAuthed(true)
-      if (sessionStorage.getItem('bar_readonly') === 'yes') setReadOnly(true)
+      if (sessionStorage.getItem('bar_readonly') === 'yes') {
+        setReadOnly(true)
+        readOnlyRef.current = true
+      }
     }
     // Pinless public price list link — ?public=pricelist bypasses PIN as read-only
     if (typeof window !== 'undefined') {
@@ -184,6 +193,7 @@ export default function Home() {
       if (params.get('public') === 'pricelist') {
         setAuthed(true)
         setReadOnly(true)
+        readOnlyRef.current = true
         setMainTab('pricelist')
         setPublicMode(true)
       }
@@ -203,9 +213,11 @@ export default function Home() {
         if (data.readonly) {
           sessionStorage.setItem('bar_readonly', 'yes')
           setReadOnly(true)
+          readOnlyRef.current = true
         } else {
           sessionStorage.removeItem('bar_readonly')
           setReadOnly(false)
+          readOnlyRef.current = false
         }
         setAuthed(true)
         setPinError(false)
@@ -272,8 +284,17 @@ export default function Home() {
     loadItems(false)
     loadLastOrderSummary()
     loadDocuments()
-    // Auto-refresh from Square after initial cache load
-    setTimeout(() => loadItems(true), 1500)
+    // Auto-refresh from Square after initial cache load — only for BMT
+    // sessions, since /api/items rejects ?refresh=true for anyone else and
+    // a readonly/public viewer would otherwise see a permanent, misleading
+    // "log in" error banner they can't do anything about. Checked via the
+    // ref (not the `readOnly` state) because this callback fires 1.5s after
+    // scheduling — by schedule time, the session-restore effect for a
+    // returning session may not have run yet, so the `readOnly` state closed
+    // over here could still be the stale initial `false`; the ref is
+    // updated synchronously wherever the role actually gets determined, so
+    // it always reflects the true value by the time this fires.
+    setTimeout(() => { if (!readOnlyRef.current) loadItems(true) }, 1500)
   }, [loadItems])
 
   // On mobile, opening the Hub from the home-screen icon (or switching back to
@@ -286,6 +307,7 @@ export default function Home() {
     let lastAutoRefresh = Date.now()
     const MIN_INTERVAL = 20000 // 20s
     const refreshIfStale = () => {
+      if (readOnlyRef.current) return
       if (document.visibilityState !== 'visible') return
       const now = Date.now()
       if (now - lastAutoRefresh < MIN_INTERVAL) return
@@ -2467,7 +2489,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   )}
                 </div>
               )}
-              <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>
+              {!readOnly && <button style={{ ...styles.btn, ...(refreshing ? styles.btnDisabled : {}), padding: '7px 16px', fontSize: 12 }} onClick={() => { loadItems(true) }} disabled={refreshing}>{refreshing ? 'Refreshing...' : 'Refresh from Square'}</button>}
             </div>
           </div>
 
@@ -3401,7 +3423,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {error && items.length === 0 && <div style={styles.errorBox}><strong>Error:</strong> {error}</div>}
         {error && items.length > 0 && (
           <div style={{ background: '#fffbeb', border: '1px solid #fde68a', color: '#92400e', margin: '8px 20px', padding: '8px 14px', borderRadius: 6, fontSize: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
-            ⚠️ {error === 'Refresh requires management access.' ? 'Log in for a live Square refresh' : error} — showing cached data. <button onClick={() => loadItems(true)} style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, background: 'none', border: '1px solid #d97706', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#92400e' }}>Retry</button>
+            ⚠️ {error === 'Refresh requires management access.' ? (readOnly ? 'Live Square refresh needs management access' : 'Log in for a live Square refresh') : error} — showing cached data. {!readOnly && <button onClick={() => loadItems(true)} style={{ marginLeft: 4, fontSize: 11, fontWeight: 700, background: 'none', border: '1px solid #d97706', borderRadius: 4, padding: '2px 8px', cursor: 'pointer', color: '#92400e' }}>Retry</button>}
           </div>
         )}
 
