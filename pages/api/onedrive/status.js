@@ -1,7 +1,9 @@
 // pages/api/onedrive/status.js
 import { getAccessToken } from '../../../lib/onedrive'
+import { requireAuth } from '../../../lib/session'
 
 export default async function handler(req, res) {
+  if (!requireAuth(req, res)) return
   try {
     const token = await getAccessToken()
     // Quick test — fetch drive root metadata (very lightweight)

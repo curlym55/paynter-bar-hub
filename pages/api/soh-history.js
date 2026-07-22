@@ -10,6 +10,7 @@ const supabase = createClient(
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
+    if (!requireAuth(req, res)) return
     const { data, error } = await supabase
       .from('soh_reports')
       .select('id, report_date, generated_at, items_count, total_value, data')

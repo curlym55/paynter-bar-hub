@@ -75,6 +75,7 @@ async function getOrderedNormalized() {
 export default async function handler(req, res) {
   try {
   if (req.method === 'GET') {
+    if (!requireAuth(req, res)) return
     const { action } = req.query
     // Preview next PO number without incrementing
     if (action === 'previewNumber') {
