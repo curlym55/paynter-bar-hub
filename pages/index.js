@@ -4095,7 +4095,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
                     <button onClick={async () => {
                       setSettingsSaving(true)
-                      const r = await fetch('/api/admin/sync-to-supabase')
+                      const r = await fetch('/api/admin/sync-to-supabase', { method: 'POST' })
                       setSettingsSaving(false)
                       alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
                     }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
