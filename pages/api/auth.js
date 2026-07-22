@@ -1,5 +1,5 @@
 import { kvGet, kvSet } from '../../lib/redis'
-import { createSessionCookie } from '../../lib/session'
+import { createSessionCookie, safeCompare } from '../../lib/session'
 
 const MAX_ATTEMPTS   = 10
 const LOCKOUT_WINDOW = 15 * 60 // seconds
@@ -36,8 +36,8 @@ export default async function handler(req, res) {
   }
 
   let role = null
-  if (pin === PIN_COMMITTEE) role = 'bmt'
-  else if (pin === PIN_READONLY) role = 'readonly'
+  if (safeCompare(pin, PIN_COMMITTEE)) role = 'bmt'
+  else if (safeCompare(pin, PIN_READONLY)) role = 'readonly'
 
   if (!role) {
     await kvSet(attemptsKey, attempts + 1, LOCKOUT_WINDOW).catch(() => {})

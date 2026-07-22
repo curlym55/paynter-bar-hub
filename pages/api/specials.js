@@ -42,10 +42,19 @@ export default async function handler(req, res) {
     return res.status(200).json({ specials: enriched })
   }
 
+  // Allow-list matching the exact fields SpecialsView.jsx's form actually
+  // sends -- prevents an upsert body from writing arbitrary columns.
+  const SPECIAL_FIELDS = [
+    'name', 'price_override', 'description', 'square_item_id',
+    'square_image_id', 'photo_url', 'active', 'display_order',
+  ]
+
   if (req.method === 'POST') {
     const { action, special } = req.body
     if (action === 'upsert') {
-      const { id, ...fields } = special
+      const { id } = special
+      const fields = {}
+      for (const f of SPECIAL_FIELDS) if (special[f] !== undefined) fields[f] = special[f]
       let data, error
       if (id) {
         ({ data, error } = await supabase.from('specials').update(fields).eq('id', id).select())

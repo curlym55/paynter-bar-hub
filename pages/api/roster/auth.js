@@ -1,5 +1,6 @@
 import { kvGet, kvSet } from '../../../lib/redis'
 import { createRosterSessionCookie, clearRosterSessionCookie } from '../../../lib/rosterSession'
+import { safeCompare } from '../../../lib/session'
 
 const MAX_ATTEMPTS   = 10
 const LOCKOUT_WINDOW = 15 * 60 // seconds
@@ -38,7 +39,7 @@ export default async function handler(req, res) {
     return res.status(429).json({ ok: false, error: 'Too many attempts — please wait 15 minutes and try again.' })
   }
 
-  if (pin !== PIN_ROSTER_ADMIN) {
+  if (!safeCompare(pin, PIN_ROSTER_ADMIN)) {
     await kvSet(attemptsKey, attempts + 1, LOCKOUT_WINDOW).catch(() => {})
     return res.status(401).json({ ok: false })
   }

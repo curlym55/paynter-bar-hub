@@ -7,6 +7,16 @@ const sb = () => createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
 
+// Storage keys are built from client-supplied po_ref -- strip anything
+// that isn't alphanumeric/dash/underscore (not just whitespace) so it can
+// never inject a "/" or ".." into the path and collide with an unrelated
+// object key. Storage is key-based rather than filesystem-based, so this
+// isn't classic path traversal, but a stray "/" in po_ref could still let
+// one order's files land under a different folder than intended.
+function sanitiseRef(ref) {
+  return String(ref).replace(/[^a-zA-Z0-9_-]/g, '_')
+}
+
 async function uploadFile(client, path, buffer, mime) {
   const { error } = await client.storage.from('bar-documents').upload(path, buffer, { contentType: mime, upsert: true })
   if (error) throw new Error(error.message)
@@ -54,7 +64,7 @@ export default async function handler(req, res) {
       if (items?.length) {
         const csv = buildReceiveCsv({ reference: po_ref, receivedBy: 'Bar Manager', locationName: 'Paynter Bar', items })
         const buf = Buffer.from(csv, 'utf8')
-        receive_report_path = `receipts/${po_ref.replace(/\s/g, '_')}-Receipt.csv`
+        receive_report_path = `receipts/${sanitiseRef(po_ref)}-Receipt.csv`
         await uploadFile(client, receive_report_path, buf, 'text/csv')
       }
       await upsertDoc(client, po_ref, {
@@ -70,7 +80,7 @@ export default async function handler(req, res) {
     else if (action === 'invoice') {
       if (!file_base64 || !file_name) return res.status(400).json({ error: 'file required for invoice action' })
       const buffer = Buffer.from(file_base64, 'base64')
-      const invoice_path = `invoices/${po_ref.replace(/\s/g, '_')}-Invoice.${file_name.split('.').pop()}`
+      const invoice_path = `invoices/${sanitiseRef(po_ref)}-Invoice.${file_name.split('.').pop()}`
       await uploadFile(client, invoice_path, buffer, file_mime || 'application/octet-stream')
       await upsertDoc(client, po_ref, {
         invoice_path,
