@@ -160,7 +160,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     <th style={styles.th}>Item</th>
                     {showCat && <th style={styles.th}>Category</th>}
                     <th style={{ ...styles.th, textAlign: 'right' }}>Glasses</th>
-                    {hasBottles && <th style={{ ...styles.th, textAlign: 'right' }}>Bottles</th>}
+                    {hasBottles && <th style={{ ...styles.th, textAlign: 'right' }}>Bottles/Cans</th>}
                     {showComparison && <th style={{ ...styles.th, textAlign: 'right' }}>Prior Period</th>}
                     {showComparison && <th style={{ ...styles.th, textAlign: 'right' }}>Change</th>}
                     {hasRev && <th style={{ ...styles.th, textAlign: 'right', color: '#16a34a' }}>Revenue</th>}

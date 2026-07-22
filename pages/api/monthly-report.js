@@ -68,13 +68,18 @@ export default async function handler(req, res) {
       const s = settings[name] || {}
       const cur  = sold[name]     || { units: 0, revenue: 0 }
       const prev = prevSold[name] || { units: 0, revenue: 0 }
-      if (!cur.units && !prev.units) continue
+      // Combine units (glasses/nips) and bottles (whole packaged units --
+      // cans, bottles, piccolos, snacks) into one total for this report,
+      // which doesn't distinguish pour-vs-packaged like the Sales view does.
+      const curTotal  = (cur.units || 0) + (cur.bottles || 0)
+      const prevTotal = (prev.units || 0) + (prev.bottles || 0)
+      if (!curTotal && !prevTotal) continue
       itemRows.push({
         name,
         category: s.category || defaultCategory(name),
-        units:    cur.units || 0,
+        units:    curTotal,
         revenue:  +(cur.revenue || 0).toFixed(2),
-        prevUnits: prev.units || 0,
+        prevUnits: prevTotal,
         prevRevenue: +(prev.revenue || 0).toFixed(2),
       })
     }
