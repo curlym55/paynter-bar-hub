@@ -17,7 +17,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const filteredItems = report
     ? report.items
         .filter(i => category === 'All' || i.category === category)
-        .sort((a, b) => sort === 'revenue' ? ((b.revenue || 0) - (a.revenue || 0)) : (b.unitsSold - a.unitsSold))
+        .sort((a, b) => sort === 'revenue' ? ((b.revenue || 0) - (a.revenue || 0)) : ((b.unitsSold + (b.bottlesSold || 0)) - (a.unitsSold + (a.bottlesSold || 0))))
     : []
 
   const totals = filteredItems.reduce(
@@ -28,7 +28,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const hasRev     = report && report.items.some(i => i.revenue != null)
   const hasBottles = report && report.items.some(i => i.bottlesSold > 0)
   const showCat = category === 'All'
-  const soldItems = filteredItems.filter(i => i.unitsSold > 0)
+  const soldItems = filteredItems.filter(i => i.unitsSold > 0 || i.bottlesSold > 0)
   const avgTx = hasRev && totals.units > 0 ? (totals.rev / totals.units) : null
 
   return (
@@ -168,7 +168,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredItems.filter(i => i.unitsSold > 0 || i.prevSold > 0).map((item, idx) => (
+                  {filteredItems.filter(i => i.unitsSold > 0 || i.prevSold > 0 || i.bottlesSold > 0 || i.prevBottles > 0).map((item, idx) => (
                     <tr key={item.name} style={{ background: idx % 2 === 0 ? '#fff' : '#f8fafc' }}>
                       <td style={{ ...styles.td, textAlign: 'right', color: '#94a3b8', fontSize: 11 }}>{idx + 1}</td>
                       <td style={{ ...styles.td, fontWeight: 500 }}>{item.name}</td>

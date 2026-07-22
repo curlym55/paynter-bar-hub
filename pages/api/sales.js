@@ -47,8 +47,11 @@ export default async function handler(req, res) {
     const categories = {}
     for (const item of items) {
       if (!categories[item.category]) categories[item.category] = { unitsSold: 0, prevSold: 0, revenue: 0, prevRev: 0 }
-      categories[item.category].unitsSold += item.unitsSold
-      categories[item.category].prevSold  += item.prevSold
+      // Include bottlesSold/prevBottles in the category total quantity --
+      // otherwise categories dominated by cans/bottles (Beer, Cider, etc.)
+      // would show a total that ignores most of their actual sales.
+      categories[item.category].unitsSold += item.unitsSold + (item.bottlesSold || 0)
+      categories[item.category].prevSold  += item.prevSold + (item.prevBottles || 0)
       categories[item.category].revenue   += item.revenue || 0
       categories[item.category].prevRev   += item.prevRev || 0
     }
