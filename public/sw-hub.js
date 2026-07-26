@@ -8,7 +8,7 @@
  * each other. Bump CACHE_VERSION whenever you change this file.
  */
 
-const CACHE_VERSION = 'pbh-hub-v3';
+const CACHE_VERSION = 'pbh-hub-v4';
 const STATIC_CACHE = `${CACHE_VERSION}-static`;
 const OFFLINE_URL = '/offline-hub.html';
 
@@ -102,9 +102,15 @@ self.addEventListener('fetch', (event) => {
   }
 
   // Page navigations — network first, fall back to the offline page.
+  // cache: 'no-store' is critical here: without it, a returning mobile
+  // browser can serve a stale HTML shell from its own HTTP cache (a
+  // separate thing from this service worker's Cache Storage) referencing
+  // JS chunk filenames from a previous deploy that no longer exist on the
+  // server -- the chunks 404, React never mounts, and the result is a
+  // blank white screen with no visible error at all.
   if (request.mode === 'navigate') {
     event.respondWith(
-      fetch(request).catch(() =>
+      fetch(request, { cache: 'no-store' }).catch(() =>
         caches.match(OFFLINE_URL).then((cached) => cached || Response.error())
       )
     );

@@ -222,6 +222,19 @@ export default function Home() {
         setAuthed(true)
         setPinError(false)
         setPin('')
+        // The initial page load ran before login, so it only ever saw the
+        // heavily-stripped "public" view (no stock levels, no priority
+        // flags, no order data) -- items.js treats any request with no
+        // session cookie as role='public', same as the public price-list
+        // link. Without an explicit re-fetch here, the dashboard keeps
+        // showing that stale/misleading data (e.g. "0 critical") until a
+        // full page refresh happens to trigger a fresh load with the
+        // now-valid session cookie. A forced Square refresh is only
+        // allowed for BMT; read-only gets a plain (still session-scoped)
+        // reload instead. Same reasoning applies to supplier/vendor-name
+        // settings, fetched separately -- re-pull those too.
+        loadItems(!data.readonly)
+        loadSupplierSettings()
       } else {
         setPinError(true)
         setPin('')
@@ -364,11 +377,15 @@ export default function Home() {
     }
   }
 
-  useEffect(() => {
+  function loadSupplierSettings() {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.suppliers) setSuppliers(data.suppliers)
       if (data.supplierVendorNames) setSupplierVendorNames(data.supplierVendorNames || {})
     }).catch(() => {})
+  }
+
+  useEffect(() => {
+    loadSupplierSettings()
   }, [])
 
   async function loadLastOrderSummary() {
