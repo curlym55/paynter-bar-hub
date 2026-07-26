@@ -233,8 +233,15 @@ export default function Home() {
         // allowed for BMT; read-only gets a plain (still session-scoped)
         // reload instead. Same reasoning applies to supplier/vendor-name
         // settings, fetched separately -- re-pull those too.
-        loadItems(!data.readonly)
+        //
+        // Mirrors the normal mount-time pattern (cache first, then a quiet
+        // background refresh) rather than forcing BMT to stare at a
+        // blocking "Refreshing..." state right after entering their PIN --
+        // the session-scoped cached read is already correct, just not the
+        // freshest possible, and gets upgraded moments later.
+        loadItems(false)
         loadSupplierSettings()
+        if (!data.readonly) setTimeout(() => loadItems(true), 1500)
       } else {
         setPinError(true)
         setPin('')
