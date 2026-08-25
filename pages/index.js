@@ -170,6 +170,12 @@ export default function Home() {
   useEffect(() => { try { localStorage.setItem('hubTheme', hubTheme) } catch {} }, [hubTheme])
   const [wastageLoaded, setWastageLoaded] = useState(false)
   const [orderedItems, setOrderedItems]   = useState({})
+  // Bumped on every local orderedItems mutation (receive/place/add/update/delete).
+  // A slower in-flight background refresh (see refreshIfStale) checks this after
+  // its GET resolves and discards its result if a mutation happened meanwhile —
+  // otherwise a stale snapshot can overwrite a just-completed receive, making the
+  // Dashboard show a "live" Receive button for an order already sent to Square.
+  const orderedItemsEpochRef = useRef(0)
   const [orderAgainItems, setOrderAgainItems] = useState(new Set())
   const [orderWizard, setOrderWizard] = useState(null)  // null or { step:1-4, supplier, poRef, saving }
   const [orderMode, setOrderMode]     = useState('weekly') // 'weekly' | 'additional'
@@ -258,6 +264,7 @@ export default function Home() {
     try {
       const effectiveDays = days || daysBack
       const refreshParam = showRefresh ? '&refresh=true' : ''
+      const epochAtFetchStart = orderedItemsEpochRef.current
       const [r, ro, rundownRes] = await Promise.all([
         fetch(`/api/items?days=${effectiveDays}${refreshParam}`),
         fetch('/api/purchase-order'),
@@ -286,7 +293,11 @@ export default function Home() {
       setOrderQtyOverrides(overrides)
       if (ro.ok) {
         const od = await ro.json()
-        setOrderedItems(od.ordered || {})
+        // Discard if a mutation (receive/place/add/update/delete) already landed
+        // a fresher result while this GET was in flight.
+        if (orderedItemsEpochRef.current === epochAtFetchStart) {
+          setOrderedItems(od.ordered || {})
+        }
       }
 
 
@@ -528,6 +539,7 @@ export default function Home() {
       })
       const d = await r.json()
       if (d.ok) {
+        orderedItemsEpochRef.current += 1
         setOrderedItems(d.ordered)
         setOrderQtyOverrides(prev => {
           const next = { ...prev }
@@ -778,6 +790,7 @@ export default function Home() {
       })
       const d = await r.json()
       if (d.ok) {
+        orderedItemsEpochRef.current += 1
         setOrderedItems(d.ordered)
         alert(`Imported ${items.length} items for ${supplierMatch} as ON ORDER`)
       } else {
@@ -2974,6 +2987,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               setOrderWizard(prev => ({ ...prev, saving: false, saveError: d.error || 'Failed to save order — please try again.' }))
                               return
                             }
+                            orderedItemsEpochRef.current += 1
                             setOrderedItems(d.ordered)
                             // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
@@ -4596,7 +4610,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             const r = await fetch('/api/purchase-order', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ action:'updateItem', itemName: item.name, orderQty: newQty, ref: viewOrderModal.ref }) })
                             const d = await r.json()
-                            if (d.ok) { setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref) }
+                            if (d.ok) { orderedItemsEpochRef.current += 1; setOrderedItems(d.ordered); setViewOrderModal(prev => ({ ...prev, items: prev.items.map(it => it.name === item.name ? { ...it, orderQty: newQty } : it) })); resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref) }
                           }} />
                       ) : (
                         <span style={{ fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600 }}>{item.orderQty}</span>
@@ -4611,6 +4625,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             body: JSON.stringify({ action:'deleteItem', itemName: item.name, ref: viewOrderModal.ref }) })
                           const d = await r.json()
                           if (d.ok) {
+                            orderedItemsEpochRef.current += 1
                             setOrderedItems(d.ordered)
                             const remaining = viewOrderModal.items.filter(it => it.name !== item.name)
                             if (!remaining.length) setViewOrderModal(null)
@@ -4671,6 +4686,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             bottlesToOrder: item.isSpirit ? qty : null }) })
                         const d = await r.json()
                         if (d.ok) {
+                          orderedItemsEpochRef.current += 1
                           setOrderedItems(d.ordered)
                           setViewOrderModal(prev => ({ ...prev, items: [...prev.items, { name, orderQty: finalQty, isSpirit: item.isSpirit || false, bottleML: item.bottleML, nipML: item.nipML }] }))
                           resavePO(viewOrderModal.supplier, d.ordered, viewOrderModal.ref)
@@ -4694,6 +4710,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     body: JSON.stringify({ action:'deleteOrder', supplier: viewOrderModal.supplier, ref: viewOrderModal.ref }) })
                   const d = await r.json()
                   if (d.ok) {
+                    orderedItemsEpochRef.current += 1
                     setOrderedItems(d.ordered)
                     setViewOrderModal(null)
                     // Also remove the matching bar_documents record so it doesn't appear in PO Documents
