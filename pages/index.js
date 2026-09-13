@@ -2637,8 +2637,13 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               const baseSupItems = orderBySup[activeSup] || []
               // Also include any manually added items (in wizQtys but not in baseSupItems)
               const baseNames = new Set(baseSupItems.map(i => i.name))
+              // Scoped to items added specifically for activeSup (via wiz._addedItems,
+              // set when "+ Add item" is used below) rather than the item's own catalog
+              // supplier — this is what lets e.g. tonic water (catalog supplier: Coles)
+              // be added to a Dan Murphy order, while keeping it out of Coles' own order
+              // if the wizard's supplier dropdown gets switched mid-session.
               const addedSupItems = items.filter(i =>
-                i.supplier === activeSup &&
+                wiz._addedItems?.[i.name] === activeSup &&
                 !baseNames.has(i.name) &&
                 wizQtys[i.name] != null &&
                 wizQtys[i.name] > 0
@@ -2829,7 +2834,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   const nipsPerBottle = item.isSpirit ? Math.round((item.bottleML || 700) / (item.nipML || 30)) : null
                                   const finalQty = item.isSpirit ? qty * nipsPerBottle : qty
                                   setWizQtys(prev => ({ ...prev, [name]: finalQty }))
-                                  setOrderWizard(prev => ({ ...prev, _addedItems: { ...(prev._addedItems || {}), [name]: true } }))
+                                  setOrderWizard(prev => ({ ...prev, _addedItems: { ...(prev._addedItems || {}), [name]: activeSup } }))
                                   if (sel) sel.value = ''
                                   if (qtyEl) qtyEl.value = '1'
                                   const unitEl = document.getElementById('wiz-add-unit')
