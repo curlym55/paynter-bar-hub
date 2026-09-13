@@ -18,7 +18,10 @@ import {
   addAnnouncement,
   updateAnnouncement,
   deleteAnnouncementDB,
-  getAllSessions
+  getAllSessions,
+  getRosterSettings,
+  saveRosterSettings,
+  changeRosterPin
 } from '../../lib/supabase';
 
 // FIX: Don't evaluate IS_LIVE at module level for state initialization
@@ -1355,6 +1358,10 @@ export default function PaynterBarRoster() {
     );
   }
 
+  if (view === "settings") {
+    return <RosterSettingsView styles={c} showToast={showToast} onBack={() => setView("roster")} />;
+  }
+
   if (view === "instructions") {
     const sections = [
       { title: "🔧 Enabling Admin Mode", items: [
@@ -1714,6 +1721,7 @@ export default function PaynterBarRoster() {
           </button>
           {isAdmin && <button style={c.navBtn} className="nav-button" onClick={() => setView("instructions")}>❓ Help</button>}
           {isAdmin && <button style={c.navBtn} className="nav-button" onClick={() => setView("stats")}>📊 Stats</button>}
+          {isAdmin && <button style={c.navBtn} className="nav-button" onClick={() => setView("settings")}>⚙️ Settings</button>}
           {isAdmin && <button style={{ ...c.navBtn, background: "#388E3C", color: "white" }} className="nav-button" onClick={() => {
             const data = { exportDate: new Date().toISOString(), volunteers, sessions: sessions.map(s => ({ ...s, date: s.date.toISOString().split('T')[0] })), announcements };
             const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
@@ -1957,6 +1965,218 @@ function InlineNewDayForm({ onClose, onAdd, isSaving, initialDate = "", initialD
         <button style={{ background: "#1a237e", color: "white", border: "none", borderRadius: 10, padding: "6px 18px", fontSize: 13, fontWeight: 700, cursor: "pointer", opacity: isSaving ? 0.7 : 1 }} onClick={handleAdd} disabled={!date || isSaving}>
           {isSaving ? "Adding..." : "Add Shift"}
         </button>
+      </div>
+    </div>
+  );
+}
+
+// ─── Admin ▸ Settings View ─────────────────────────
+// Lets a non-technical admin configure which weekdays the bar opens (and at
+// what default time), define recurring named nights (Trivia, Bingo, fixed
+// annual dates like Australia Day), and change their own admin PIN — all
+// without ever needing Vercel or Supabase dashboard access. Backed by
+// roster_settings + roster_recurring_events (see
+// docs/roster-schedule-settings-migration.sql) via pages/api/roster/
+// settings.js and pages/api/roster/pin.js.
+function RosterSettingsView({ styles: c, showToast, onBack }) {
+  const [loading, setLoading] = useState(true);
+  const [days, setDays] = useState({});
+  const [events, setEvents] = useState([]);
+  const [saving, setSaving] = useState(false);
+
+  const [pinCurrent, setPinCurrent] = useState("");
+  const [pinNew, setPinNew] = useState("");
+  const [pinConfirm, setPinConfirm] = useState("");
+  const [pinSaving, setPinSaving] = useState(false);
+  const [pinMsg, setPinMsg] = useState("");
+
+  const WEEKDAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+  useEffect(() => {
+    getRosterSettings().then(({ days, events }) => {
+      setDays(days || {});
+      setEvents((events || []).map(e => ({ ...e })));
+      setLoading(false);
+    });
+  }, []);
+
+  const toggleDay = (dow) => {
+    setDays(prev => {
+      const existing = prev[dow];
+      if (existing?.enabled) return { ...prev, [dow]: { ...existing, enabled: false } };
+      return { ...prev, [dow]: { enabled: true, time: existing?.time || "4:30 - 6:30" } };
+    });
+  };
+
+  const setDayTime = (dow, time) => {
+    setDays(prev => ({ ...prev, [dow]: { ...prev[dow], time } }));
+  };
+
+  const addEvent = () => {
+    setEvents(prev => [...prev, { label: "", weekday: 3, occurrence: "1", fixed_date: "", time_slot: "", icon: "", color: "#9C27B0" }]);
+  };
+
+  const updateEvent = (idx, patch) => {
+    setEvents(prev => prev.map((e, i) => i === idx ? { ...e, ...patch } : e));
+  };
+
+  const removeEvent = (idx) => {
+    setEvents(prev => prev.filter((_, i) => i !== idx));
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    const cleanEvents = events.filter(e => e.label.trim());
+    const ok = await saveRosterSettings(days, cleanEvents);
+    setSaving(false);
+    showToast(ok ? "Schedule settings saved" : "Failed to save settings", ok ? "success" : "error");
+  };
+
+  const handlePinChange = async () => {
+    setPinMsg("");
+    if (!/^\d{4,8}$/.test(pinNew)) { setPinMsg("New PIN must be 4-8 digits"); return; }
+    if (pinNew !== pinConfirm) { setPinMsg("New PIN and confirmation don't match"); return; }
+    setPinSaving(true);
+    const { ok, error } = await changeRosterPin(pinCurrent, pinNew);
+    setPinSaving(false);
+    if (ok) {
+      setPinCurrent(""); setPinNew(""); setPinConfirm("");
+      showToast("Admin PIN updated");
+    } else {
+      setPinMsg(error || "Failed to change PIN");
+    }
+  };
+
+  const fi = { width: "100%", padding: "8px", fontSize: 13, border: "2px solid #ddd", borderRadius: 8, outline: "none", boxSizing: "border-box" };
+  const fl = { display: "block", fontSize: 12, fontWeight: 600, color: "#555", marginBottom: 3 };
+
+  if (loading) {
+    return (
+      <div style={c.page}>
+        <div style={c.container}><div style={{ textAlign: "center", padding: 60, color: "#666" }}>Loading settings...</div></div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={c.page}>
+      <div style={c.header}>
+        <div style={c.logo}>⚙️ Schedule Settings</div>
+        <div style={c.nav}>
+          <button style={c.navBtn} onClick={onBack}>Back to Roster</button>
+        </div>
+      </div>
+      <div style={c.container}>
+
+        <div style={{ background: "white", borderRadius: 12, padding: 16, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a237e", marginBottom: 4 }}>Bar Opening Days</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>Turn on the weekdays your bar runs, and set a default shift time for each.</div>
+          {WEEKDAYS.map((name, dow) => {
+            const cfg = days[String(dow)];
+            const enabled = !!cfg?.enabled;
+            const [startT, endT] = (cfg?.time || "4:30 - 6:30").split(/\s*-\s*/);
+            return (
+              <div key={dow} style={{ display: "flex", alignItems: "center", gap: 12, padding: "8px 0", borderBottom: dow < 6 ? "1px solid #f0f0f0" : "none", flexWrap: "wrap" }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 140, cursor: "pointer" }}>
+                  <input type="checkbox" checked={enabled} onChange={() => toggleDay(String(dow))} />
+                  <span style={{ fontSize: 14, fontWeight: 600, color: "#333" }}>{name}</span>
+                </label>
+                {enabled && (
+                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                    <select style={{ ...fi, width: "auto" }} value={startT} onChange={e => setDayTime(String(dow), `${e.target.value} - ${endT}`)}>
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                    <span style={{ fontSize: 12, color: "#888" }}>to</span>
+                    <select style={{ ...fi, width: "auto" }} value={endT} onChange={e => setDayTime(String(dow), `${startT} - ${e.target.value}`)}>
+                      {TIME_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        <div style={{ background: "white", borderRadius: 12, padding: 16, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a237e", marginBottom: 4 }}>Recurring Events</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>
+            Named nights like Trivia or Bingo. Either pick a weekday + which occurrence in the month (e.g. "last Wednesday"), or a fixed date every year (e.g. Australia Day).
+          </div>
+          {events.map((ev, idx) => (
+            <div key={idx} style={{ border: "1px solid #eee", borderRadius: 8, padding: 12, marginBottom: 10 }}>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 8 }}>
+                <div style={{ flex: "1 1 160px" }}>
+                  <label style={fl}>Name</label>
+                  <input style={fi} value={ev.label} onChange={e => updateEvent(idx, { label: e.target.value })} placeholder="e.g. Trivia Night" />
+                </div>
+                <div style={{ flex: "0 0 60px" }}>
+                  <label style={fl}>Icon</label>
+                  <input style={fi} value={ev.icon || ""} onChange={e => updateEvent(idx, { icon: e.target.value })} placeholder="🧠" />
+                </div>
+                <div style={{ flex: "0 0 90px" }}>
+                  <label style={fl}>Colour</label>
+                  <input type="color" style={{ ...fi, padding: 2, height: 34 }} value={ev.color || "#9C27B0"} onChange={e => updateEvent(idx, { color: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: "flex", gap: 16, flexWrap: "wrap", marginBottom: 8, fontSize: 13 }}>
+                <label style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <input type="radio" name={`evtype-${idx}`} checked={!ev.fixed_date} onChange={() => updateEvent(idx, { fixed_date: "" })} />
+                  Weekday pattern
+                </label>
+                <label style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                  <input type="radio" name={`evtype-${idx}`} checked={!!ev.fixed_date} onChange={() => updateEvent(idx, { fixed_date: ev.fixed_date || "01-01" })} />
+                  Fixed date every year
+                </label>
+              </div>
+              {!ev.fixed_date ? (
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                  <select style={{ ...fi, width: "auto" }} value={ev.weekday ?? 3} onChange={e => updateEvent(idx, { weekday: Number(e.target.value) })}>
+                    {WEEKDAYS.map((name, i) => <option key={i} value={i}>{name}</option>)}
+                  </select>
+                  <select style={{ ...fi, width: "auto" }} value={ev.occurrence || "1"} onChange={e => updateEvent(idx, { occurrence: e.target.value })}>
+                    <option value="1">1st</option>
+                    <option value="2">2nd</option>
+                    <option value="3">3rd</option>
+                    <option value="4">4th</option>
+                    <option value="last">Last</option>
+                  </select>
+                  <span style={{ fontSize: 12, color: "#888" }}>of the month</span>
+                </div>
+              ) : (
+                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                  <span style={{ fontSize: 12, color: "#888" }}>Every year on</span>
+                  <input type="text" style={{ ...fi, width: 100 }} placeholder="MM-DD" value={ev.fixed_date}
+                    onChange={e => updateEvent(idx, { fixed_date: e.target.value })} />
+                </div>
+              )}
+              <div style={{ marginTop: 10, display: "flex", justifyContent: "flex-end" }}>
+                <button style={c.smBtn("#d32f2f")} onClick={() => removeEvent(idx)}>Remove</button>
+              </div>
+            </div>
+          ))}
+          <button style={c.navBtn} onClick={addEvent}>+ Add Event</button>
+        </div>
+
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 24 }}>
+          <button style={{ ...c.pBtn, padding: "10px 24px", opacity: saving ? 0.7 : 1 }} onClick={handleSave} disabled={saving}>
+            {saving ? "Saving..." : "Save Schedule Settings"}
+          </button>
+        </div>
+
+        <div style={{ background: "white", borderRadius: 12, padding: 16, marginBottom: 16, boxShadow: "0 2px 8px rgba(0,0,0,0.06)" }}>
+          <div style={{ fontSize: 16, fontWeight: 700, color: "#1a237e", marginBottom: 4 }}>Change Admin PIN</div>
+          <div style={{ fontSize: 12, color: "#888", marginBottom: 12 }}>Change the PIN used to unlock Admin mode. You'll need your current PIN.</div>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginBottom: 10 }}>
+            <div style={{ flex: "1 1 120px" }}><label style={fl}>Current PIN</label><input type="password" style={fi} value={pinCurrent} onChange={e => setPinCurrent(e.target.value)} /></div>
+            <div style={{ flex: "1 1 120px" }}><label style={fl}>New PIN</label><input type="password" style={fi} value={pinNew} onChange={e => setPinNew(e.target.value)} /></div>
+            <div style={{ flex: "1 1 120px" }}><label style={fl}>Confirm New PIN</label><input type="password" style={fi} value={pinConfirm} onChange={e => setPinConfirm(e.target.value)} /></div>
+          </div>
+          {pinMsg && <div style={{ color: "#d32f2f", fontSize: 12, marginBottom: 8 }}>{pinMsg}</div>}
+          <button style={{ ...c.pBtn, opacity: pinSaving ? 0.7 : 1 }} onClick={handlePinChange} disabled={pinSaving || !pinCurrent || !pinNew || !pinConfirm}>
+            {pinSaving ? "Updating..." : "Update PIN"}
+          </button>
+        </div>
+
       </div>
     </div>
   );

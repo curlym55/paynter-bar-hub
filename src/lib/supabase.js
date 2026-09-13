@@ -253,6 +253,40 @@ export async function deleteAnnouncementDB(id) {
 }
 
 
+// ========================================
+// SCHEDULE SETTINGS (Admin ▸ Settings)
+// ========================================
+
+export async function getRosterSettings() {
+  try {
+    const res = await fetch('/api/roster/settings');
+    if (!res.ok) return { days: {}, events: [] };
+    return await res.json();
+  } catch {
+    return { days: {}, events: [] };
+  }
+}
+
+export async function saveRosterSettings(days, events) {
+  const res = await fetch('/api/roster/settings', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days, events }),
+  }).catch(() => null);
+  return !!res?.ok;
+}
+
+export async function changeRosterPin(currentPin, newPin) {
+  const res = await fetch('/api/roster/pin', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ currentPin, newPin }),
+  }).catch(() => null);
+  if (!res) return { ok: false, error: 'Network error — try again' };
+  const data = await res.json().catch(() => ({}));
+  return { ok: res.ok && data.ok, error: data.error };
+}
+
 export async function getAllSessions() {
   if (!supabase) return [];
 

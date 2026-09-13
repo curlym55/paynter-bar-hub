@@ -2780,8 +2780,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         {/* Add extra item not flagged for ordering */}
                         {(() => {
                           const alreadyInList = new Set(supItems.map(i => i.name))
+                          // Not restricted to this order's usual supplier — this dropdown is
+                          // explicitly for adding something extra/unusual (e.g. an item also
+                          // available from a different supplier), so it searches the full
+                          // catalog rather than just items tagged for this supplier.
                           const addableItems = items.filter(i =>
-                            i.supplier === activeSup &&
                             !alreadyInList.has(i.name) &&
                             !rundownItems[i.name]
                           )
@@ -2807,7 +2810,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                   style={{ flex:1, minWidth:180, padding:'6px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:12, color:'#374151' }}>
                                   <option value="">Select item…</option>
                                   {addableItems.map(i => (
-                                    <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
+                                    <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} — usually {i.supplier || 'no supplier set'} (on hand: {i.onHand ?? 0})</option>
                                   ))}
                                 </select>
                                 <input type="number" inputMode="numeric" id="wiz-add-qty" min={1} defaultValue={1}
@@ -4643,8 +4646,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
               {/* Add item to existing order */}
               {!readOnly && (() => {
                 const existingNames = new Set(viewOrderModal.items.map(i => i.name))
+                // Not restricted to this order's usual supplier, for the same reason as
+                // the Order Wizard's add-item dropdown above — lets you add e.g. tonic
+                // water to a Dan Murphy order even though its catalog supplier is Coles.
                 const addable = items.filter(i =>
-                  i.supplier === viewOrderModal.supplier &&
                   !existingNames.has(i.name) &&
                   !rundownItems[i.name]
                 )
@@ -4664,7 +4669,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         }}>
                         <option value="">Select item…</option>
                         {addable.map(i => (
-                          <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} (on hand: {i.onHand ?? 0})</option>
+                          <option key={i.name} value={i.name}>{i.name}{i.isSpirit ? ' 🥃' : ''} — usually {i.supplier || 'no supplier set'} (on hand: {i.onHand ?? 0})</option>
                         ))}
                       </select>
                       <input type="number" inputMode="numeric" id="vom-add-qty" min={1} defaultValue={1}

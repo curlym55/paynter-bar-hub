@@ -28,3 +28,6 @@ yarn-error.log*
 # OS
 .DS_Store
 Thumbs.db
+# Claude build-verification scratch logs
+build_*.txt
+full_build_log.txt
