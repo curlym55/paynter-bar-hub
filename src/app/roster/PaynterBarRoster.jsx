@@ -1370,6 +1370,13 @@ export default function PaynterBarRoster() {
         "Tap 🔧 Admin ON again to disable admin mode",
         "Admin features are only visible while admin mode is active"
       ]},
+      { title: "⚙️ Schedule Settings", items: [
+        "In admin mode, tap ⚙️ Settings in the top nav bar",
+        "Bar Opening Days — turn weekdays on/off and set a default shift time for each",
+        "Recurring Events — add named nights like Trivia or Bingo, either on a weekday pattern (e.g. \"last Wednesday\") or a fixed date every year (e.g. Australia Day)",
+        "Changes here affect which sessions get auto-created going forward — past sessions are never rewritten",
+        "Change Admin PIN — set a new PIN here any time, no Vercel or Supabase access needed. You'll need to enter the current PIN first"
+      ]},
       { title: "📋 Session Cards (Roster View)", items: [
         "Each card shows a bar session with date, time, volunteers and duty manager",
         "Colour coding: Green = Wednesday, Orange = Friday, Blue = Sunday, Purple = Special Event",

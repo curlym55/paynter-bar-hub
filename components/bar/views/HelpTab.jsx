@@ -70,7 +70,7 @@ export default function HelpTab() {
           <STEP n="3" title="Step 1 — Select supplier and review quantities">
             Choose the supplier from the dropdown. The wizard shows all items for that supplier that need ordering with suggested quantities pre-filled.<br /><br />
             <strong>Adjust quantities</strong> if needed — set to 0 to remove an item. For spirits, quantities are in <strong>nips</strong> (the bottle count shown alongside is for reference).<br /><br />
-            Use <strong>+ Add item not flagged for ordering</strong> at the bottom to include any item not at its threshold. For spirits, enter bottles — the wizard converts to nips automatically.
+            Use <strong>+ Add item not flagged for ordering</strong> at the bottom to include any item not at its threshold — this searches the <strong>full item catalog</strong>, not just items normally supplied by whoever you're ordering from, so you can add something like Tonic Water to a Dan Murphy order even though it's usually bought from Coles. Each option shows its usual supplier for reference. For spirits, enter bottles — the wizard converts to nips automatically.
           </STEP>
 
           <STEP n="4" title="Step 2 — Place the order with the supplier then confirm quantities">
@@ -95,7 +95,7 @@ export default function HelpTab() {
             Once placed, open the <strong>View Order</strong> modal from the Dashboard on-order banner, the On Order stat card on the Dashboard, or the On Order count in the Stock Items toolbar. From here you can:
             <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
               <li>Edit individual item quantities</li>
-              <li><strong>Add forgotten items</strong> using the + Add item to this order section at the bottom (spirits enter quantity in bottles, converts to nips automatically)</li>
+              <li><strong>Add forgotten items</strong> using the + Add item to this order section at the bottom — like the wizard, this searches the full catalog so you can add an item normally bought from a different supplier (spirits enter quantity in bottles, converts to nips automatically)</li>
               <li>Remove items with 🗑 Remove</li>
               <li>Delete the whole order with 🗑 Delete Whole Order</li>
               <li>Click <strong>📋 Delivery List</strong> to print a checklist showing ordered quantities in nips and bottles</li>
