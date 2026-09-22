@@ -4594,11 +4594,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         if (odData.webUrl) {
                                           await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
                                         }
-                                        if (file.type==='application/pdf'||file.name.toLowerCase().endsWith('.pdf')) {
-                                          const dateStr = new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
-                                          fetch('/api/invoices/extract',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pdf_base64:base64})})
-                                            .then(r=>r.ok?r.json():null).then(d=>{if(!d?.items?.length)return;fetch('/api/invoices/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({supplier:doc.supplier,invoice_ref:d.invoice_ref||poRef,invoice_date:d.invoice_date||dateStr,gst_included:defaultGstIncluded(doc.supplier,d.gst_included),items:d.items.map(i=>({...i,include:true,item_name_hub:i.item_name_raw}))})}).catch(()=>null)}).catch(()=>null)
-                                        }
+                                        // Shared helper — includes the Haiku name-matching step this path
+                                        // used to skip, so rows now land against the right Hub item
+                                        // instead of raw supplier names. Deliberately not awaited.
+                                        extractInvoicePrices({ base64, fileName: file.name, mimeType: file.type, supplier: doc.supplier, poRef })
                                         // loadDocuments AFTER all saves complete so OneDrive URL is reflected
                                         await loadDocuments()
                                       } finally { setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false })) }
