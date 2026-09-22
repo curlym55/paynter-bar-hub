@@ -4769,17 +4769,25 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier:viewOrderModal.supplier }) }).catch(()=>null)
                             const odData = odRes ? await odRes.json().catch(()=>({})) : {}
                             if (odData.webUrl) {
-                              fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                              // Awaited and verified — this used to be fire-and-forget, so a save
+                              // that failed (or got cut off by the app closing right after) would
+                              // leave the invoice sitting on OneDrive with nothing in Supabase
+                              // linking it to this order, and "already attached" would silently
+                              // stay wrong until someone noticed at receive time.
+                              const saveRes = await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                                 body: JSON.stringify({ action:'update_urls', po_ref:viewOrderModal.ref, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
-                              // If no local document record exists yet for this po_ref, .map() would
-                              // silently match nothing and the "already attached" check would stay
-                              // stale until a manual refresh. Append a new entry in that case instead.
-                              setDocuments(prev => {
-                                const exists = prev.some(d => d.po_ref === viewOrderModal.ref)
-                                return exists
-                                  ? prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl, invoice_path: 'saved' } : d)
-                                  : [...prev, { po_ref: viewOrderModal.ref, invoice_onedrive_url: odData.webUrl, invoice_path: 'saved' }]
-                              })
+                              if (saveRes?.ok) {
+                                setDocuments(prev => {
+                                  const exists = prev.some(d => d.po_ref === viewOrderModal.ref)
+                                  return exists
+                                    ? prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl } : d)
+                                    : [...prev, { po_ref: viewOrderModal.ref, invoice_onedrive_url: odData.webUrl }]
+                                })
+                              } else {
+                                alert('The invoice saved to OneDrive but linking it to this order failed — try attaching it again.')
+                              }
+                            } else {
+                              alert('Failed to save the invoice to OneDrive — try again.')
                             }
                           }} />
                         <span style={{ fontSize:12, color:'#3b82f6', textDecoration:'underline' }}>📎 Attach invoice…</span>

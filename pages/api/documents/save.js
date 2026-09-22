@@ -32,7 +32,13 @@ async function upsertDoc(client, po_ref, updates) {
     const { error } = await client.from('bar_documents').update({ ...updates, updated_at: new Date().toISOString() }).eq('id', existing.id)
     if (error) throw new Error(error.message)
   } else {
-    const { error } = await client.from('bar_documents').insert({ po_ref, ...updates })
+    // Always set updated_at explicitly on insert too — documents/list.js now
+    // orders by updated_at, and relying on a column default (or leaving it
+    // null until the first later update) would put every brand-new record
+    // at the very top via NULLS FIRST on a DESC sort, burying genuinely
+    // recent updates to older records underneath them.
+    const now = new Date().toISOString()
+    const { error } = await client.from('bar_documents').insert({ po_ref, ...updates, created_at: now, updated_at: now })
     if (error) throw new Error(error.message)
   }
 }
