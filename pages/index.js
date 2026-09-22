@@ -814,12 +814,25 @@ export default function Home() {
     // Same rule as confirmReceive — never collapse to the bare supplier name
     const poRef = ref || flat[0].ref || `${supplier}-${Date.now()}`
     const orderDate = flat[0].date || new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'})
-    fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
-      .then(r => r.json()).then(d => {
-        if (d.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({ action:'update_urls', po_ref: poRef, po_onedrive_url: d.webUrl }) }).catch(()=>null)
-      }).catch(()=>null)
+    // Awaited — this used to be a bare fetch().then().then() chain with no one
+    // waiting on it, so it could silently fail (or lose the race to link the
+    // OneDrive URL) with nothing surfaced anywhere. Still fire-and-forget from
+    // the caller's perspective (no loading state needed for a background
+    // re-save), but now at least logs clearly if either step fails.
+    try {
+      const odRes = await fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ po_ref: poRef, supplier, order_date: orderDate, items: updatedItems }) })
+      const od = await odRes.json().catch(() => ({}))
+      if (od.webUrl) {
+        const linkRes = await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({ action:'update_urls', po_ref: poRef, po_onedrive_url: od.webUrl }) })
+        if (!linkRes.ok) console.error('[resavePO] failed to link PO to OneDrive for', poRef)
+      } else {
+        console.error('[resavePO] OneDrive save did not return a webUrl for', poRef)
+      }
+    } catch (e) {
+      console.error('[resavePO] failed for', poRef, e.message)
+    }
   }
 
   async function loadNotes() {
@@ -3000,22 +3013,33 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             // Create document record + save PO to OneDrive
                             const poDocRef = d.ref || poRef
                             const poOrderDate = new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
-                            // Include the invoice link (if already uploaded) in this SAME write —
-                            // firing a separate 'update_urls' call here raced with this 'order' call,
-                            // since both could run their exists-check before either row was committed,
-                            // producing two rows for one po_ref with the invoice link orphaned on the second.
-                            fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                            // Awaited, in order: the 'order' write below must land and be confirmed
+                            // before the OneDrive-link 'update_urls' call runs, or that call's
+                            // exists-check can run before this row is committed and insert a SECOND,
+                            // orphaned row instead of updating the real one — the same race that used
+                            // to duplicate rows with the invoice link, fixed the same way: sequence
+                            // the writes instead of firing them all at once and hoping for the best.
+                            const docRes = await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ action:'order', po_ref: poDocRef, supplier: activeSup, order_date: poOrderDate, item_count: poItemsArr.length }) }).catch(()=>null)
-                            fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
-                              body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
-                                order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
-                                items: poItemsArr.map(i => ({ name:i.name, sku:i.sku||'', orderQty:i.orderQty, bottlesToOrder:i.bottlesToOrder||null, isSpirit:i.isSpirit||false })) }) })
-                              .then(r => r.json()).then(od => {
-                                if (od.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                                  body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) })
-                              }).catch(()=>null)
+                            let poOnedriveWarning = null
+                            if (!docRes?.ok) {
+                              poOnedriveWarning = 'The order was placed, but creating its PO Documents record failed — check PO Documents and re-save it if missing.'
+                            } else {
+                              const odRes = await fetch('/api/onedrive/save-po', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ po_ref: poDocRef, supplier: activeSup,
+                                  order_date: new Date().toLocaleDateString('en-AU',{timeZone:'Australia/Brisbane',day:'2-digit',month:'short',year:'numeric'}),
+                                  items: poItemsArr.map(i => ({ name:i.name, sku:i.sku||'', orderQty:i.orderQty, bottlesToOrder:i.bottlesToOrder||null, isSpirit:i.isSpirit||false })) }) }).catch(()=>null)
+                              const od = odRes ? await odRes.json().catch(()=>({})) : {}
+                              if (od.webUrl) {
+                                const linkRes = await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                  body: JSON.stringify({ action:'update_urls', po_ref: poDocRef, po_onedrive_url: od.webUrl }) }).catch(()=>null)
+                                if (!linkRes?.ok) poOnedriveWarning = 'The order was placed, but linking the PO to OneDrive failed — re-save it from PO Documents.'
+                              } else {
+                                poOnedriveWarning = 'The order was placed, but saving the PO to OneDrive failed — re-save it from PO Documents.'
+                              }
+                            }
                             // Single supplier — always go to done
-                            setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null }))
+                            setOrderWizard(prev => ({ ...prev, step: 4, saving: false, saveError: null, poOnedriveWarning }))
                           }} style={{ background: wiz.saving ? '#94a3b8' : '#1e3a5f', color:'#fff', border:'none', borderRadius:8, padding:'12px 28px', fontSize:14, fontWeight:700, cursor:'pointer' }}>
                             {wiz.saving ? '⏳ Saving…' : '✓ Mark as Ordered →'}
                           </button>
@@ -3036,6 +3060,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         <div style={{ fontSize:14, color:'#64748b', marginBottom:24, lineHeight:1.6 }}>
                           Your orders have been recorded. When deliveries arrive, tap the <strong>Receive Delivery</strong> banner that appears on the Dashboard.
                         </div>
+                        {wiz.poOnedriveWarning && (
+                          <div style={{ background:'#fffbeb', border:'1px solid #fde68a', borderRadius:8, padding:14, marginBottom:24, fontSize:13, textAlign:'left', color:'#92400e' }}>
+                            ⚠️ {wiz.poOnedriveWarning}
+                          </div>
+                        )}
                         <div style={{ background:'#f0fdf4', border:'1px solid #bbf7d0', borderRadius:8, padding:14, marginBottom:24, fontSize:13, textAlign:'left' }}>
                           <strong style={{ color:'#166534' }}>What happens next:</strong>
                           <ul style={{ margin:'8px 0 0', paddingLeft:20, color:'#374151', lineHeight:1.8 }}>
