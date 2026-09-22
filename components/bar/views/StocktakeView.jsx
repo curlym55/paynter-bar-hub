@@ -175,11 +175,24 @@ export default function StocktakeView({ items, readOnly, onExport }) {
     })()
   }
 
+  // The sync endpoint reads the SERVER's saved counts, not what's on screen,
+  // and the auto-save below runs 800ms after typing stops with failures
+  // ignored. So before previewing or syncing, force a save of exactly what's
+  // on screen and wait for it to be confirmed — otherwise a count typed just
+  // before pressing Sync could be missing from the preview, or a silently
+  // failed save could push older counts to Square than the ones shown.
+  const saveCountsNow = async () => {
+    const r = await fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => null)
+    return !!r?.ok
+  }
+  const SAVE_FAILED_MSG = "Couldn't save your latest counts, so nothing has been sent to Square. Check your connection and try again."
+
   const loadSyncPreview = async () => {
     setSyncLoading(true)
     setSyncResult(null)
     setSyncPreview(null)
     try {
+      if (!(await saveCountsNow())) { setSyncPreview({ error: SAVE_FAILED_MSG }); return }
       const itemsPayload = items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
       const d = await fetch('/api/stocktake-sync', {
         method: 'POST',
@@ -196,6 +209,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   const executeSync = async () => {
     setSyncing(true)
     try {
+      if (!(await saveCountsNow())) { setSyncResult({ ok: false, error: SAVE_FAILED_MSG }); return }
       const itemsPayload = items.map(i => ({ name: i.name, category: i.category, bottleML: i.bottleML, nipML: i.nipML }))
       const r = await fetch('/api/stocktake-sync', {
         method: 'POST',

@@ -2,6 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { fetchSquareData } from '../../../lib/square'
 import { calculateItem } from '../../../lib/calculations'
 import { kvGet } from '../../../lib/redis'
+import { getSession, safeCompare } from '../../../lib/session'
 
 // Use the service-role key (server-side only, never exposed to the browser)
 // rather than the public anon key. The anon key would require the soh_reports
@@ -14,13 +15,19 @@ const supabase = createClient(
 )
 
 export default async function handler(req, res) {
-  // Verify cron secret to prevent unauthorised calls
+  // Two legitimate callers, and either may proceed:
+  //   1. Vercel's scheduler, which sends "Authorization: Bearer <CRON_SECRET>".
+  //   2. The "📸 Snapshot Now" button in SOH History — a logged-in management
+  //      user whose browser can't (and shouldn't) know the cron secret.
+  // Previously only (1) was accepted once CRON_SECRET was set, so the button
+  // always got "Unauthorised" in production. Fail closed: with no secret
+  // configured, only a management session gets in — never an anonymous call.
   const cronSecret = process.env.CRON_SECRET
-  const auth = req.headers.authorization
-  // Fail closed: if a secret is configured, a request MUST present the matching
-  // header. Previously a request with NO Authorization header slipped through
-  // because both sides of the && were false.
-  if (cronSecret && (!auth || auth !== `Bearer ${cronSecret}`)) {
+  const auth       = req.headers.authorization || ''
+  const isCron     = !!cronSecret && safeCompare(auth, `Bearer ${cronSecret}`)
+  const session    = getSession(req)
+  const isManager  = !!session && session.role !== 'readonly'
+  if (!isCron && !isManager) {
     return res.status(401).json({ error: 'Unauthorised' })
   }
 
