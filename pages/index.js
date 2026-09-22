@@ -586,115 +586,133 @@ export default function Home() {
         }
         setSquareReceiveResult(sqResult)
 
-        // ── 4. Auto-save report to OneDrive ──────────────────────────────
+        // ── 4. Auto-save report to OneDrive ────────────────────────
         const odItems = receiveModal.items.map(i => ({
           name: i.name,
           orderedQty: (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0,
           receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : ((orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0)) : 0,
-          unit: i.isSpirit ? 'nip' : 'each',
-          note: receiveChecked[i.name] ? '' : 'Not received this delivery',
+          unit: i.isSpirit ? "nip" : "each",
+          note: receiveChecked[i.name] ? "" : "Not received this delivery",
         }))
         let oneDriveResult = null
         try {
-          const odRes = await fetch('/api/onedrive/save-report', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+          const odRes = await fetch("/api/onedrive/save-report", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              reference: receiveModal.ref || '',
+              reference: receiveModal.ref || "",
               supplier,
-              receivedBy: 'Bar Manager',
-              locationName: 'Paynter Bar',
+              receivedBy: "Bar Manager",
+              locationName: "Paynter Bar",
               items: odItems
             })
           })
           oneDriveResult = await odRes.json()
-          if (oneDriveResult?.webUrl) fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ action:'update_urls', po_ref: receiveModal.ref||supplier, receipt_onedrive_url: oneDriveResult.webUrl }) }).catch(()=>null)
         } catch (odErr) {
           oneDriveResult = { skipped: true, reason: odErr.message }
         }
 
-        const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
+        const dateStr = new Date().toLocaleDateString("en-AU", { timeZone:"Australia/Brisbane", day:"2-digit", month:"short", year:"numeric" })
         // Never fall back to the bare supplier name — if two deliveries both
-        // have no ref, they'd collide on the same Supabase document row and
+        // have no ref, they would collide on the same Supabase document row and
         // clearing one order's invoice would silently clear the other's too.
+        // Defined once and reused by every write below, so nothing can drift
+        // onto a different po_ref than the row this receive event owns — the
+        // receipt-link write used to use a different (buggier) fallback here.
         const poRef = receiveModal.ref || `${supplier}-${Date.now()}`
-        // Save document record to Supabase (receive report)
-        fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+        let docWarning = null
+
+        // Awaited and sequenced — same fix as Mark-as-Ordered and resavePO:
+        // the row-creating "receive" write must land and be confirmed before
+        // anything else tries to update_urls on it, or that call's exists-
+        // check can run first and insert a second, orphaned row instead of
+        // updating the real one. Everything here used to fire concurrently
+        // and unawaited, which is exactly how PO 168’s links went missing.
+        const receiveDocRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
-            action: 'receive', po_ref: poRef, supplier,
-            receive_date: new Date().toLocaleDateString('en-CA',{timeZone:'Australia/Brisbane'}),
+            action: "receive", po_ref: poRef, supplier,
+            receive_date: new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Brisbane"}),
             item_count: receivedItems.length,
-            items: receivedItems.map(i => ({ name: i.name, orderedQty: i.orderQty||0, receivedQty: receiveQtys[i.name]||i.orderQty||0, unit: i.isSpirit ? 'nips' : 'units' }))
-          }) }).catch(()=>null)
-        // Upload invoice to Supabase if attached
-        if (invoiceFile) {
-          const ext = invoiceFile.name.split('.').pop()
-          const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
-          fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) })
-            .then(r => {
-              if (!r.ok) { console.error('[invoice upload] HTTP error:', r.status); return null }
-              return r.json()
-            }).then(d => {
-              if (!d) return
-              if (d.ok && d.webUrl) {
-                fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ action:'update_urls', po_ref: poRef, invoice_onedrive_url: d.webUrl }) })
-              } else if (d.skipped) {
-                console.warn('[invoice upload] OneDrive skipped:', d.reason)
-              } else {
-                console.warn('[invoice upload] unexpected response:', d)
-              }
-            }).catch(e => {
-              console.error('[invoice upload] error:', e)
-            })
-          fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ action:'invoice', po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(()=>null)
+            items: receivedItems.map(i => ({ name: i.name, orderedQty: i.orderQty||0, receivedQty: receiveQtys[i.name]||i.orderQty||0, unit: i.isSpirit ? "nips" : "units" }))
+          }) }).catch(() => null)
 
-          // Auto-extract prices into buy_price_history with Haiku name-matching
-          if (invoiceFile.mimeType === 'application/pdf' || invoiceFile.name.toLowerCase().endsWith('.pdf')) {
-            ;(async () => {
-              try {
-                const extRes = await fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
-                if (!extRes.ok) return
-                const d = await extRes.json()
-                if (!d?.items?.length) return
+        if (!receiveDocRes?.ok) {
+          docWarning = "Stock was received, but creating the PO Documents record failed — check PO Documents and retry if this delivery is missing."
+        } else {
+          if (oneDriveResult?.webUrl) {
+            const linkRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({ action:"update_urls", po_ref: poRef, receipt_onedrive_url: oneDriveResult.webUrl }) }).catch(() => null)
+            if (!linkRes?.ok) docWarning = "Stock was received, but linking the receipt to OneDrive failed — re-save it from PO Documents."
+          }
 
-                // Run Haiku name-matching so rows land with correct item_name_hub
-                let matchMap = {}
-                const hubNames = items.map(i => i.name).filter(Boolean)
-                if (hubNames.length) {
-                  try {
-                    const mRes = await fetch('/api/invoices/match-names', { method:'POST', headers:{'Content-Type':'application/json'},
-                      body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
-                    if (mRes.ok) {
-                      const mData = await mRes.json()
-                      for (const m of mData.matches || []) if (m.hub && m.confidence !== 'low') matchMap[m.raw] = m.hub
-                    }
-                  } catch { /* fall back to raw names */ }
-                }
+          if (invoiceFile) {
+            const ext = invoiceFile.name.split(".").pop()
+            const invName = `${poRef.replace(/\s/g,"_")}-Invoice.${ext}`
 
-                await fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
-                  body: JSON.stringify({
-                    invoice_ref: d.invoice_ref || poRef,
-                    supplier: d.supplier || supplier,
-                    invoice_date: d.invoice_date || dateStr,
-                    gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
-                    items: d.items.map(i => ({
-                      ...i, include: true,
-                      item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
-                    })),
+            const odInvRes = await fetch("/api/onedrive/save-invoice", { method:"POST", headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) }).catch(() => null)
+            const odInvData = odInvRes && odInvRes.ok ? await odInvRes.json().catch(() => null) : null
+            if (odInvData?.ok && odInvData.webUrl) {
+              const linkRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
+                body: JSON.stringify({ action:"update_urls", po_ref: poRef, invoice_onedrive_url: odInvData.webUrl }) }).catch(() => null)
+              if (!linkRes?.ok) docWarning = "Stock was received, but linking the invoice to OneDrive failed — re-save it from PO Documents."
+            } else if (odInvData?.skipped) {
+              console.warn("[invoice upload] OneDrive skipped:", odInvData.reason)
+            } else {
+              docWarning = "Stock was received, but saving the invoice to OneDrive failed — re-attach it from PO Documents."
+            }
+
+            const invSaveRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
+              body: JSON.stringify({ action:"invoice", po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(() => null)
+            if (!invSaveRes?.ok && !docWarning) docWarning = "Stock was received, but saving a copy of the invoice failed — re-attach it from PO Documents."
+
+            // Auto-extract prices into buy_price_history with Haiku name-matching.
+            // Genuinely best-effort and independent of bar_documents — never
+            // blocks or affects the receive flow either way, so this alone
+            // stays fire-and-forget by design.
+            if (invoiceFile.mimeType === "application/pdf" || invoiceFile.name.toLowerCase().endsWith(".pdf")) {
+              ;(async () => {
+                try {
+                  const extRes = await fetch("/api/invoices/extract", { method:"POST", headers:{"Content-Type":"application/json"},
+                    body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
+                  if (!extRes.ok) return
+                  const d = await extRes.json()
+                  if (!d?.items?.length) return
+
+                  // Run Haiku name-matching so rows land with correct item_name_hub
+                  let matchMap = {}
+                  const hubNames = items.map(i => i.name).filter(Boolean)
+                  if (hubNames.length) {
+                    try {
+                      const mRes = await fetch("/api/invoices/match-names", { method:"POST", headers:{"Content-Type":"application/json"},
+                        body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
+                      if (mRes.ok) {
+                        const mData = await mRes.json()
+                        for (const m of mData.matches || []) if (m.hub && m.confidence !== "low") matchMap[m.raw] = m.hub
+                      }
+                    } catch { /* fall back to raw names */ }
+                  }
+
+                  await fetch("/api/invoices/save", { method:"POST", headers:{"Content-Type":"application/json"},
+                    body: JSON.stringify({
+                      invoice_ref: d.invoice_ref || poRef,
+                      supplier: d.supplier || supplier,
+                      invoice_date: d.invoice_date || dateStr,
+                      gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
+                      items: d.items.map(i => ({
+                        ...i, include: true,
+                        item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
+                      })),
+                    })
                   })
-                })
-              } catch { /* silent — never block the receive flow */ }
-            })()
+                } catch { /* silent — never block the receive flow */ }
+              })()
+            }
           }
         }
         setReceiveModal(null)
         setInvoiceFile(null)
-        setReceiptData({ supplier, ref: receiveModal.ref || '', date: dateStr, items: receivedItems, sqResult, oneDriveResult })
+        setReceiptData({ supplier, ref: receiveModal.ref || "", date: dateStr, items: receivedItems, sqResult, oneDriveResult, docWarning })
         setReceiptSaved(false)
       }
     } finally {
@@ -3350,6 +3368,15 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     <a href={receiptData.oneDriveResult.webUrl} target="_blank" rel="noreferrer"
                       style={{ fontSize:11, color:'#16a34a', display:'block', marginTop:4 }}>Open in OneDrive ↗</a>
                   )}
+                </div>
+              )}
+
+              {receiptData.docWarning && (
+                <div style={{ marginBottom:14, padding:'10px 14px', borderRadius:7, background:'#fffbeb', border:'1px solid #fde68a' }}>
+                  <div style={{ fontSize:11, fontWeight:700, marginBottom:2, color:'#92400e', textTransform:'uppercase', letterSpacing:'0.05em' }}>
+                    ⚠ Document Save Issue
+                  </div>
+                  <div style={{ fontSize:12, color:'#374151' }}>{receiptData.docWarning}</div>
                 </div>
               )}
 
