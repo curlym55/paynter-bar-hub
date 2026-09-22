@@ -67,6 +67,7 @@ export default function Home() {
   const [saving, setSaving]             = useState({})
   const [rundownItems, setRundownItems]   = useState({})
   const [documents, setDocuments]         = useState([])
+  const [regeneratingPO, setRegeneratingPO] = useState({}) // { [po_ref]: true } while a backfill is in flight
   const [docsLoading, setDocsLoading]     = useState(false)
   const [lastOrderSummary, setLastOrderSummary] = useState(null)
   const [docSupFilter, setDocSupFilter]   = useState('all')
@@ -4460,12 +4461,31 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           {/* Document links — show all available links */}
                           <div style={{ display: 'flex', flexDirection: 'column', gap: 5, flex: '1 1 200px' }}>
                             {/* PO */}
-                            {(doc.po_onedrive_url) && (
+                            {doc.po_onedrive_url ? (
                               <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                                 <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
                                 {DocLink({ href: doc.po_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
                               </div>
-                            )}
+                            ) : doc.receive_report_path && !readOnly ? (
+                              <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                                <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>PO</span>
+                                <button onClick={async () => {
+                                    setRegeneratingPO(prev => ({ ...prev, [doc.po_ref]: true }))
+                                    const r = await fetch('/api/documents/regenerate-po', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                      body: JSON.stringify({ po_ref: doc.po_ref }) }).catch(() => null)
+                                    const res2 = r ? await r.json().catch(() => ({})) : {}
+                                    setRegeneratingPO(prev => ({ ...prev, [doc.po_ref]: false }))
+                                    if (res2.ok) {
+                                      setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, po_onedrive_url: res2.webUrl } : d))
+                                    } else {
+                                      alert(res2.error || 'Failed to regenerate the PO — try again.')
+                                    }
+                                  }} disabled={!!regeneratingPO[doc.po_ref]}
+                                  style={{ fontSize: 10, color: '#d97706', fontWeight: 700, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '2px 8px', cursor: regeneratingPO[doc.po_ref] ? 'default' : 'pointer' }}>
+                                  {regeneratingPO[doc.po_ref] ? '⏳ Rebuilding…' : '🔄 Regenerate PO'}
+                                </button>
+                              </div>
+                            ) : null}
                             {/* Receipt */}
                             {(doc.receipt_onedrive_url || doc.receive_url) && (
                               <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
