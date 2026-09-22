@@ -359,7 +359,7 @@ export default function HelpTab() {
           </STEP>
 
           <STEP n="4" title="Sync and record">
-            Confirm the sync. Each synced item turns green (<strong>✓ Synced</strong>) and the footer becomes <strong>✓ Done</strong>.
+            Confirm the sync. Each synced item turns green (<strong>✓ Synced</strong>) and the footer becomes <strong>✓ Done</strong>. The synced counts are then <strong>cleared from the count sheet</strong>, so old figures can't be synced again by mistake later. A full copy is kept in 📋 History. Skipped or failed items stay on the sheet so you can fix and retry them.
             Every sync is saved to history with the before and after figures.
           </STEP>
 

@@ -170,6 +170,20 @@ export default async function handler(req, res) {
         await persistSet('stocktakeHistory', trimmed)
       }
 
+      // Clear the counts that were just synced. Leaving them saved meant every
+      // later visit to the Stocktake tab loaded them again and popped up
+      // "Sync counts to Square?" — and since a sync OVERWRITES Square's stock,
+      // syncing those old figures would erase every sale, delivery and
+      // breakage since the count. Nothing is lost by clearing: the history
+      // snapshot saved above keeps a full copy of these counts. Skipped and
+      // failed items stay, so they can be seen and retried. Re-read first so
+      // a change made during the sync isn't overwritten by our older copy.
+      if (succeeded.length > 0) {
+        const latest = (await persistGet('stocktakeCounts', {})) || {}
+        for (const s of succeeded) delete latest[s.name]
+        await persistSet('stocktakeCounts', latest)
+      }
+
       // Physical counts were pushed to Square — the cached stock levels are now
       // stale. Clear them so the next load reflects the corrected figures.
       if (succeeded.length > 0) await invalidateItemsCache()
@@ -180,6 +194,7 @@ export default async function handler(req, res) {
         skipped:      skipped.length,
         failed:       failed.length,
         skippedItems: [...skipped, ...failed.map(f => ({ name: f.name, reason: f.error }))],
+        clearedNames: succeeded.map(s => s.name),
         message:      parts.join(' · '),
         _debug:       succeeded.map(s => ({ name: s.name, sqQty: s.sqQty, squareResponse: s._sq })),
       })

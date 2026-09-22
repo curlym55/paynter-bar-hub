@@ -205,9 +205,20 @@ export default function StocktakeView({ items, readOnly, onExport }) {
       const d = await r.json()
       setSyncResult(d)
       setSyncCompleted(d.ok === true)
-      // Don't reload the preview here — that would re-fetch the SAME items
-      // as "ready to sync" again (since local counts aren't cleared), making
-      // it look like the sync did nothing. Just refresh history in the background.
+      // The server has cleared the counts it synced (see stocktake-sync.js).
+      // Drop them here too — otherwise this screen's next auto-save would send
+      // the full old set back and undo the clear. Done even on a partial
+      // failure: whatever did sync is cleared server-side regardless.
+      if (Array.isArray(d.clearedNames) && d.clearedNames.length) {
+        setCounts(c => {
+          const next = { ...c }
+          for (const name of d.clearedNames) delete next[name]
+          return next
+        })
+      }
+      // Don't reload the preview here — the synced items have just been
+      // cleared, so a reload would come back empty and hide the result the
+      // user wants to see. Just refresh history in the background.
       if (d.ok && showHistory) loadHistory()
     } catch(e) { setSyncResult({ ok: false, error: e.message }) }
     finally { setSyncing(false) }
