@@ -1997,7 +1997,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const d = await r.json()
       if (!r.ok || !d.items?.length) { alert('No avg price data found. Import some invoices first.'); return }
 
-      const wb = new ExcelJS.Workbook()
+      // This function was the one export path that never called loadExcelJS()
+      // — every other export does. ExcelJS is loaded from a CDN on demand
+      // rather than bundled, so without this it's simply not there yet the
+      // first time this button is used.
+      await loadExcelJS()
+      const wb = new window.ExcelJS.Workbook()
       const ws = wb.addWorksheet('Avg Buy Prices')
       const fmt3 = '"$"#,##0.000'
       const fmtDiff = '+$#,##0.000;-$#,##0.000;"-"'
