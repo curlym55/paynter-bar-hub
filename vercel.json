@@ -6,7 +6,9 @@
     "pages/api/items.js":              { "maxDuration": 60 },
     "pages/api/fy-chart.js":           { "maxDuration": 60 },
     "pages/api/sales.js":              { "maxDuration": 60 },
-    "pages/api/cron/soh-snapshot.js":  { "maxDuration": 60 }
+    "pages/api/cron/soh-snapshot.js":  { "maxDuration": 60 },
+    "pages/api/wastage-sync.js":       { "maxDuration": 60 },
+    "pages/api/stocktake-sync.js":     { "maxDuration": 60 }
   },
   "crons": [
     {

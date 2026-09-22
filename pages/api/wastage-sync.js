@@ -110,32 +110,72 @@ export default async function handler(req, res) {
       const failed    = []
       const skipped   = []
 
+      // ── Record each attempt BEFORE touching Square ───────────────────────
+      // Waste adjustments SUBTRACT from Square, so a repeat is a real double
+      // deduction. If a sync dies partway (dropped connection, time limit),
+      // Square may have taken some deductions that were never marked synced
+      // here. On the retry we send the SAME idempotency key and the SAME
+      // request body (including occurred_at), which lets Square recognise the
+      // repeat and return the original result instead of deducting again.
+      // A saved attempt is reused only while it still matches the request
+      // (same Square item, same quantity) and is under 23h old — Square
+      // rejects adjustments backdated more than 24h.
+      const ATTEMPT_MAX_AGE_MS = 23 * 60 * 60 * 1000
+      const nowMs = Date.now()
+      const plan  = []   // entries we'll actually send, with their attempt
       for (const entry of toSync) {
         const varInfo   = varMap[entry.itemName] || null
         const squareQty = computeSquareQty(entry, itemSettings)
-        const note      = conversionNote(entry, itemSettings)
         const reason    = skipReason(entry, varInfo, squareQty)
-
         if (reason) { skipped.push({ id: entry.id, itemName: entry.itemName, reason }); continue }
 
-        const result = await postSingleWasteAdjustment(token, locationId, {
+        const prev = entry.syncAttempt
+        const reusable = prev
+          && prev.variationId === varInfo.varId
+          && prev.squareQty   === String(squareQty)
+          && (nowMs - Date.parse(prev.occurredAt)) < ATTEMPT_MAX_AGE_MS
+        const attempt = reusable ? prev : {
+          key:         `waste-${entry.id}-${nowMs}`,
+          occurredAt:  new Date(nowMs).toISOString(),
           variationId: varInfo.varId,
           squareQty:   String(squareQty),
-          occurredAt:  new Date().toISOString(),  // always use now - Square rejects backdated adjustments >24h
-          entryId:     entry.id,
-          itemName:    entry.itemName,
+        }
+        plan.push({ entry, varInfo, squareQty, attempt })
+      }
+
+      if (plan.length) {
+        // Re-read so we don't overwrite entries added/edited since the start.
+        const fresh = (await persistGet('wastageLog', [])) || []
+        const byId  = new Map(plan.map(p => [p.entry.id, p.attempt]))
+        await persistSet('wastageLog', fresh.map(e => byId.has(e.id) ? { ...e, syncAttempt: byId.get(e.id) } : e))
+      }
+
+      for (const { entry, varInfo, squareQty, attempt } of plan) {
+        const note   = conversionNote(entry, itemSettings)
+        const result = await postSingleWasteAdjustment(token, locationId, {
+          variationId:    varInfo.varId,
+          squareQty:      String(squareQty),
+          occurredAt:     attempt.occurredAt,
+          idempotencyKey: attempt.key,
+          entryId:        entry.id,
+          itemName:       entry.itemName,
         })
 
         if (result.ok) succeeded.push({ id: entry.id, itemName: entry.itemName, squareQty, note })
         else           failed.push({ id: entry.id, itemName: entry.itemName, variationId: varInfo.varId, error: result.error })
       }
 
-      // Mark only successfully synced entries in Redis
-      const succeededIds = new Set(succeeded.map(s => s.id))
-      const updatedLog   = log.map(e => {
-        if (!succeededIds.has(e.id)) return e
-        const s = succeeded.find(x => x.id === e.id)
-        return { ...e, squareSynced: true, squareSyncedAt: syncedAt,
+      // Mark only successfully synced entries. Re-read the log first rather
+      // than writing back the copy read at the start: the Square calls above
+      // take a few seconds, and writing the old copy would wipe any entry
+      // added or edited in that window.
+      const succeededMap = new Map(succeeded.map(s => [s.id, s]))
+      const latestLog    = (await persistGet('wastageLog', [])) || []
+      const updatedLog   = latestLog.map(e => {
+        const s = succeededMap.get(e.id)
+        if (!s) return e
+        const { syncAttempt, ...rest } = e
+        return { ...rest, squareSynced: true, squareSyncedAt: syncedAt,
                  squareQty: String(s.squareQty), conversionNote: s.note || null }
       })
       await persistSet('wastageLog', updatedLog)
