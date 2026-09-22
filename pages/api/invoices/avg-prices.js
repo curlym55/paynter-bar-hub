@@ -79,7 +79,18 @@ export default async function handler(req, res) {
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10 : null
       // Use stored pack or derive from category — same as calculations.js
-      const hubPack = hubItem.pack ? Number(hubItem.pack) : defaultPack(category)
+      // EXCEPT for spirits/fortified: those always use 1 here, matching the
+      // invoice-extraction step (which always treats a spirit bottle as the
+      // "pack": units_per_pack 1) and matching lib/calculations.js, which
+      // never uses `pack` for spirits at all. hubItem.pack can hold a stale
+      // value left over from BEFORE an item was reclassified as a spirit
+      // (e.g. it used to be a PreMix with pack:24) — and the Stock Items
+      // screen hides the Pack field entirely once an item is a spirit, so
+      // that stale value becomes invisible and unfixable through the UI.
+      // Dividing an already-correct per-bottle price by 24 produced a
+      // per-nip average roughly 24x too small — exactly the wrong-looking
+      // spirits/liqueurs/ports figures this was built to catch.
+      const hubPack = isSpirit ? 1 : (hubItem.pack ? Number(hubItem.pack) : defaultPack(category))
 
       // Convert avg invoice price → per sellable unit inc GST
       // Step 1: divide by hub pack to get per-bottle/can price ex GST
