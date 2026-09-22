@@ -14,7 +14,7 @@ async function get(key, fallback = null) {
     } else if (fallback !== null && fallback !== undefined) {
       // Persist default so it gets backed up
       await kvSet(key, fallback).catch(() => {})
-      sbConfigSet(key, fallback).catch(() => {})
+      await sbConfigSet(key, fallback).catch(() => {})
       return fallback
     }
   }
@@ -22,7 +22,8 @@ async function get(key, fallback = null) {
 }
 async function set(key, value) {
   await kvSet(key, value)
-  sbConfigSet(key, value).catch(() => {}) // background backup
+  // Awaited (failure still swallowed) — see lib/persist.js persistSet for why.
+  await sbConfigSet(key, value).catch(() => {})
 }
 
 
@@ -108,16 +109,11 @@ export default async function handler(req, res) {
         return res.status(200).json({ ok: true })
       }
 
-      if (action === 'setOrdered') {
-        const ordered = (await kvGet('orderedItems')) || {}
-        if (value === null) {
-          delete ordered[itemName]
-        } else {
-          ordered[itemName] = { date: new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }), supplier: value || '' }
-        }
-        await set('orderedItems', ordered)
-        return res.status(200).json({ ok: true })
-      }
+      // (Removed: legacy 'setOrdered' action. Nothing called it, and it wrote
+      // orderedItems in the old single-object shape, bypassing
+      // pages/api/purchase-order.js — if ever triggered, it would have wiped
+      // any item sitting on more than one order. purchase-order.js is now the
+      // only writer of orderedItems.)
 
       if (!itemName && !name) return res.status(400).json({ error: 'itemName and field required' })
       const resolvedName = itemName || name

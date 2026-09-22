@@ -14,7 +14,8 @@ async function get(key, fallback = null) {
 }
 async function set(key, value) {
   await kvSet(key, value)
-  sbConfigSet(key, value).catch(() => {})
+  // Awaited (failure still swallowed) — see lib/persist.js persistSet for why.
+  await sbConfigSet(key, value).catch(() => {})
 }
 
 

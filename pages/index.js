@@ -547,8 +547,13 @@ export default function Home() {
           for (const name of receivedNames) delete next[name]
           return next
         })
+        // One at a time, awaited. All item settings live in ONE Redis blob
+        // (itemSettings), and each save reads the whole blob, changes one
+        // item, and writes the whole blob back. Firing these in parallel
+        // meant the last write won and silently restored every other item's
+        // override — old order quantities would reappear after the next reload.
         for (const name of receivedNames) {
-          if (orderQtyOverrides[name] !== undefined) saveSetting(name, 'orderQtyOverride', null)
+          if (orderQtyOverrides[name] !== undefined) await saveSetting(name, 'orderQtyOverride', null)
         }
 
         // ── 2. Build receipt rows (for display in receipt modal) ──────────
@@ -645,7 +650,12 @@ export default function Home() {
             if (!linkRes?.ok) docWarning = "Stock was received, but linking the receipt to OneDrive failed — re-save it from PO Documents."
           }
 
-          if (invoiceFile) {
+          // Only when there's an actual file in hand. An invoice attached BEFORE
+          // receiving (via View Order or PO Documents) arrives here as
+          // { alreadySaved: true, base64: null } — see openReceiveModal. It's
+          // already saved, and re-uploading a null file just gets a 400 back,
+          // which used to show a false "invoice save failed" warning here.
+          if (invoiceFile && invoiceFile.base64) {
             const ext = invoiceFile.name.split(".").pop()
             const invName = `${poRef.replace(/\s/g,"_")}-Invoice.${ext}`
 
@@ -666,48 +676,9 @@ export default function Home() {
               body: JSON.stringify({ action:"invoice", po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(() => null)
             if (!invSaveRes?.ok && !docWarning) docWarning = "Stock was received, but saving a copy of the invoice failed — re-attach it from PO Documents."
 
-            // Auto-extract prices into buy_price_history with Haiku name-matching.
-            // Genuinely best-effort and independent of bar_documents — never
-            // blocks or affects the receive flow either way, so this alone
-            // stays fire-and-forget by design.
-            if (invoiceFile.mimeType === "application/pdf" || invoiceFile.name.toLowerCase().endsWith(".pdf")) {
-              ;(async () => {
-                try {
-                  const extRes = await fetch("/api/invoices/extract", { method:"POST", headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({ pdf_base64: invoiceFile.base64 }) })
-                  if (!extRes.ok) return
-                  const d = await extRes.json()
-                  if (!d?.items?.length) return
-
-                  // Run Haiku name-matching so rows land with correct item_name_hub
-                  let matchMap = {}
-                  const hubNames = items.map(i => i.name).filter(Boolean)
-                  if (hubNames.length) {
-                    try {
-                      const mRes = await fetch("/api/invoices/match-names", { method:"POST", headers:{"Content-Type":"application/json"},
-                        body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
-                      if (mRes.ok) {
-                        const mData = await mRes.json()
-                        for (const m of mData.matches || []) if (m.hub && m.confidence !== "low") matchMap[m.raw] = m.hub
-                      }
-                    } catch { /* fall back to raw names */ }
-                  }
-
-                  await fetch("/api/invoices/save", { method:"POST", headers:{"Content-Type":"application/json"},
-                    body: JSON.stringify({
-                      invoice_ref: d.invoice_ref || poRef,
-                      supplier: d.supplier || supplier,
-                      invoice_date: d.invoice_date || dateStr,
-                      gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
-                      items: d.items.map(i => ({
-                        ...i, include: true,
-                        item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
-                      })),
-                    })
-                  })
-                } catch { /* silent — never block the receive flow */ }
-              })()
-            }
+            // Best-effort price extraction — deliberately not awaited (see
+            // extractInvoicePrices); it must never block the receive flow.
+            extractInvoicePrices({ base64: invoiceFile.base64, fileName: invoiceFile.name, mimeType: invoiceFile.mimeType, supplier, poRef })
           }
         }
         setReceiveModal(null)
@@ -819,6 +790,54 @@ export default function Home() {
     reader.readAsText(file)
   }
 
+
+  // Extract line-item prices from an invoice PDF into buy_price_history (feeds
+  // the Avg Buy Report), with Haiku name-matching so rows land against the
+  // right Hub item. Shared by confirmReceive and the View Order invoice
+  // attach — before this was shared, invoices attached via View Order were
+  // never extracted at all. Genuinely best-effort and independent of
+  // bar_documents, so callers deliberately don't await it: a failure here
+  // must never block or affect saving the order/receipt/invoice itself.
+  async function extractInvoicePrices({ base64, fileName, mimeType, supplier, poRef }) {
+    if (!base64) return
+    if (!(mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) return
+    try {
+      const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
+      const extRes = await fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ pdf_base64: base64 }) })
+      if (!extRes.ok) return
+      const d = await extRes.json()
+      if (!d?.items?.length) return
+
+      let matchMap = {}
+      const hubNames = items.map(i => i.name).filter(Boolean)
+      if (hubNames.length) {
+        try {
+          const mRes = await fetch('/api/invoices/match-names', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
+          if (mRes.ok) {
+            const mData = await mRes.json()
+            for (const m of mData.matches || []) if (m.hub && m.confidence !== 'low') matchMap[m.raw] = m.hub
+          }
+        } catch { /* fall back to raw names */ }
+      }
+
+      await fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          invoice_ref: d.invoice_ref || poRef,
+          supplier: d.supplier || supplier,
+          invoice_date: d.invoice_date || dateStr,
+          gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
+          items: d.items.map(i => ({
+            ...i, include: true,
+            item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
+          })),
+        })
+      })
+    } catch (e) {
+      console.warn('[extractInvoicePrices] failed for', poRef, e?.message)
+    }
+  }
 
   async function resavePO(supplier, ordered, ref) {
     // Flatten — find the entry for THIS specific order (supplier + ref) per item,
@@ -3263,23 +3282,36 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           reader.onload = () => resolve(reader.result.split(',')[1])
                           reader.readAsDataURL(file)
                         })
-                        // Save to OneDrive immediately — same as PO Documents upload
-                        const poRef = receiveModal.ref || receiveModal.supplier
+                        // Save immediately so the invoice is safe even if Confirm Receive
+                        // is never clicked. Only when this order has a real PO ref: the
+                        // old fallback here was the bare supplier name, which is exactly
+                        // the cross-order collision confirmReceive warns against (and it
+                        // didn't match confirmReceive's own fallback). With no ref, just
+                        // hold the file — confirmReceive saves it under its unique ref.
+                        const poRef = receiveModal.ref
                         const ext = file.name.split('.').pop()
-                        const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
                         const supplier = receiveModal.supplier
-                        // Save to Supabase storage
-                        fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                        if (!poRef) {
+                          setInvoiceFile({ name: file.name, base64, mimeType: file.type, uploading: false, saved: false })
+                          return
+                        }
+                        const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
+                        // Awaited and in order — these both upsert the same bar_documents
+                        // row, and firing them concurrently could insert two rows for
+                        // one PO (the PO 168 bug). confirmReceive re-saves both anyway,
+                        // so a failure here is recoverable, not silent data loss.
+                        await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                           body: JSON.stringify({ action:'invoice', po_ref:poRef, supplier, file_base64:base64, file_name:invName, file_mime:file.type }) }).catch(()=>null)
-                        // Save to OneDrive
                         const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
                           body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier }) }).catch(()=>null)
                         const odData = odRes ? await odRes.json().catch(()=>({})) : {}
+                        let linked = false
                         if (odData.webUrl) {
-                          fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                          const linkRes = await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
                             body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
+                          linked = !!linkRes?.ok
                         }
-                        setInvoiceFile({ name: invName, base64, mimeType: file.type, uploading: false, saved: !!odData.webUrl })
+                        setInvoiceFile({ name: invName, base64, mimeType: file.type, uploading: false, saved: linked })
                       }} />
                     <span style={{ fontSize: 13, color: '#3b82f6', textDecoration: 'underline' }}>Select PDF or image…</span>
                   </label>
@@ -4841,6 +4873,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             })
                             const ext = file.name.split('.').pop()
                             const invName = `${(viewOrderModal.ref||viewOrderModal.supplier).replace(/\s/g,'_')}-Invoice.${ext}`
+                            // Supabase copy first, awaited — this path used to save to OneDrive
+                            // only, so invoices attached here never had the Supabase backup that
+                            // every other attach route stores. Sequenced before update_urls below
+                            // because both upsert the same bar_documents row.
+                            if (viewOrderModal.ref) {
+                              await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'},
+                                body: JSON.stringify({ action:'invoice', po_ref:viewOrderModal.ref, supplier:viewOrderModal.supplier, file_base64:base64, file_name:invName, file_mime:file.type }) }).catch(()=>null)
+                            }
                             const odRes = await fetch('/api/onedrive/save-invoice', { method:'POST', headers:{'Content-Type':'application/json'},
                               body: JSON.stringify({ filename:invName, base64, mimeType:file.type, supplier:viewOrderModal.supplier }) }).catch(()=>null)
                             const odData = odRes ? await odRes.json().catch(()=>({})) : {}
@@ -4859,6 +4899,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     ? prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl } : d)
                                     : [...prev, { po_ref: viewOrderModal.ref, invoice_onedrive_url: odData.webUrl }]
                                 })
+                                // Extract prices now, while the file is in hand — by receive time
+                                // it's only a saved link, so this is the only chance. Before this,
+                                // invoices attached here never reached the Avg Buy Report.
+                                extractInvoicePrices({ base64, fileName: file.name, mimeType: file.type, supplier: viewOrderModal.supplier, poRef: viewOrderModal.ref })
                               } else {
                                 alert('The invoice saved to OneDrive but linking it to this order failed — try attaching it again.')
                               }

@@ -32,7 +32,10 @@ async function get(key, fallback = null) {
 }
 async function set(key, value) {
   await kvSet(key, value)
-  sbConfigSet(key, value).catch(() => {})
+  // Awaited (failure still swallowed) — see lib/persist.js persistSet for why.
+  // This is the Supabase backup of orderedItems: a dropped or out-of-order
+  // write here means a restore-from-Supabase brings back stale orders.
+  await sbConfigSet(key, value).catch(() => {})
 }
 
 // ─────────────────────────────────────────────────────────────────────────
