@@ -1993,13 +1993,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   async function exportAvgPriceReport() {
     try {
-      const [r365, r90] = await Promise.all([
-        fetch('/api/invoices/avg-prices?days=365'),
-        fetch('/api/invoices/avg-prices?days=90'),
-      ])
-      const d365 = await r365.json()
-      const d90  = await r90.json()
-      if (!r365.ok || !d365.items?.length) { alert('No avg price data found. Import some invoices first.'); return }
+      const r = await fetch('/api/invoices/avg-prices?days=365')
+      const d = await r.json()
+      if (!r.ok || !d.items?.length) { alert('No avg price data found. Import some invoices first.'); return }
 
       // This function was the one export path that never called loadExcelJS()
       // — every other export does. ExcelJS is loaded from a CDN on demand
@@ -2011,16 +2007,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const fmt3 = '"$"#,##0.000'
       const fmtDiff = '+$#,##0.000;-$#,##0.000;"-"'
 
-      // A 90-day figure alongside the established 365-day one — recent
-      // enough to show a price change that hasn't yet dragged the year-long
-      // average with it, without losing the longer-term view.
-      const recentByName = {}
-      for (const it of (d90.items || [])) recentByName[it.item_name] = it.buy_price_inc_gst
-
       ws.columns = [
         { header: 'Item',              key: 'name',    width: 36 },
-        { header: 'Recent (90d)',      key: 'recent',  width: 15 },
-        { header: '365-Day Avg',       key: 'avg',     width: 15 },
+        { header: 'Avg Buy (inc GST)', key: 'avg',     width: 16 },
         { header: 'Unit',              key: 'unit',    width: 18 },
         { header: '# Invoices',        key: 'count',   width: 11 },
         { header: 'Current Buy',       key: 'cur',     width: 14 },
@@ -2031,13 +2020,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
       hdr.alignment = { horizontal: 'center' }
 
-      for (const row of d365.items) {
+      for (const row of d.items) {
         const avg = row.buy_price_inc_gst
-        const recent = recentByName[row.item_name] ?? null
         const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
         const diff = avg != null && cur != null ? +(avg - cur).toFixed(3) : null
-        const r2 = ws.addRow({ name: row.item_name, recent: recent ?? '', avg: avg ?? '', unit: row.unit_label, count: row.invoice_count, cur: cur ?? '', diff: diff ?? '' })
-        if (recent != null) r2.getCell('recent').numFmt = fmt3
+        const r2 = ws.addRow({ name: row.item_name, avg: avg ?? '', unit: row.unit_label, count: row.invoice_count, cur: cur ?? '', diff: diff ?? '' })
         if (avg != null) r2.getCell('avg').numFmt = fmt3
         if (cur != null) r2.getCell('cur').numFmt = fmt3
         if (diff != null) {
@@ -2046,7 +2033,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         }
       }
       ws.addRow({})
-      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · Recent = last 90 days, main average = last 365 days` })
+      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · 365-day average` })
 
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
