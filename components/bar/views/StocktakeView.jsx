@@ -1,5 +1,5 @@
 // StocktakeView.jsx — extracted from pages/index.js
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { loadExcelJS } from '../../../lib/excel/loadExcelJS'
 import { xlsDownload } from '../../../lib/excel/xlsDownload'
 import { xlsAOAtoWS } from '../../../lib/excel/xlsAOAtoWS'
@@ -181,8 +181,25 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   // on screen and wait for it to be confirmed — otherwise a count typed just
   // before pressing Sync could be missing from the preview, or a silently
   // failed save could push older counts to Square than the ones shown.
+  // Sends only the items that changed since the last confirmed save (null =
+  // removed), which the server merges into its current copy. Saving the whole
+  // count sheet meant two devices counting at once wiped out each other's
+  // entries. lastSavedRef holds what the server last confirmed from THIS
+  // screen, so we can work out the differences.
+  const lastSavedRef = useRef({})
   const saveCountsNow = async () => {
-    const r = await fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => null)
+    const snapshot = counts
+    const prev = lastSavedRef.current
+    const changes = {}
+    for (const [name, c] of Object.entries(snapshot)) {
+      if (JSON.stringify(c) !== JSON.stringify(prev[name])) changes[name] = c
+    }
+    for (const name of Object.keys(prev)) {
+      if (!(name in snapshot)) changes[name] = null
+    }
+    if (!Object.keys(changes).length) return true
+    const r = await fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ changes }) }).catch(() => null)
+    if (r?.ok) lastSavedRef.current = snapshot
     return !!r?.ok
   }
   const SAVE_FAILED_MSG = "Couldn't save your latest counts, so nothing has been sent to Square. Check your connection and try again."
@@ -242,7 +259,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   useEffect(() => {
     fetch('/api/stocktake')
       .then(r => r.json())
-      .then(data => { setCounts(data.counts || {}); setCountsLoaded(true) })
+      .then(data => { lastSavedRef.current = data.counts || {}; setCounts(data.counts || {}); setCountsLoaded(true) })
       .catch(() => setCountsLoaded(true))
   }, [])
 
@@ -250,7 +267,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
   useEffect(() => {
     if (!countsLoaded) return
     const t = setTimeout(() => {
-      fetch('/api/stocktake', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ counts }) }).catch(() => {})
+      saveCountsNow()
       // Show auto-sync prompt once per session if there are counted items and it hasn't been dismissed
       const anyCount = Object.values(counts).some(c => c.coolRoom !== '' || c.storeRoom !== '' || c.bar !== '')
       if (anyCount && !showSyncModal && !autoSyncDismissed) setAutoSyncPrompt(true)
@@ -493,7 +510,7 @@ export default function StocktakeView({ items, readOnly, onExport }) {
     setTimeout(() => w.print(), 500)
   }
 
-  const resetAll = () => { if (window.confirm('Clear all counts?')) { setCounts({}); fetch('/api/stocktake', { method: 'DELETE' }).catch(() => {}) } }
+  const resetAll = () => { if (window.confirm('Clear all counts?')) { lastSavedRef.current = {}; setCounts({}); fetch('/api/stocktake', { method: 'DELETE' }).catch(() => {}) } }
 
   // ── MOBILE VIEW ───────────────────────────────────────────────────────────────
   if (mobileMode) {

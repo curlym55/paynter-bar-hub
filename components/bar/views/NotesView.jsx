@@ -84,15 +84,18 @@ export default function NotesView({ items, notes, readOnly, onRefresh }) {
     if (!form.comment.trim()) return
     setSaving(true)
     try {
-      await fetch('/api/notes', {
+      const r = await fetch('/api/notes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...form, noteDate: form.noteDate || todayBrisbane })
       })
-        setForm({ noteDate: '', itemName: '', comment: '', author: '' })
+      // Only clear the form once the save is confirmed — previously a failed
+      // save still cleared it, so the typed note was lost with no error shown.
+      if (!r.ok) throw new Error('save failed')
+      setForm({ noteDate: '', itemName: '', comment: '', author: '' })
       setShowForm(false)
       onRefresh()
-    } catch(e) { alert('Save failed') }
+    } catch(e) { alert('Save failed — your note is still in the form. Please try again.') }
     setSaving(false)
   }
 
@@ -100,15 +103,16 @@ export default function NotesView({ items, notes, readOnly, onRefresh }) {
     if (!editForm.comment.trim()) return
     setSaving(true)
     try {
-      await fetch(`/api/notes?id=${editingId}`, {
+      const r = await fetch(`/api/notes?id=${editingId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(editForm)
       })
+      if (!r.ok) throw new Error('update failed')
       setEditingId(null)
       setEditForm({})
       onRefresh()
-    } catch(e) { alert('Update failed') }
+    } catch(e) { alert('Update failed — your changes are still in the form. Please try again.') }
     setSaving(false)
   }
 

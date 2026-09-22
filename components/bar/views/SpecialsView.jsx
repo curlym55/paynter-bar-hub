@@ -46,8 +46,11 @@ export default function SpecialsView({ items }) {
     setSaving(true)
     try {
       const { _imageUrl, image_url, ...toSave } = form
-      await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: toSave.display_order ?? specials.length } }) })
+      const r = await fetch('/api/specials', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'upsert', special: { ...toSave, display_order: toSave.display_order ?? specials.length } }) }).catch(() => null)
+      // Only clear the form once the save is confirmed — previously a failed
+      // save still cleared it, losing what was typed with no error shown.
+      if (!r?.ok) { alert('Save failed — your special is still in the form. Please try again.'); return }
       setForm({ name: '', price_override: '', description: '', square_item_id: '', square_image_id: '', _imageUrl: '', active: true, display_order: 0 })
       setShowAdd(false)
       setEditingId(null)
