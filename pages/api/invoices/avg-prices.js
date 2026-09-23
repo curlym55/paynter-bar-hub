@@ -4,13 +4,6 @@ import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
 import { defaultCategory } from '../../../lib/calculations'
 
-// Mirrors pages/api/invoices/save.js's own DEFAULT_PACK exactly — keep the
-// two in sync if either changes. save.js uses this at save time to catch an
-// AI-extraction that missed a case size; this report re-applies the same
-// check at read time so it also catches OLDER rows saved before that check
-// existed (see the comment below).
-const DEFAULT_PACK = { Beer:24, Cider:24, PreMix:24, 'White Wine':6, 'Red Wine':6, Rose:6, Sparkling:6, Spirits:1, 'Fortified & Liqueurs':1, 'Soft Drinks':24, Snacks:18 }
-
 function normalizeSupplier(s) {
   const l = (s || '').toLowerCase()
   if (l.includes('dan murphy')) return "Dan Murphy's"
@@ -23,20 +16,27 @@ export default async function handler(req, res) {
   if (!requireAuth(req, res)) return
   if (req.method !== 'GET') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { days = '90', supplier = 'all' } = req.query
-  const daysInt = Math.min(parseInt(days) || 90, 730)
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - daysInt)
-  const cutoffStr = cutoff.toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
+  const { supplier = 'all' } = req.query
 
   try {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
+    // Deliberately simplified: the MOST RECENT invoice per item, not a
+    // weighted average across the whole year. Averaging blended together
+    // invoices with inconsistent AI-extracted pack sizes (a bottle sometimes
+    // recorded as a whole case, or vice versa) — and the automatic
+    // "correction" that tried to fix that kept going wrong in new ways every
+    // time. A single recent price is something a person can actually verify
+    // by opening that one invoice, which fits how this report is used: a
+    // periodic manual sanity check (see the Help tab), not something the app
+    // relies on for pricing decisions. No pack-size guessing happens here at
+    // all — the price is taken at face value from that one invoice line,
+    // and only flagged (not corrected) if it looks implausible.
     const { data: rows, error } = await sb
       .from('buy_price_history')
-      .select('item_name_hub, item_name_raw, supplier, invoice_unit_price, units_per_pack, gst_included, qty_units, invoice_ref, invoice_date')
-      .gte('invoice_date', cutoffStr)
+      .select('item_name_hub, item_name_raw, supplier, invoice_unit_price, units_per_pack, gst_included, invoice_ref, invoice_date')
       .not('item_name_hub', 'is', null)
+      .order('invoice_date', { ascending: false })
 
     if (error) return res.status(500).json({ error: error.message })
 
@@ -44,19 +44,22 @@ export default async function handler(req, res) {
                   || await sbConfigGet('itemSettings').catch(() => null)
                   || {}
 
-    // Group rows by item first — the per-row disambiguation below needs the
-    // item's category and current buy price, which come from Hub settings.
-    const byItem = {}
+    // Rows are newest-first, so the first row seen for an item is its most
+    // recent invoice — everything else for that item is simply skipped.
+    const latestByItem = {}
     for (const r of rows || []) {
-      let hubName = r.item_name_hub
+      const hubName = r.item_name_hub
       if (!hubName) continue
       if (hubName === r.item_name_raw && !settings[hubName]) continue
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
-      ;(byItem[hubName] ||= []).push({ ...r, normSup })
+      if (latestByItem[hubName]) continue
+      const rawPrice = Number(r.invoice_unit_price) || 0
+      if (!rawPrice) continue
+      latestByItem[hubName] = { ...r, normSup, rawPrice }
     }
 
-    const items = Object.entries(byItem).map(([name, itemRows]) => {
+    const items = Object.entries(latestByItem).map(([name, r]) => {
       const hubItem  = settings[name] || {}
       const category = hubItem.category || defaultCategory(name)
       const isSpirit = ['Spirits', 'Fortified & Liqueurs'].includes(category)
@@ -65,87 +68,50 @@ export default async function handler(req, res) {
       const nipML    = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10 : null
-      const expectedPack = DEFAULT_PACK[category] || 1
+
+      // Taken at face value from this one invoice's own recorded pack size —
+      // no cross-checking against other invoices, no category-based guessing.
+      const pack = Number(r.units_per_pack) || 1
+      const exGst = r.gst_included ? r.rawPrice / 1.10 : r.rawPrice
+      const perUnitExGst = exGst / pack
+      const latestBuyIncGst = Math.round(
+        (nipsPerBottle ? perUnitExGst / nipsPerBottle : perUnitExGst) * 1.10 * 1000
+      ) / 1000
+
       const currentBuy = hubItem.buyPrice != null ? Number(hubItem.buyPrice) : null
 
-      const toFinal = (perUnitExGst) => perUnitExGst != null
-        ? Math.round((nipsPerBottle ? perUnitExGst / nipsPerBottle : perUnitExGst) * 1.10 * 1000) / 1000
-        : null
-
-      // ── Per-row pack disambiguation ──────────────────────────────────────
-      // units_per_pack is set per INVOICE LINE by the AI extraction step, and
-      // older rows were saved before invoices/save.js had a sanity check for
-      // "this units_per_pack of 1 is implausible for this category" — so some
-      // genuinely case-priced invoices are still sitting there recorded as a
-      // single bottle, wildly inflating the per-bottle price once divided out.
-      // Confirmed directly against real data: Balliamo Pinot Grigio has most
-      // rows at units_per_pack:1, price $57 (actually a 6-bottle case — two
-      // later rows correctly show units_per_pack:6, same $57, i.e. $9.50/btl,
-      // matching the current buy price of $10).
-      //
-      // For each row where units_per_pack is 1 but the category is normally
-      // sold by the case, work out the price under BOTH interpretations (as
-      // recorded, and divided by the category's usual case size) and pick
-      // whichever lands closer to the Hub's own current buy price — the one
-      // figure here that's been verified by a person, not extracted by AI.
-      // Falls back to the same "much cheaper per unit = probably a case"
-      // check invoices/save.js itself uses when there's no buy price set.
-      let tc = 0, tu = 0
-      const invSet = new Set()
-      const chosenPrices = []
-      for (const r of itemRows) {
-        const rawPrice = Number(r.invoice_unit_price) || 0
-        if (!rawPrice) continue
-        const recordedPack = Number(r.units_per_pack) || 1
-        const exGstAt = (pack) => (r.gst_included ? rawPrice / 1.10 : rawPrice) / pack
-
-        let effectivePack = recordedPack
-        if (recordedPack === 1 && expectedPack > 1) {
-          const asRecorded = exGstAt(1)
-          const corrected  = exGstAt(expectedPack)
-          if (currentBuy != null && currentBuy > 0) {
-            const dAsRecorded = Math.abs(Math.log(toFinal(asRecorded) / currentBuy))
-            const dCorrected  = Math.abs(Math.log(toFinal(corrected)  / currentBuy))
-            effectivePack = dCorrected < dAsRecorded ? expectedPack : 1
-          } else {
-            effectivePack = corrected < asRecorded * 0.6 ? expectedPack : 1
-          }
-        }
-
-        const perUnitExGst = exGstAt(effectivePack)
-        const qty = Number(r.qty_units) || 1
-        tc += perUnitExGst * qty
-        tu += qty
-        invSet.add(r.invoice_ref)
-        chosenPrices.push(perUnitExGst)
+      // Flag, don't fix. A wildly different price could be a genuine change,
+      // or it could be one invoice's pack size read wrong by the AI extractor
+      // — either way, a human glancing at that one invoice is more reliable
+      // than the app silently guessing a "corrected" number.
+      let plausible = true
+      if (currentBuy != null && currentBuy > 0 && latestBuyIncGst != null) {
+        const ratio = latestBuyIncGst / currentBuy
+        plausible = ratio >= 0.6 && ratio <= 1.6
       }
 
-      const avgUnitExGst = tu > 0 ? Math.round(tc / tu * 10000) / 10000 : null
-      const buyPriceIncGst = toFinal(avgUnitExGst)
-      const minInv = chosenPrices.length ? Math.min(...chosenPrices) : null
-      const maxInv = chosenPrices.length ? Math.max(...chosenPrices) : null
+      const daysAgo = Math.floor((Date.now() - new Date(r.invoice_date).getTime()) / 86400000)
 
       return {
-        item_name:         name,
-        matched_hub_key:   name,
+        item_name:          name,
         category,
-        supplier:          itemRows[0]?.normSup || '',
-        buy_price_inc_gst: buyPriceIncGst,
-        min_price_inc_gst: toFinal(minInv),
-        max_price_inc_gst: toFinal(maxInv),
-        invoice_count:     invSet.size,
-        total_units:       tu,
-        current_buy_price: currentBuy,
-        is_spirit:         isSpirit,
-        nips_per_bottle:   nipsPerBottle,
-        unit_label:        nipsPerBottle
+        supplier:           r.normSup,
+        latest_buy_inc_gst: latestBuyIncGst,
+        current_buy_price:  currentBuy,
+        invoice_date:       r.invoice_date,
+        days_ago:           daysAgo,
+        invoice_ref:        r.invoice_ref,
+        plausible,
+        is_spirit:          isSpirit,
+        nips_per_bottle:    nipsPerBottle,
+        unit_label:         nipsPerBottle
           ? `per nip (${nipML}ml, ${nipsPerBottle}/btl)`
           : 'per unit',
       }
-    }).filter(it => it.buy_price_inc_gst != null).sort((a, b) => a.item_name.localeCompare(b.item_name))
+    }).sort((a, b) => a.item_name.localeCompare(b.item_name))
 
     const dbSuppliers = [...new Set((rows || []).map(r => normalizeSupplier(r.supplier)).filter(Boolean))].sort()
-    return res.status(200).json({ items, period_days: daysInt, cutoff: cutoffStr, db_suppliers: dbSuppliers })
+    return res.status(200).json({ items, db_suppliers: dbSuppliers })
   } catch (e) {
     console.error('[avg-prices]', e.message)
     return res.status(500).json({ error: e.message })

@@ -87,42 +87,14 @@ export default function Home() {
   const [phExtracted, setPhExtracted] = useState(null)
   const [phSaving, setPhSaving] = useState(false)
 
-  const autoUpdateBuyPrices = async (supplier, days = 90) => {
-    try {
-      const r = await fetch(`/api/invoices/avg-prices?days=${days}&supplier=${encodeURIComponent(supplier)}`)
-      const d = await r.json()
-      if (!r.ok || !d.items?.length) return 0
-      const updatable = d.items.filter(row => row.avg_unit_price_ex_gst != null && row.matched_hub_key)
-      if (!updatable.length) return 0
-      let updated = 0
-      for (const row of updatable) {
-        // Use nips_per_bottle from API, or detect from item name (e.g. "30ml Nip"), or fall back to item settings
-        const nipMLMatch = row.item_name?.match(/(\d+)\s*ml\s*nip/i)
-        const nipMLFromName = nipMLMatch ? Number(nipMLMatch[1]) : null
-        const hubItem = items.find(i => i.name === row.matched_hub_key)
-        const bottleMLFallback = hubItem?.bottleML || null
-        const nipMLFallback = nipMLFromName || hubItem?.nipML || null
-        const nipsPerBtl = row.nips_per_bottle ?? (bottleMLFallback && nipMLFallback ? bottleMLFallback / nipMLFallback : null)
-        const avgIncGst = Math.round((nipsPerBtl ? row.avg_unit_price_ex_gst / nipsPerBtl : row.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-        const r2 = await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ itemName: row.matched_hub_key, field: 'buyPrice', value: avgIncGst }) }).catch(() => null)
-        if (r2?.ok) updated++
-      }
-      if (updated > 0) {
-        // Update items state directly — no Square refresh needed
-        setItems(prev => prev.map(it => {
-          const match = updatable.find(row => row.matched_hub_key === it.name)
-          if (!match) return it
-          const nipMLMatch2 = match.item_name?.match(/(\d+)\s*ml\s*nip/i)
-          const hubItem2 = prev.find(i => i.name === match.matched_hub_key)
-          const nipsPerBtl2 = match.nips_per_bottle ?? (hubItem2?.bottleML && (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2?.nipML) ? hubItem2.bottleML / (nipMLMatch2 ? Number(nipMLMatch2[1]) : hubItem2.nipML) : null)
-          const newBuy = Math.round((nipsPerBtl2 ? match.avg_unit_price_ex_gst / nipsPerBtl2 : match.avg_unit_price_ex_gst) * 1.10 * 1000) / 1000
-          return { ...it, buyPrice: newBuy }
-        }))
-      }
-      return updated
-    } catch (e) { console.error('[autoUpdateBuyPrices]', e); return 0 }
-  }
+  // (Removed: autoUpdateBuyPrices. Never called from anywhere — no button
+  // was wired to it — and it was already silently broken: it depended on
+  // avg_unit_price_ex_gst, a field an earlier rewrite of
+  // /api/invoices/avg-prices.js stopped returning. It also no longer fits
+  // that endpoint's design — the report now deliberately flags an
+  // implausible price instead of computing a "corrected" one, so there's
+  // nothing here that should be written back to buyPrice automatically
+  // without a person looking at it first.)
 
 
   const [phManageData, setPhManageData] = useState(null)
