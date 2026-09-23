@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
-import { defaultCategory, defaultPack } from '../../../lib/calculations'
+import { defaultCategory } from '../../../lib/calculations'
 
 function normalizeSupplier(s) {
   const l = (s || '').toLowerCase()
@@ -25,11 +25,21 @@ export default async function handler(req, res) {
   try {
     const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
 
-    // Fetch invoice_unit_price and gst_included so we can recompute per-unit price
-    // using Hub pack sizes rather than whatever Haiku extracted as units_per_pack
+    // unit_price_ex_gst is the price PER BOTTLE/UNIT, ex GST, already correctly
+    // divided by THAT invoice line's own units_per_pack at save time (see
+    // pages/api/invoices/save.js) — it accounts for whatever pack size Haiku
+    // actually read off that specific invoice (single bottle, 6-bottle case,
+    // 24-carton, etc.), invoice by invoice. This used to be ignored in favour
+    // of re-deriving a per-unit price from the raw invoice_unit_price divided
+    // by the Hub's static, item-level "pack" setting — which has no way to
+    // know that, say, a Port normally bought one bottle at a time was on THIS
+    // invoice bought as a 6-bottle case. That mismatch inflated the average by
+    // roughly the case size whenever an item's actual invoiced pack differed
+    // from the Hub default (confirmed against real data: Galway Pipe Port
+    // averaged ~6x its current buy price — exactly a 6-bottle case ratio).
     const { data: rows, error } = await sb
       .from('buy_price_history')
-      .select('item_name_hub, item_name_raw, supplier, invoice_unit_price, gst_included, qty_units, invoice_ref, invoice_date')
+      .select('item_name_hub, item_name_raw, supplier, unit_price_ex_gst, qty_units, invoice_ref, invoice_date')
       .gte('invoice_date', cutoffStr)
       .not('item_name_hub', 'is', null)
 
@@ -39,7 +49,7 @@ export default async function handler(req, res) {
                   || await sbConfigGet('itemSettings').catch(() => null)
                   || {}
 
-    // Aggregate — weighted average of invoice_unit_price (before any pack division)
+    // Aggregate — weighted average of unit_price_ex_gst (already per-bottle, ex GST)
     const map = {}
     for (const r of rows || []) {
       // Use hub name if properly matched, otherwise try to match raw name to Hub items
@@ -53,53 +63,43 @@ export default async function handler(req, res) {
       }
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
-      const invPrice = Number(r.invoice_unit_price) || 0
-      if (!invPrice) continue
-      if (!map[hubName]) map[hubName] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup, gst: !!r.gst_included }
+      const unitExGst = Number(r.unit_price_ex_gst) || 0
+      if (!unitExGst) continue
+      if (!map[hubName]) map[hubName] = { tc: 0, tu: 0, inv: new Set(), prices: [], sup: normSup }
       const qty = Number(r.qty_units) || 1
-      map[hubName].tc += invPrice * qty
+      map[hubName].tc += unitExGst * qty
       map[hubName].tu += qty
       map[hubName].inv.add(r.invoice_ref)
-      map[hubName].prices.push(invPrice)
-      map[hubName].gst = !!r.gst_included  // use last row's GST flag (consistent per supplier)
+      map[hubName].prices.push(unitExGst)
     }
 
     const items = Object.entries(map).map(([name, d]) => {
-      // avg invoice price — this is the price per line item as it appears on the invoice
-      // (could be per case, per bottle, per pack — depends on how supplier invoices)
-      const avgInvoicePrice = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
+      // Weighted average per-bottle/unit price, EX GST — already correctly
+      // normalized per invoice line at save time, so no further pack-size
+      // division is needed or applied here.
+      const avgUnitExGst = d.tu > 0 ? Math.round(d.tc / d.tu * 10000) / 10000 : null
 
       const hubItem  = settings[name] || {}
       const category = hubItem.category || defaultCategory(name)
       const isSpirit = ['Spirits', 'Fortified & Liqueurs'].includes(category)
 
-      // Hub pack sizes — the authoritative source
+      // Hub bottle/nip sizes — still needed to convert a per-bottle price to
+      // a per-nip one for spirits/fortified. Unrelated to the pack-size bug
+      // above; these describe the bottle itself, not how many came per case.
       const bottleML     = hubItem.bottleML ? Number(hubItem.bottleML) : (isSpirit ? 700 : null)
       const nipML        = hubItem.nipML    ? Number(hubItem.nipML)    : (isSpirit ? 30  : null)
       const nipsPerBottle = (isSpirit && bottleML && nipML && nipML > 0)
         ? Math.round(bottleML / nipML * 10) / 10 : null
-      // Use stored pack or derive from category — same as calculations.js
-      const hubPack = hubItem.pack ? Number(hubItem.pack) : defaultPack(category)
 
-      // Convert avg invoice price → per sellable unit inc GST
-      // Step 1: divide by hub pack to get per-bottle/can price ex GST
-      // Step 2: for spirits, further divide by nips per bottle
-      // Step 3: add GST if not already included
-      const perBottleExGst = avgInvoicePrice != null
-        ? (d.gst ? avgInvoicePrice / hubPack / 1.10 : avgInvoicePrice / hubPack)
+      // Convert a per-bottle ex-GST price → per sellable unit inc GST:
+      // divide by nips-per-bottle for spirits, then add GST back.
+      const toIncGst = (exGst) => exGst != null
+        ? Math.round((nipsPerBottle ? exGst / nipsPerBottle : exGst) * 1.10 * 1000) / 1000
         : null
 
-      const buyPriceIncGst = perBottleExGst != null
-        ? Math.round((nipsPerBottle ? perBottleExGst / nipsPerBottle : perBottleExGst) * 1.10 * 1000) / 1000
-        : null
-
+      const buyPriceIncGst = toIncGst(avgUnitExGst)
       const minInv = d.prices.length ? Math.min(...d.prices) : null
       const maxInv = d.prices.length ? Math.max(...d.prices) : null
-      const toIncGst = (p) => p != null
-        ? Math.round((nipsPerBottle
-            ? (d.gst ? p / hubPack / 1.10 : p / hubPack) / nipsPerBottle
-            : (d.gst ? p / hubPack / 1.10 : p / hubPack)) * 1.10 * 1000) / 1000
-        : null
 
       return {
         item_name:         name,
