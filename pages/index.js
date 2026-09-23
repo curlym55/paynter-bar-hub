@@ -1965,9 +1965,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
   async function exportAvgPriceReport() {
     try {
-      const r = await fetch('/api/invoices/avg-prices?days=365')
+      const r = await fetch('/api/invoices/avg-prices')
       const d = await r.json()
-      if (!r.ok || !d.items?.length) { alert('No avg price data found. Import some invoices first.'); return }
+      if (!r.ok || !d.items?.length) { alert('No invoice data found. Import some invoices first.'); return }
 
       // This function was the one export path that never called loadExcelJS()
       // — every other export does. ExcelJS is loaded from a CDN on demand
@@ -1975,41 +1975,56 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       // first time this button is used.
       await loadExcelJS()
       const wb = new window.ExcelJS.Workbook()
-      const ws = wb.addWorksheet('Avg Buy Prices')
+      const ws = wb.addWorksheet('Latest Buy Prices')
       const fmt3 = '"$"#,##0.000'
       const fmtDiff = '+$#,##0.000;-$#,##0.000;"-"'
 
+      // Deliberately simple: the latest invoice price per item, not a
+      // weighted average — see api/invoices/avg-prices.js for why. A flagged
+      // row means "check this one invoice", not "this figure is wrong".
       ws.columns = [
-        { header: 'Item',              key: 'name',    width: 36 },
-        { header: 'Avg Buy (inc GST)', key: 'avg',     width: 16 },
-        { header: 'Unit',              key: 'unit',    width: 18 },
-        { header: '# Invoices',        key: 'count',   width: 11 },
-        { header: 'Current Buy',       key: 'cur',     width: 14 },
-        { header: 'Difference',        key: 'diff',    width: 14 },
+        { header: 'Item',           key: 'name',  width: 36 },
+        { header: 'Latest Buy',     key: 'latest',width: 14 },
+        { header: 'Unit',           key: 'unit',  width: 18 },
+        { header: 'Invoice Date',   key: 'date',  width: 13 },
+        { header: 'Days Ago',       key: 'age',   width: 10 },
+        { header: 'Current Buy',    key: 'cur',   width: 13 },
+        { header: 'Difference',     key: 'diff',  width: 13 },
+        { header: 'Check?',         key: 'flag',  width: 10 },
       ]
       const hdr = ws.getRow(1)
       hdr.font = { bold: true, color: { argb: 'FFFFFFFF' } }
       hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
       hdr.alignment = { horizontal: 'center' }
 
+      let flaggedCount = 0
       for (const row of d.items) {
-        const avg = row.buy_price_inc_gst
+        const latest = row.latest_buy_inc_gst
         const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
-        const diff = avg != null && cur != null ? +(avg - cur).toFixed(3) : null
-        const r2 = ws.addRow({ name: row.item_name, avg: avg ?? '', unit: row.unit_label, count: row.invoice_count, cur: cur ?? '', diff: diff ?? '' })
-        if (avg != null) r2.getCell('avg').numFmt = fmt3
+        const diff = latest != null && cur != null ? +(latest - cur).toFixed(3) : null
+        if (!row.plausible) flaggedCount++
+        const r2 = ws.addRow({
+          name: row.item_name, latest: latest ?? '', unit: row.unit_label,
+          date: row.invoice_date || '', age: row.days_ago ?? '',
+          cur: cur ?? '', diff: diff ?? '', flag: row.plausible ? '' : '⚠️ Check',
+        })
+        if (latest != null) r2.getCell('latest').numFmt = fmt3
         if (cur != null) r2.getCell('cur').numFmt = fmt3
         if (diff != null) {
           r2.getCell('diff').numFmt = fmtDiff
           r2.getCell('diff').font = { color: { argb: diff > 0.01 ? 'FFDC2626' : diff < -0.01 ? 'FFCA8A04' : 'FF16A34A' } }
         }
+        if (!row.plausible) {
+          r2.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } } })
+          r2.getCell('flag').font = { bold: true, color: { argb: 'FFB45309' } }
+        }
       }
       ws.addRow({})
-      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · 365-day average` })
+      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · latest invoice price per item · ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for a look` })
 
       const buf = await wb.xlsx.writeBuffer()
       const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-      const a = document.createElement('a'); a.href = url; a.download = 'Avg-Buy-Prices.xlsx'; a.click()
+      const a = document.createElement('a'); a.href = url; a.download = 'Latest-Buy-Prices.xlsx'; a.click()
       URL.revokeObjectURL(url)
     } catch(e) { alert('Export failed: ' + e.message) }
   }
