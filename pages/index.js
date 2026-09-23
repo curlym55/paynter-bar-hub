@@ -647,10 +647,6 @@ export default function Home() {
             const invSaveRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
               body: JSON.stringify({ action:"invoice", po_ref: poRef, supplier, file_base64: invoiceFile.base64, file_name: invName, file_mime: invoiceFile.mimeType }) }).catch(() => null)
             if (!invSaveRes?.ok && !docWarning) docWarning = "Stock was received, but saving a copy of the invoice failed — re-attach it from PO Documents."
-
-            // Best-effort price extraction — deliberately not awaited (see
-            // extractInvoicePrices); it must never block the receive flow.
-            extractInvoicePrices({ base64: invoiceFile.base64, fileName: invoiceFile.name, mimeType: invoiceFile.mimeType, supplier, poRef })
           }
         }
         setReceiveModal(null)
@@ -763,53 +759,13 @@ export default function Home() {
   }
 
 
-  // Extract line-item prices from an invoice PDF into buy_price_history (feeds
-  // the Avg Buy Report), with Haiku name-matching so rows land against the
-  // right Hub item. Shared by confirmReceive and the View Order invoice
-  // attach — before this was shared, invoices attached via View Order were
-  // never extracted at all. Genuinely best-effort and independent of
-  // bar_documents, so callers deliberately don't await it: a failure here
-  // must never block or affect saving the order/receipt/invoice itself.
-  async function extractInvoicePrices({ base64, fileName, mimeType, supplier, poRef }) {
-    if (!base64) return
-    if (!(mimeType === 'application/pdf' || (fileName || '').toLowerCase().endsWith('.pdf'))) return
-    try {
-      const dateStr = new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })
-      const extRes = await fetch('/api/invoices/extract', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({ pdf_base64: base64 }) })
-      if (!extRes.ok) return
-      const d = await extRes.json()
-      if (!d?.items?.length) return
-
-      let matchMap = {}
-      const hubNames = items.map(i => i.name).filter(Boolean)
-      if (hubNames.length) {
-        try {
-          const mRes = await fetch('/api/invoices/match-names', { method:'POST', headers:{'Content-Type':'application/json'},
-            body: JSON.stringify({ raw_names: d.items.map(i => i.item_name_raw), hub_names: hubNames }) })
-          if (mRes.ok) {
-            const mData = await mRes.json()
-            for (const m of mData.matches || []) if (m.hub && m.confidence !== 'low') matchMap[m.raw] = m.hub
-          }
-        } catch { /* fall back to raw names */ }
-      }
-
-      await fetch('/api/invoices/save', { method:'POST', headers:{'Content-Type':'application/json'},
-        body: JSON.stringify({
-          invoice_ref: d.invoice_ref || poRef,
-          supplier: d.supplier || supplier,
-          invoice_date: d.invoice_date || dateStr,
-          gst_included: defaultGstIncluded(d.supplier || supplier, d.gst_included),
-          items: d.items.map(i => ({
-            ...i, include: true,
-            item_name_hub: matchMap[i.item_name_raw] || i.item_name_raw,
-          })),
-        })
-      })
-    } catch (e) {
-      console.warn('[extractInvoicePrices] failed for', poRef, e?.message)
-    }
-  }
+  // (Removed: extractInvoicePrices, and its three call sites in
+  // confirmReceive, the View Order invoice attach, and the PO Documents
+  // invoice upload. Buy Price is manual-only — always has been, per the
+  // Pricing tab's own Help text — and the Avg Buy Report this fed has been
+  // removed too, so there's no longer anything that reads buy_price_history.
+  // The table and its API routes (invoices/extract, match-names, save) are
+  // left in place, just unused, rather than deleted outright.)
 
   async function resavePO(supplier, ordered, ref) {
     // Flatten — find the entry for THIS specific order (supplier + ref) per item,
@@ -1963,71 +1919,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     w.focus()
   }
 
-  async function exportAvgPriceReport() {
-    try {
-      const r = await fetch('/api/invoices/avg-prices')
-      const d = await r.json()
-      if (!r.ok || !d.items?.length) { alert('No invoice data found. Import some invoices first.'); return }
-
-      // This function was the one export path that never called loadExcelJS()
-      // — every other export does. ExcelJS is loaded from a CDN on demand
-      // rather than bundled, so without this it's simply not there yet the
-      // first time this button is used.
-      await loadExcelJS()
-      const wb = new window.ExcelJS.Workbook()
-      const ws = wb.addWorksheet('Latest Buy Prices')
-      const fmt3 = '"$"#,##0.000'
-      const fmtDiff = '+$#,##0.000;-$#,##0.000;"-"'
-
-      // Deliberately simple: the latest invoice price per item, not a
-      // weighted average — see api/invoices/avg-prices.js for why. A flagged
-      // row means "check this one invoice", not "this figure is wrong".
-      ws.columns = [
-        { header: 'Item',           key: 'name',  width: 36 },
-        { header: 'Latest Buy',     key: 'latest',width: 14 },
-        { header: 'Unit',           key: 'unit',  width: 18 },
-        { header: 'Invoice Date',   key: 'date',  width: 13 },
-        { header: 'Days Ago',       key: 'age',   width: 10 },
-        { header: 'Current Buy',    key: 'cur',   width: 13 },
-        { header: 'Difference',     key: 'diff',  width: 13 },
-        { header: 'Check?',         key: 'flag',  width: 10 },
-      ]
-      const hdr = ws.getRow(1)
-      hdr.font = { bold: true, color: { argb: 'FFFFFFFF' } }
-      hdr.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1E3A5F' } }
-      hdr.alignment = { horizontal: 'center' }
-
-      let flaggedCount = 0
-      for (const row of d.items) {
-        const latest = row.latest_buy_inc_gst
-        const cur = row.current_buy_price != null ? Number(row.current_buy_price) : null
-        const diff = latest != null && cur != null ? +(latest - cur).toFixed(3) : null
-        if (!row.plausible) flaggedCount++
-        const r2 = ws.addRow({
-          name: row.item_name, latest: latest ?? '', unit: row.unit_label,
-          date: row.invoice_date || '', age: row.days_ago ?? '',
-          cur: cur ?? '', diff: diff ?? '', flag: row.plausible ? '' : '⚠️ Check',
-        })
-        if (latest != null) r2.getCell('latest').numFmt = fmt3
-        if (cur != null) r2.getCell('cur').numFmt = fmt3
-        if (diff != null) {
-          r2.getCell('diff').numFmt = fmtDiff
-          r2.getCell('diff').font = { color: { argb: diff > 0.01 ? 'FFDC2626' : diff < -0.01 ? 'FFCA8A04' : 'FF16A34A' } }
-        }
-        if (!row.plausible) {
-          r2.eachCell(cell => { cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFF3CD' } } })
-          r2.getCell('flag').font = { bold: true, color: { argb: 'FFB45309' } }
-        }
-      }
-      ws.addRow({})
-      ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone:'Australia/Brisbane', day:'2-digit', month:'short', year:'numeric' })} · latest invoice price per item · ${flaggedCount} item${flaggedCount === 1 ? '' : 's'} flagged for a look` })
-
-      const buf = await wb.xlsx.writeBuffer()
-      const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
-      const a = document.createElement('a'); a.href = url; a.download = 'Latest-Buy-Prices.xlsx'; a.click()
-      URL.revokeObjectURL(url)
-    } catch(e) { alert('Export failed: ' + e.message) }
-  }
+  // (Removed: exportAvgPriceReport and its "📊 Avg Buy Report" button.
+  // Buy Price is manual-only, and the report this fed — built from
+  // buy_price_history — is no longer needed.)
 
   async function exportPricingExcel(markupTarget = 40) {
     if (!window.ExcelJS) {
@@ -3552,10 +3446,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
-                    <button onClick={exportAvgPriceReport}
-                      style={{ ...styles.tab, color: '#0369a1', borderColor: '#0369a1', background: '#f0f9ff' }}>
-                      📊 Avg Buy Report
-                    </button>
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
@@ -4209,23 +4099,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </button>
                   </div>
                 </div>
-                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                  <div style={{ background:'#7c3aed', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Re-match Invoice History</div>
-                  <div style={{ padding:16 }}>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>
-                      Runs AI name-matching on all unmatched invoice history rows so they show in the Avg Buy columns in Stock Items. Run once after initial setup or if avg prices are missing.
-                    </div>
-                    <button onClick={async () => {
-                      if (!confirm('Re-run name matching on all unmatched invoice rows? This may take 10-20 seconds.')) return
-                      const r = await fetch('/api/admin/rematch-history', { method:'POST' })
-                      const d = await r.json()
-                      if (!r.ok) { alert('Failed: ' + d.error); return }
-                      alert('✓ Matched ' + d.matched + ' of ' + d.unmatched_count + ' unmatched items.' + (d.skipped ? ' ' + d.skipped + ' skipped (low confidence).' : ''))
-                    }} style={{ padding:'7px 18px', background:'#7c3aed', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      🤖 Re-match Invoice History
-                    </button>
-                  </div>
-                </div>
+                {/* (Removed: Re-match Invoice History panel. It backfilled AI name-
+                    matching for buy_price_history rows so they'd show in the
+                    Avg Buy Report, which has itself been removed — Buy Price
+                    is manual-only. Nothing reads buy_price_history any more.) */}
               </div>
             )}
 
@@ -4586,10 +4463,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                         if (odData.webUrl) {
                                           await fetch('/api/documents/save', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'update_urls', po_ref:poRef, invoice_onedrive_url:odData.webUrl }) }).catch(()=>null)
                                         }
-                                        // Shared helper — includes the Haiku name-matching step this path
-                                        // used to skip, so rows now land against the right Hub item
-                                        // instead of raw supplier names. Deliberately not awaited.
-                                        extractInvoicePrices({ base64, fileName: file.name, mimeType: file.type, supplier: doc.supplier, poRef })
                                         // loadDocuments AFTER all saves complete so OneDrive URL is reflected
                                         await loadDocuments()
                                       } finally { setDocInvoiceUploading(prev => ({ ...prev, [doc.id]: false })) }
@@ -4890,10 +4763,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     ? prev.map(d => d.po_ref === viewOrderModal.ref ? { ...d, invoice_onedrive_url: odData.webUrl } : d)
                                     : [...prev, { po_ref: viewOrderModal.ref, invoice_onedrive_url: odData.webUrl }]
                                 })
-                                // Extract prices now, while the file is in hand — by receive time
-                                // it's only a saved link, so this is the only chance. Before this,
-                                // invoices attached here never reached the Avg Buy Report.
-                                extractInvoicePrices({ base64, fileName: file.name, mimeType: file.type, supplier: viewOrderModal.supplier, poRef: viewOrderModal.ref })
                               } else {
                                 alert('The invoice saved to OneDrive but linking it to this order failed — try attaching it again.')
                               }
