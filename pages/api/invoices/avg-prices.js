@@ -3,6 +3,7 @@ import { kvGet } from '../../../lib/redis'
 import { sbConfigGet } from '../../../lib/supabase-config'
 import { requireAuth } from '../../../lib/session'
 import { defaultCategory } from '../../../lib/calculations'
+import { getBarCategoryIds, getCatalogItems } from '../../../lib/square'
 
 function normalizeSupplier(s) {
   const l = (s || '').toLowerCase()
@@ -44,6 +45,34 @@ export default async function handler(req, res) {
                   || await sbConfigGet('itemSettings').catch(() => null)
                   || {}
 
+    // "Active" here means exactly what the Pricing Analysis export means by
+    // it: currently in the Square catalog, and not ticked as Rundown/Don't
+    // Order. Neither the free-text "notes" field nor a settings "hidden"
+    // flag is what actually drives this (confirmed directly against real
+    // data — an item can have hidden:true and still be an active seller).
+    // Skipping this check was exactly why discontinued items and duplicate
+    // "1l" spirit entries — invoiced once, years ago, never removed from
+    // Square, or left over from before an item was renamed — kept showing
+    // up here even though they're not part of the current 55-item range.
+    const rundownItems = (await kvGet('rundownItems').catch(() => null))
+                       || (await sbConfigGet('rundownItems').catch(() => null))
+                       || {}
+
+    let currentCatalogNames = null
+    const token = process.env.SQUARE_ACCESS_TOKEN
+    if (token) {
+      try {
+        const barCategoryIds = await getBarCategoryIds(token)
+        const catalog = await getCatalogItems(token, barCategoryIds)
+        currentCatalogNames = new Set(Object.values(catalog).map(v => v.parentName))
+      } catch (e) {
+        // If Square is unreachable, fall back to showing everything rather
+        // than hiding the whole report — a stale "still shows old items"
+        // report beats a blank one.
+        console.warn('[avg-prices] could not fetch Square catalog for active-item filtering:', e.message)
+      }
+    }
+
     // Rows are newest-first, so the first row seen for an item is its most
     // recent invoice — everything else for that item is simply skipped.
     const latestByItem = {}
@@ -51,6 +80,8 @@ export default async function handler(req, res) {
       const hubName = r.item_name_hub
       if (!hubName) continue
       if (hubName === r.item_name_raw && !settings[hubName]) continue
+      if (rundownItems[hubName]) continue
+      if (currentCatalogNames && !currentCatalogNames.has(hubName)) continue
       const normSup = normalizeSupplier(r.supplier)
       if (supplier !== 'all' && normSup !== supplier) continue
       if (latestByItem[hubName]) continue
