@@ -79,7 +79,13 @@ export default function Home() {
   const [settingsSaving, setSettingsSaving] = useState(false)
   const [settingsSubTab, setSettingsSubTab] = useState('suppliers')
   const [oneDriveStatus, setOneDriveStatus] = useState(null) // null=unchecked, {ok,name,email,error}
-  const [settingsTargetWeeks, setSettingsTargetWeeks] = useState(null)
+  // (Removed: settingsTargetWeeks — a redundant local mirror of targetWeeks
+  // that only updated when edited through the Reorder Defaults input, not
+  // when edited via the header's Target Weeks stat. That let it go stale:
+  // editing via the header wouldn't update it, so Reorder Defaults could show
+  // an old number even though the real, current value — targetWeeks, the
+  // one actually used for order calculations — was correct all along. The
+  // Reorder Defaults input now reads targetWeeks directly, same as the header.
   const [settingsAuditData, setSettingsAuditData] = useState(null)
   const [phSubTab, setPhSubTab] = useState('import')
   const [phPdf, setPhPdf] = useState(null)
@@ -4071,15 +4077,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                   <div style={{ padding:16 }}>
                     <div style={{ display:'flex', alignItems:'center', gap:12 }}>
                       <span style={{ width:200, fontSize:13, fontWeight:600 }}>Default target weeks</span>
-                      <input type="number" defaultValue={settingsTargetWeeks ?? targetWeeks} min={1} max={26}
-                        onBlur={async e => {
-                          const val = Number(e.target.value)
-                          if (!val || val < 1) return
-                          setTargetWeeks(val)
-                          setSettingsTargetWeeks(val)
-                          await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ itemName:'_global', field:'targetWeeks', value: val }) })
-                        }}
+                      <input type="number" defaultValue={targetWeeks} min={1} max={26}
+                        onBlur={e => saveTargetWeeks(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && e.target.blur()}
                         style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
                       <span style={{ fontSize:12, color:'#64748b' }}>weeks of stock to maintain</span>
                     </div>
