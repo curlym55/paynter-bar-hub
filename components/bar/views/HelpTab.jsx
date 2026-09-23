@@ -318,8 +318,7 @@ export default function HelpTab() {
         <div>
           {[
             ['Suppliers tab', 'Add or remove suppliers. Assign items to suppliers by clicking the Supplier column inline in Stock Items.'],
-            ['Reorder Defaults tab', 'Set the default target weeks, and manually sync data from Redis to Supabase backup.'],
-            ['App Access tab', 'Check OneDrive connection status, reconnect OneDrive (must be paynterbar@gemwoods.com.au), change BMT PIN and Read-Only PIN, view recent settings changes audit log.'],
+            ['App Access tab', 'Check OneDrive connection status, reconnect OneDrive (must be paynterbar@gemwoods.com.au), change BMT PIN and Read-Only PIN, view recent settings changes audit log, and manually sync data from Redis to Supabase backup if needed.'],
             ['Shared settings', 'All settings are saved to the cloud and shared instantly across all management sessions.'],
           ].map(([q, a], i, arr) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>

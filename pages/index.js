@@ -3959,11 +3959,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         {mainTab === 'settings' && !readOnly && (
           <div style={{ padding: '16px 0', maxWidth: 720 }}>
             <div style={{ fontSize: 18, fontWeight: 800, color: '#0f172a', marginBottom: 4 }}>⚙️ Settings</div>
-            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>Manage suppliers, reorder defaults and app configuration</div>
+            <div style={{ fontSize: 12, color: '#64748b', marginBottom: 16 }}>Manage suppliers and app configuration</div>
 
             {/* Sub-tab strip */}
             <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
-              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['reorder','⚙️ Reorder Defaults'],['appearance','🎨 Appearance'],['access','🔐 App Access']].map(([t,label]) => (
+              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['appearance','🎨 Appearance'],['access','🔐 App Access']].map(([t,label]) => (
                 <button key={t} onClick={() => setSettingsSubTab(t)}
                   style={{ padding:'8px 16px', border:'none', borderBottom: settingsSubTab===t ? '2px solid #1e3a5f' : '2px solid transparent',
                     background:'none', fontSize:13, fontWeight: settingsSubTab===t ? 700 : 500,
@@ -4066,43 +4066,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* ── REORDER DEFAULTS ───────────────────────────────────── */}
-            {settingsSubTab === 'reorder' && (
-              <div style={{ display:'flex', flexDirection:'column', gap:16 }}>
-                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Reorder Defaults</div>
-                  <div style={{ padding:16 }}>
-                    <div style={{ display:'flex', alignItems:'center', gap:12 }}>
-                      <span style={{ width:200, fontSize:13, fontWeight:600 }}>Default target weeks</span>
-                      <input type="number" defaultValue={targetWeeks} min={1} max={26}
-                        onBlur={e => saveTargetWeeks(e.target.value)}
-                        onKeyDown={e => e.key === 'Enter' && e.target.blur()}
-                        style={{ width:80, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                      <span style={{ fontSize:12, color:'#64748b' }}>weeks of stock to maintain</span>
-                    </div>
-                  </div>
-                </div>
-                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Data Backup</div>
-                  <div style={{ padding:16 }}>
-                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
-                    <button onClick={async () => {
-                      setSettingsSaving(true)
-                      const r = await fetch('/api/admin/sync-to-supabase', { method: 'POST' })
-                      setSettingsSaving(false)
-                      alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
-                    }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
-                      {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
-                    </button>
-                  </div>
-                </div>
-                {/* (Removed: Re-match Invoice History panel. It backfilled AI name-
-                    matching for buy_price_history rows so they'd show in the
-                    Avg Buy Report, which has itself been removed — Buy Price
-                    is manual-only. Nothing reads buy_price_history any more.) */}
               </div>
             )}
 
@@ -4252,6 +4215,20 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                         </div>
                       )
                     })()}
+                  </div>
+                </div>
+                <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
+                  <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Data Backup</div>
+                  <div style={{ padding:16 }}>
+                    <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>All settings auto-backup to Supabase on every change. Use this to manually sync if needed.</div>
+                    <button onClick={async () => {
+                      setSettingsSaving(true)
+                      const r = await fetch('/api/admin/sync-to-supabase', { method: 'POST' })
+                      setSettingsSaving(false)
+                      alert(r.ok ? '✓ Sync complete — all data backed up to Supabase.' : '✗ Sync failed — check Vercel logs.')
+                    }} style={{ padding:'7px 18px', background:'#1e3a5f', color:'#fff', border:'none', borderRadius:6, fontWeight:700, fontSize:13, cursor:'pointer' }}>
+                      {settingsSaving ? '⏳ Syncing…' : '☁️ Sync Redis → Supabase'}
+                    </button>
                   </div>
                 </div>
               </div>
