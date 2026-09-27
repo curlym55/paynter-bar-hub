@@ -3589,7 +3589,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               </div>
                           }
                         </td>
-                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>{item.targetStock}</td>
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>
+                          {item.targetStock}
+                          {item.targetSource !== 'usage' && (
+                            <span
+                              title={item.targetSource === 'min'
+                                ? `Usage alone would set a lower target — raised to Min Stock (${item.minStock})`
+                                : `Usage alone would set a higher target — capped at Max Stock (${item.maxStock})`}
+                              style={{
+                                marginLeft: 4, fontSize: 9, fontWeight: 700, fontFamily: 'inherit',
+                                color: item.targetSource === 'min' ? '#0369a1' : '#b45309',
+                                cursor: 'help',
+                              }}>
+                              {item.targetSource === 'min' ? 'min' : 'max'}
+                            </span>
+                          )}
+                        </td>
                         <td style={{ ...styles.td, textAlign: 'right', display: showDetails ? '' : 'none' }}>
                           <input
                             type="number" min="0" step="1"
