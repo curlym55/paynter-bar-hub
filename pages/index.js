@@ -838,7 +838,16 @@ export default function Home() {
         const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
         if (['weeklyAvgOverride', 'bottleML', 'nipML', 'pack', 'minStock', 'maxStock'].includes(field)) {
+          // category and pack were missing here — calculateItem() reads pack
+          // (and the category used to pick pack's default) ONLY from this
+          // settings object, never from the item itself. Omitting them meant
+          // every inline edit recalculated using the generic category-default
+          // pack size instead of whatever was actually entered for this item,
+          // until the next full page reload masked it by recalculating
+          // correctly server-side.
           const recalc = calculateItem(updated, {
+            category: updated.category,
+            pack: updated.pack,
             minStock: updated.minStock,
             maxStock: updated.maxStock,
             targetWeeksOverride: updated.targetWeeksOverride,
@@ -3595,7 +3604,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               setItems(prev => prev.map(i => {
                                 if (i.name !== item.name) return i
                                 const updated = { ...i, minStock: val }
-                                const recalc = calculateItem(updated, { minStock: val, maxStock: i.maxStock, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
+                                // category + pack included — see the same fix in saveSetting() above
+                                const recalc = calculateItem(updated, { category: i.category, pack: i.pack, minStock: val, maxStock: i.maxStock, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
                                 return { ...updated, ...recalc }
                               }))
                             }}
@@ -3628,7 +3638,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               setItems(prev => prev.map(i => {
                                 if (i.name !== item.name) return i
                                 const updated = { ...i, maxStock: val }
-                                const recalc = calculateItem(updated, { minStock: i.minStock, maxStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
+                                // category + pack included — see the same fix in saveSetting() above
+                                const recalc = calculateItem(updated, { category: i.category, pack: i.pack, minStock: i.minStock, maxStock: val, targetWeeksOverride: i.targetWeeksOverride, weeklyAvgOverride: i.weeklyAvgOverride, stockOverride: i.stockOverride, bottleML: i.bottleML, nipML: i.nipML }, targetWeeks, daysBack)
                                 return { ...updated, ...recalc }
                               }))
                             }}
