@@ -2600,7 +2600,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 wizQtys[i.name] != null &&
                 wizQtys[i.name] > 0
               )
-              const supItems = [...baseSupItems, ...addedSupItems]
+              const supItems = [...baseSupItems, ...addedSupItems].sort((a, b) => a.name.localeCompare(b.name))
+              // Alphabetical — makes it straightforward to check off against a
+              // supplier's own price list or website, which is normally alpha too.
+              // Feeds Step 1, Step 2, and the PO document itself, so all three stay
+              // in the same order.
               // Single-supplier mode — only process the one supplier this wizard was opened for
 
               const STEPS = ['Review Quantities', 'Place Order', 'Record Confirmation', 'Done']
