@@ -17,7 +17,16 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const filteredItems = report
     ? report.items
         .filter(i => category === 'All' || i.category === category)
-        .sort((a, b) => sort === 'revenue' ? ((b.revenue || 0) - (a.revenue || 0)) : ((b.unitsSold + (b.bottlesSold || 0)) - (a.unitsSold + (a.bottlesSold || 0))))
+        .sort((a, b) => {
+          if (sort === 'revenue') return (b.revenue || 0) - (a.revenue || 0)
+          const aUnits = a.unitsSold + (a.bottlesSold || 0)
+          const bUnits = b.unitsSold + (b.bottlesSold || 0)
+          // Slowest First reuses the same combined units figure, just ascending
+          // — so it only surfaces items that sold SOMETHING but not much,
+          // never zero-sale items (those are already excluded from the table
+          // below regardless of sort).
+          return sort === 'units-asc' ? aUnits - bUnits : bUnits - aUnits
+        })
     : []
 
   const totals = filteredItems.reduce(
@@ -144,7 +153,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                   {showComparison ? '▾ Hide comparison' : '▸ Show comparison'}
                 </button>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Sort:</span>
-                {[['units','By Units'],['revenue','By Revenue']].map(([val, label]) => (
+                {[['units','By Units'],['units-asc','Slowest First'],['revenue','By Revenue']].map(([val, label]) => (
                   (!hasRev && val === 'revenue') ? null :
                   <button key={val}
                     style={{ ...styles.tab, padding: '3px 10px', fontSize: 12, ...(sort === val ? styles.tabActive : {}) }}
