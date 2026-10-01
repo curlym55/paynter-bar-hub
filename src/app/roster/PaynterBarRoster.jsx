@@ -32,7 +32,21 @@ function getIsLive() {
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-const TIME_OPTIONS = ["10:00","10:30","11:00","11:30","12:00","12:30","1:00","1:30","2:00","2:30","3:00","3:30","4:00","4:30","5:00","5:30","6:00","6:30","7:00","7:30","8:00","8:30"];
+// Bare numbers ("10:00", "4:30") with no AM/PM — this only works because every
+// bar session starts in the afternoon/evening in practice, so there's never
+// real ambiguity. The late-night extension below (9:00 PM onward) DOES carry
+// explicit AM/PM, both because "9:00"/"10:00"/etc with no suffix would
+// otherwise collide with the identically-written morning-ish entries earlier
+// in this same list, and so it's unambiguous to read in the dropdown itself.
+// Existing entries are untouched — nothing already saved in the roster changes
+// meaning. One caveat: parseTime() (below) sorts sessions by grabbing the
+// first h:mm digits it finds, with no AM/PM awareness at all — so a session
+// whose START time is itself set to "12:00 AM" would sort alongside the
+// existing noon-ish "12:00" entries, not at the very end of the day. In
+// practice this only matters if a session's START (not end) time is pushed
+// into the new very-late range, which is far outside how this bar actually
+// runs — flagged here rather than silently left as a trap, not solved now.
+const TIME_OPTIONS = ["10:00","10:30","11:00","11:30","12:00","12:30","1:00","1:30","2:00","2:30","3:00","3:30","4:00","4:30","5:00","5:30","6:00","6:30","7:00","7:30","8:00","8:30","9:00 PM","9:30 PM","10:00 PM","10:30 PM","11:00 PM","11:30 PM","12:00 AM"];
 
 const EVENT_STYLES = {
   australia_day: { label: "#FF5252", icon: "🇦🇺" },
