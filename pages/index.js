@@ -835,7 +835,7 @@ export default function Home() {
       })
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
-        const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride']
+        const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride','targetPct']
         const updated = { ...item, [field]: numFields.includes(field) ? (value === null ? null : Number(value)) : value }
         if (['weeklyAvgOverride', 'bottleML', 'nipML', 'pack', 'minStock', 'maxStock'].includes(field)) {
           // category and pack were missing here — calculateItem() reads pack
@@ -3833,12 +3833,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const mkColor = (pct) => pct == null ? '#94a3b8' : pct >= 40 ? '#16a34a' : pct >= 25 ? '#d97706' : '#dc2626'
                           const mkStr   = (pct) => pct != null ? pct.toFixed(1) + '%' : '—'
 
-                          // Suggested sell at 40% markup
+                          // Suggested sell price — per-item Markup or Margin mode.
+                          // Markup % = profit ÷ cost  →  Sell = Buy × (1 + target/100)
+                          // Margin % = profit ÷ sell   →  Sell = Buy ÷ (1 - target/100)
+                          // These are genuinely different numbers for the same profit
+                          // (e.g. the old hardcoded 40% markup ≈ 28.6% margin) —
+                          // defaults below match the previous behaviour exactly
+                          // (Markup, 40%) unless this item has been explicitly
+                          // switched to Margin, which defaults to 30% on first switch.
+                          const pricingMode = item.pricingMode === 'margin' ? 'margin' : 'markup'
+                          const targetPct = item.targetPct != null ? item.targetPct : (pricingMode === 'margin' ? 30 : 40)
                           const mceil2  = (v, m) => Math.ceil(v / m) * m
+                          const costPerServe = (b) => pricingMode === 'margin'
+                            ? (targetPct < 100 ? b / (1 - targetPct / 100) : null)
+                            : b * (1 + targetPct / 100)
                           const suggNum = buy != null
-                            ? item.isSpirit ? mceil2(buy * 1.40, 0.25)
-                            : isWine && sellGlass != null ? mceil2(buy * 1.40 / serves, 0.25)
-                            : mceil2(buy * 1.40, 0.25)
+                            ? item.isSpirit ? mceil2(costPerServe(buy), 0.25)
+                            : isWine && sellGlass != null ? mceil2(costPerServe(buy) / serves, 0.25)
+                            : mceil2(costPerServe(buy), 0.25)
                             : null
                           const suggSell = suggNum != null
                             ? item.isSpirit ? `$${suggNum.toFixed(2)}/nip`
@@ -3930,9 +3942,37 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               )}
                             </td>
 
-                            {/* Suggested sell at 40% — colour shows actual vs target */}
+                            {/* Suggested sell — colour shows actual vs target. Mode +
+                                target % selector sits underneath, tiny and muted, so a
+                                row that's never touched it looks exactly as before. */}
                             <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: suggColor }}>
                               {suggSell}
+                              <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end', alignItems: 'center', marginTop: 2, fontFamily: 'inherit', fontWeight: 400 }}>
+                                <select
+                                  value={pricingMode}
+                                  onChange={e => {
+                                    const mode = e.target.value
+                                    saveSetting(item.name, 'pricingMode', mode)
+                                    // First switch to Margin defaults the target to 30,
+                                    // not whatever the Markup target happened to be.
+                                    if (mode === 'margin' && item.targetPct == null) saveSetting(item.name, 'targetPct', 30)
+                                  }}
+                                  title="Suggested-sell basis for this item"
+                                  style={{ fontSize: 9, border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', color: '#64748b', padding: '1px 2px', cursor: 'pointer' }}
+                                >
+                                  <option value="markup">Markup</option>
+                                  <option value="margin">Margin</option>
+                                </select>
+                                <input
+                                  type="number" min="1" max="95" step="1"
+                                  defaultValue={targetPct}
+                                  onBlur={e => { const v = Number(e.target.value); if (v > 0 && v < 100) saveSetting(item.name, 'targetPct', v) }}
+                                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
+                                  title="Target %"
+                                  style={{ width: 28, fontSize: 9, border: '1px solid #e2e8f0', borderRadius: 3, padding: '1px 2px', textAlign: 'right' }}
+                                />
+                                <span style={{ fontSize: 9, color: '#94a3b8' }}>%</span>
+                              </div>
                             </td>
                           </>
                         })()}

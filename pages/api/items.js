@@ -135,6 +135,12 @@ export default async function handler(req, res) {
         squareWeeklyAvg:       item.weeklyAvg,
         alcoholPct:            settings.alcoholPct || '',
         containerML:           settings.containerML ? Number(settings.containerML) : null,
+        // Lets the Pricing table suggest a sell price from either markup
+        // (profit ÷ cost) or margin (profit ÷ sell price) — per item, since
+        // they're genuinely different numbers for the same profit and some
+        // items may suit one framing better than the other.
+        pricingMode:           settings.pricingMode === 'margin' ? 'margin' : 'markup',
+        targetPct:             settings.targetPct != null ? Number(settings.targetPct) : null,
       }
     })
 
