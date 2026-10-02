@@ -95,6 +95,11 @@ export default async function handler(req, res) {
     const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
     const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
     const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
+    // Global Suggested Sell basis for the whole Pricing table (Markup 40% /
+    // Margin 30%, both fixed) — see pages/index.js for why this is global
+    // rather than per item.
+    const pricingBasisRaw = await kvGet('pricingBasis').catch(() => null)
+    const pricingBasis = pricingBasisRaw === 'margin' ? 'margin' : 'markup'
 
     // One-time migration: rename "Dan Murphys" -> "Dan Murphy" in item settings
     let migrated = false
@@ -150,7 +155,7 @@ export default async function handler(req, res) {
     })
 
     const lastUpdated = new Date().toISOString()
-    const payload = { items, targetWeeks, suppliers, daysBack, lastUpdated }
+    const payload = { items, targetWeeks, pricingBasis, suppliers, daysBack, lastUpdated }
 
     // Save to cache keyed by daysBack (fire and forget)
     kvSet(CACHE_KEY(daysBack), payload).catch(e => console.error('Cache write failed:', e))

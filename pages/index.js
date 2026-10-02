@@ -57,6 +57,10 @@ export default function Home() {
   const [error, setError]               = useState(null)
   const [lastUpdated, setLastUpdated]   = useState(null)
   const [targetWeeks, setTargetWeeks]   = useState(6)
+  // Suggested-price basis for the whole Pricing table — Markup (40%, fixed)
+  // or Margin (30%, fixed). Global, not per item: a per-item selector was
+  // tried first but was too small and easy to miss in this dense table.
+  const [pricingBasis, setPricingBasis] = useState('markup')
   const [view, setView]                 = useState('all')
   const [showDetails, setShowDetails]   = useState(false)
   const [installPrompt, setInstallPrompt] = useState(null)   // captured beforeinstallprompt event
@@ -260,6 +264,7 @@ export default function Home() {
       try { data = await r.json() } catch { throw new Error('Invalid response from server — try refreshing') }
       setItems(data.items.map(i => i.supplier === 'Dan Murphys' ? { ...i, supplier: 'Dan Murphy' } : i))
       setTargetWeeks(data.targetWeeks)
+      setPricingBasis(data.pricingBasis === 'margin' ? 'margin' : 'markup')
       setLastUpdated(data.lastUpdated)
       setFromCache(data.fromCache === true)
       // Restore persisted order qty overrides from item settings
@@ -906,6 +911,20 @@ export default function Home() {
     }))
     // Also trigger background refresh to rebuild cache with correct targetWeeks
     loadItems(true)
+  }
+
+  async function savePricingBasis(basis) {
+    const val = basis === 'margin' ? 'margin' : 'markup'
+    setPricingBasis(val)
+    // No per-item recalculation needed — unlike targetWeeks, this only
+    // affects the Suggested Sell column, which reads pricingBasis directly
+    // from component state on every render, so the whole table updates the
+    // moment this state changes.
+    await fetch('/api/settings', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemName: '_global', field: 'pricingBasis', value: val })
+    })
   }
 
   async function addSupplier() {
@@ -3465,6 +3484,16 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, color: '#047857', borderColor: '#047857', background: '#f0fdf4' }}>
                       📥 Excel
                     </button>
+                    <div style={{ width: 1, background: '#e2e8f0', margin: '0 6px', alignSelf: 'stretch' }} />
+                    <span style={{ fontSize: 11, color: '#64748b', fontWeight: 600, alignSelf: 'center' }}>Suggested price:</span>
+                    <button onClick={() => savePricingBasis('markup')} title="Suggested sell = Buy × 1.40"
+                      style={{ ...styles.tab, ...(pricingBasis === 'markup' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}>
+                      Markup 40%
+                    </button>
+                    <button onClick={() => savePricingBasis('margin')} title="Suggested sell = Buy ÷ 0.70"
+                      style={{ ...styles.tab, ...(pricingBasis === 'margin' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}>
+                      Margin 30%
+                    </button>
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
@@ -3833,20 +3862,18 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const mkColor = (pct) => pct == null ? '#94a3b8' : pct >= 40 ? '#16a34a' : pct >= 25 ? '#d97706' : '#dc2626'
                           const mkStr   = (pct) => pct != null ? pct.toFixed(1) + '%' : '—'
 
-                          // Suggested sell price — per-item Markup or Margin mode.
-                          // Markup % = profit ÷ cost  →  Sell = Buy × (1 + target/100)
-                          // Margin % = profit ÷ sell   →  Sell = Buy ÷ (1 - target/100)
+                          // Suggested sell price — basis set globally for the whole
+                          // table (the two buttons above: Markup 40% / Margin 30%,
+                          // both fixed). A per-item selector was tried first but was
+                          // too small to notice/use reliably in this dense table.
+                          // Markup % = profit ÷ cost  →  Sell = Buy × 1.40
+                          // Margin % = profit ÷ sell   →  Sell = Buy ÷ 0.70
                           // These are genuinely different numbers for the same profit
-                          // (e.g. the old hardcoded 40% markup ≈ 28.6% margin) —
-                          // defaults below match the previous behaviour exactly
-                          // (Markup, 40%) unless this item has been explicitly
-                          // switched to Margin, which defaults to 30% on first switch.
-                          const pricingMode = item.pricingMode === 'margin' ? 'margin' : 'markup'
-                          const targetPct = item.targetPct != null ? item.targetPct : (pricingMode === 'margin' ? 30 : 40)
+                          // (40% markup ≈ 28.6% margin) — 30% margin is in fact closer
+                          // to a ~42.9% markup, i.e. slightly MORE profit per item
+                          // than the old 40%-markup default, not less.
                           const mceil2  = (v, m) => Math.ceil(v / m) * m
-                          const costPerServe = (b) => pricingMode === 'margin'
-                            ? (targetPct < 100 ? b / (1 - targetPct / 100) : null)
-                            : b * (1 + targetPct / 100)
+                          const costPerServe = (b) => pricingBasis === 'margin' ? b / 0.70 : b * 1.40
                           const suggNum = buy != null
                             ? item.isSpirit ? mceil2(costPerServe(buy), 0.25)
                             : isWine && sellGlass != null ? mceil2(costPerServe(buy) / serves, 0.25)
@@ -3942,37 +3969,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               )}
                             </td>
 
-                            {/* Suggested sell — colour shows actual vs target. Mode +
-                                target % selector sits underneath, tiny and muted, so a
-                                row that's never touched it looks exactly as before. */}
+                            {/* Suggested sell — colour shows actual vs target. Basis is
+                                set globally above the table, not per item. */}
                             <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: suggColor }}>
                               {suggSell}
-                              <div style={{ display: 'flex', gap: 3, justifyContent: 'flex-end', alignItems: 'center', marginTop: 2, fontFamily: 'inherit', fontWeight: 400 }}>
-                                <select
-                                  value={pricingMode}
-                                  onChange={e => {
-                                    const mode = e.target.value
-                                    saveSetting(item.name, 'pricingMode', mode)
-                                    // First switch to Margin defaults the target to 30,
-                                    // not whatever the Markup target happened to be.
-                                    if (mode === 'margin' && item.targetPct == null) saveSetting(item.name, 'targetPct', 30)
-                                  }}
-                                  title="Suggested-sell basis for this item"
-                                  style={{ fontSize: 9, border: '1px solid #e2e8f0', borderRadius: 3, background: '#fff', color: '#64748b', padding: '1px 2px', cursor: 'pointer' }}
-                                >
-                                  <option value="markup">Markup</option>
-                                  <option value="margin">Margin</option>
-                                </select>
-                                <input
-                                  type="number" min="1" max="95" step="1"
-                                  defaultValue={targetPct}
-                                  onBlur={e => { const v = Number(e.target.value); if (v > 0 && v < 100) saveSetting(item.name, 'targetPct', v) }}
-                                  onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
-                                  title="Target %"
-                                  style={{ width: 28, fontSize: 9, border: '1px solid #e2e8f0', borderRadius: 3, padding: '1px 2px', textAlign: 'right' }}
-                                />
-                                <span style={{ fontSize: 9, color: '#94a3b8' }}>%</span>
-                              </div>
                             </td>
                           </>
                         })()}

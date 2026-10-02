@@ -122,6 +122,13 @@ export default async function handler(req, res) {
         await set('targetWeeks', Number(value))
         return res.status(200).json({ ok: true })
       }
+      if (field === 'pricingBasis') {
+        await set('pricingBasis', value === 'margin' ? 'margin' : 'markup')
+        // Busts the items cache so a fresh /api/items load reflects it —
+        // same reasoning as other item-settings writes below.
+        await invalidateItemsCache()
+        return res.status(200).json({ ok: true })
+      }
       if (field === 'revenueTarget') {
         await set('revenueTarget', value === null ? null : Number(value))
         return res.status(200).json({ ok: true })
