@@ -3553,9 +3553,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Buy</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 90, minWidth: 90 }}>Sell</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 56, minWidth: 56 }}>Serves</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 78, minWidth: 78 }}>Actual Markup</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 100, minWidth: 100 }}>
-                        Suggested ({pricingBasis === 'margin' ? 'Margin 30%' : 'Markup 40%'})
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 64, minWidth: 64 }}>Markup</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 70, minWidth: 70 }} title={`Suggested sell at ${pricingBasis === 'margin' ? 'Margin 30%' : 'Markup 40%'}`}>
+                        Sugg · {pricingBasis === 'margin' ? 'Mgn' : 'Mkp'}
                       </th>
                     </>}
                   </tr>
