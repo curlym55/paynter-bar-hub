@@ -2196,6 +2196,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       { header: 'Suggested @ Margin 30%',   key: 'mgn',    width: 19 },
       { header: 'Difference ($)',           key: 'diff',   width: 14 },
       { header: 'Higher Suggestion',        key: 'higher', width: 16 },
+      { header: 'Sugg Bottle @ Markup 40%', key: 'mkpBtl', width: 19 },
+      { header: 'Sugg Bottle @ Margin 30%', key: 'mgnBtl', width: 19 },
     ]
 
     const hRow = ws.getRow(1)
@@ -2243,14 +2245,22 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const suggMgn = suggestedAt('margin')
       const diff = +(suggMgn - suggMkp).toFixed(2)
       const unit = item.isSpirit ? 'per nip' : (isWine && sellGlass != null) ? 'per glass' : 'per unit'
+      // Bottle-sale suggestion for wines sold both ways — same pattern as the
+      // live table's secondary line under Suggested, and markupBottle on the
+      // Markup column. Without this, this report missed the same thing the
+      // live table did.
+      const sellsBothWays = isWine && sellGlass != null && sellBottle != null
+      const mkpBtl = sellsBothWays ? mceil2(costPerServe('markup'), 0.25) : null
+      const mgnBtl = sellsBothWays ? mceil2(costPerServe('margin'), 0.25) : null
 
       dataRows++
       const row = ws.addRow({
         name: item.name, cat: item.category, unit,
         buy, sell: currentSell ?? '', mkp: suggMkp, mgn: suggMgn, diff,
         higher: diff > 0.01 ? 'Margin' : diff < -0.01 ? 'Markup' : 'Same',
+        mkpBtl: mkpBtl ?? '', mgnBtl: mgnBtl ?? '',
       })
-      ;['buy', 'sell', 'mkp', 'mgn', 'diff'].forEach(k => {
+      ;['buy', 'sell', 'mkp', 'mgn', 'diff', 'mkpBtl', 'mgnBtl'].forEach(k => {
         if (row.getCell(k).value !== '') row.getCell(k).numFmt = '"$"#,##0.00'
       })
       row.getCell('diff').font = { bold: true, color: { argb: 'FF' + (diff > 0.01 ? GREEN : diff < -0.01 ? RED : GREY) } }
@@ -3989,6 +3999,12 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                             : isWine && sellGlass != null ? mceil2(costPerServe(buy) / serves, 0.25)
                             : mceil2(costPerServe(buy), 0.25)
                             : null
+                          // Secondary bottle-price suggestion for wines sold BOTH by the
+                          // glass and bottle — mirrors markupBottle below. Without this,
+                          // the Suggested column only ever showed the glass figure, even
+                          // though bottle sales are a real part of these wines' revenue.
+                          const suggBottleNum = isWine && sellGlass != null && sellBottle != null && buy != null
+                            ? mceil2(costPerServe(buy), 0.25) : null
                           const suggSell = suggNum != null
                             ? item.isSpirit ? `$${suggNum.toFixed(2)}/nip`
                             : isWine && sellGlass != null ? `$${suggNum.toFixed(2)}/glass`
@@ -4082,10 +4098,17 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               )}
                             </td>
 
-                            {/* Suggested sell — colour shows actual vs target. Basis is
-                                set globally above the table, not per item. */}
-                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: suggColor }}>
-                              {suggSell}
+                            {/* Suggested sell — colour shows actual vs target. Always
+                                visible (not gated by Show Details), matching its header.
+                                Secondary line shows the bottle-sale suggestion for wines
+                                that sell both ways, same pattern as the Markup column. */}
+                            <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700 }}>
+                              <div style={{ color: suggColor }}>{suggSell}</div>
+                              {suggBottleNum != null && (
+                                <div style={{ fontSize: 11, color: '#94a3b8', fontWeight: 400, marginTop: 2 }}>
+                                  ${suggBottleNum.toFixed(2)} <span style={{ fontSize: 9 }}>bottle</span>
+                                </div>
+                              )}
                             </td>
                           </>
                         })()}
