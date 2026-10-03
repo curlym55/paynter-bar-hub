@@ -4025,7 +4025,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               <EditNumber
                                 value={buy ?? ''}
                                 placeholder="—"
-                                decimals={3}
+                                decimals={2}
                                 prefix="$"
                                 onChange={v => saveSetting(item.name, 'buyPrice', v)}
                                 saving={saving[`${item.name}_buyPrice`]}
