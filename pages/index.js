@@ -2163,6 +2163,110 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     URL.revokeObjectURL(url)
   }
 
+  // Dedicated report for the actual question "should we use Markup 40% or
+  // Margin 30%" — the live table can only show one basis at a time (the
+  // toggle above it), so there's no way to see both side by side there. This
+  // puts both suggested prices, and the gap between them, in one row per
+  // item. Uses the exact same buy/sell/serves resolution as the live
+  // Suggested column (including the 750÷165 = 4.545 glasses/bottle figure for
+  // wine), so the numbers here always match what's shown on screen.
+  async function exportMarginComparison() {
+    if (!window.ExcelJS) {
+      const s = document.createElement('script')
+      s.src = 'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
+      document.head.appendChild(s)
+      await new Promise(r => { s.onload = r })
+    }
+    const ExcelJS = window.ExcelJS
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('Markup vs Margin')
+
+    const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
+    const GLASS_SERVE_ML = 165  // matches the live Suggested column exactly
+    const mceil2 = (v, m) => Math.ceil(v / m) * m
+    const NAVY = '1E3A5F', GREEN = '166534', RED = '991B1B', GREY = '64748B'
+
+    ws.columns = [
+      { header: 'Item',                     key: 'name',   width: 36 },
+      { header: 'Category',                 key: 'cat',    width: 16 },
+      { header: 'Unit',                     key: 'unit',   width: 11 },
+      { header: 'Buy',                      key: 'buy',    width: 10 },
+      { header: 'Current Sell',             key: 'sell',   width: 13 },
+      { header: 'Suggested @ Markup 40%',   key: 'mkp',    width: 19 },
+      { header: 'Suggested @ Margin 30%',   key: 'mgn',    width: 19 },
+      { header: 'Difference ($)',           key: 'diff',   width: 14 },
+      { header: 'Higher Suggestion',        key: 'higher', width: 16 },
+    ]
+
+    const hRow = ws.getRow(1)
+    hRow.eachCell(cell => {
+      cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + NAVY } }
+      cell.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 }
+      cell.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
+    })
+    hRow.height = 30
+
+    const sorted = [...items].filter(i => !rundownItems[i.name]).sort((a, b) => {
+      const co = { Beer:0, Cider:1, PreMix:2, 'White Wine':3, 'Red Wine':4, Rose:5, Sparkling:6, 'Fortified & Liqueurs':7, Spirits:8, 'Soft Drinks':9, Snacks:10 }
+      const cd = (co[a.category] ?? 99) - (co[b.category] ?? 99)
+      return cd !== 0 ? cd : a.name.localeCompare(b.name)
+    })
+
+    let dataRows = 0
+    for (const item of sorted) {
+      const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null
+      if (buy == null) continue  // nothing to compare without a buy price
+
+      const isWine   = WINE_CATS.includes(item.category)
+      const bottleML = item.isSpirit ? (item.bottleML || 700) : 750
+      const nipML    = item.nipML || 30
+      const serves   = item.isSpirit ? (bottleML / nipML) : (750 / GLASS_SERVE_ML)
+
+      const vars      = item.variations || []
+      const glassVar  = vars.find(v => v.name.toLowerCase().includes('glass'))
+      const bottleVar = vars.find(v => v.name.toLowerCase().includes('bottle') || v.name.toLowerCase() === 'regular')
+      const nipVar    = vars.find(v => v.name.toLowerCase().includes('nip') || v.name.toLowerCase().includes('30ml') || v.name.toLowerCase().includes('60ml'))
+
+      const sellGlass  = glassVar?.price != null ? Number(glassVar.price) : null
+      const sellBottle = bottleVar?.price != null ? Number(bottleVar.price) : item.squareSellPrice != null ? Number(item.squareSellPrice) : null
+      const sellNip    = nipVar?.price != null ? Number(nipVar.price) : bottleVar?.price != null ? Number(bottleVar.price) : item.sellPrice != null ? Number(item.sellPrice) : null
+      const currentSell = item.isSpirit ? sellNip : isWine ? (sellGlass ?? sellBottle) : (sellBottle ?? item.sellPrice)
+
+      const costPerServe = (basis) => basis === 'margin' ? buy / 0.70 : buy * 1.40
+      const suggestedAt = (basis) => {
+        if (item.isSpirit) return mceil2(costPerServe(basis), 0.25)
+        if (isWine && sellGlass != null) return mceil2(costPerServe(basis) / serves, 0.25)
+        return mceil2(costPerServe(basis), 0.25)
+      }
+
+      const suggMkp = suggestedAt('markup')
+      const suggMgn = suggestedAt('margin')
+      const diff = +(suggMgn - suggMkp).toFixed(2)
+      const unit = item.isSpirit ? 'per nip' : (isWine && sellGlass != null) ? 'per glass' : 'per unit'
+
+      dataRows++
+      const row = ws.addRow({
+        name: item.name, cat: item.category, unit,
+        buy, sell: currentSell ?? '', mkp: suggMkp, mgn: suggMgn, diff,
+        higher: diff > 0.01 ? 'Margin' : diff < -0.01 ? 'Markup' : 'Same',
+      })
+      ;['buy', 'sell', 'mkp', 'mgn', 'diff'].forEach(k => {
+        if (row.getCell(k).value !== '') row.getCell(k).numFmt = '"$"#,##0.00'
+      })
+      row.getCell('diff').font = { bold: true, color: { argb: 'FF' + (diff > 0.01 ? GREEN : diff < -0.01 ? RED : GREY) } }
+      if (dataRows % 2 === 0) row.eachCell(c => { if (!c.fill) c.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } } })
+    }
+
+    ws.addRow({})
+    ws.addRow({ name: `Generated ${new Date().toLocaleDateString('en-AU', { timeZone: 'Australia/Brisbane', day: '2-digit', month: 'short', year: 'numeric' })} · Comparing suggested prices at Markup 40% vs Margin 30% — Current Sell shown for reference only, not part of the comparison. Items with no Buy Price, or ticked Rundown, are excluded.` })
+
+    const buf = await wb.xlsx.writeBuffer()
+    const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+    const a = document.createElement('a')
+    a.href = url; a.download = 'Markup-vs-Margin-Comparison.xlsx'; a.click()
+    URL.revokeObjectURL(url)
+  }
+
   function printPricingSheet() {
     const WINE_C = ['White Wine','Red Wine','Rose','Sparkling']
     const allItems = [...items].sort((a,b) => {
@@ -3494,6 +3598,10 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       style={{ ...styles.tab, ...(pricingBasis === 'margin' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}>
                       Margin 30%
                     </button>
+                    <button onClick={exportMarginComparison} title="Download an Excel sheet with both Markup 40% and Margin 30% suggested prices side by side, for every item"
+                      style={{ ...styles.tab, color: '#7c3aed', borderColor: '#7c3aed' }}>
+                      📊 Compare Both
+                    </button>
                   </>
                 )}
                 <button style={{ ...styles.tab, ...(viewMode === 'pricing' ? { background: '#7c3aed', color: '#fff', borderColor: '#7c3aed' } : { color: '#7c3aed', borderColor: '#7c3aed' }) }}
@@ -3553,7 +3661,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 80, minWidth: 80 }}>Buy</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 90, minWidth: 90 }}>Sell</th>
                       <th style={{ ...styles.th, textAlign: 'center', color: '#7c3aed', width: 56, minWidth: 56 }}>Serves</th>
-                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 64, minWidth: 64 }}>Markup</th>
+                      <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 64, minWidth: 64, display: showDetails ? '' : 'none' }}>Markup</th>
                       <th style={{ ...styles.th, textAlign: 'right', color: '#7c3aed', width: 70, minWidth: 70 }} title={`Suggested sell at ${pricingBasis === 'margin' ? 'Margin 30%' : 'Markup 40%'}`}>
                         Sugg · {pricingBasis === 'margin' ? 'Mgn' : 'Mkp'}
                       </th>
@@ -3953,8 +4061,11 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                               }
                             </td>
 
-                            {/* Markup — primary with secondary bottle line for wines */}
-                            <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace' }}>
+                            {/* Markup — primary with secondary bottle line for wines.
+                                Tucked under Show Details, same as Min/Max Stock —
+                                it's real/useful context but not needed for the
+                                day-to-day glance this table is mostly used for. */}
+                            <td style={{ ...styles.td, textAlign: 'right', fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', display: showDetails ? '' : 'none' }}>
                               <div style={{ color: mkColor(markupPrimary) }}>
                                 {mkStr(markupPrimary)}
                                 {isWine && sellGlass != null && (
