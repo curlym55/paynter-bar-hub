@@ -23,6 +23,7 @@ import {
   saveRosterSettings,
   changeRosterPin
 } from '../../lib/supabase';
+import { compareSessionTimes } from '../../lib/rosterTime';
 
 // FIX: Don't evaluate IS_LIVE at module level for state initialization
 // It causes hydration mismatch (server=false, client=true)
@@ -32,20 +33,16 @@ function getIsLive() {
 
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-// Bare numbers ("10:00", "4:30") with no AM/PM — this only works because every
-// bar session starts in the afternoon/evening in practice, so there's never
-// real ambiguity. The late-night extension below (9:00 PM onward) DOES carry
-// explicit AM/PM, both because "9:00"/"10:00"/etc with no suffix would
-// otherwise collide with the identically-written morning-ish entries earlier
-// in this same list, and so it's unambiguous to read in the dropdown itself.
-// Existing entries are untouched — nothing already saved in the roster changes
-// meaning. One caveat: parseTime() (below) sorts sessions by grabbing the
-// first h:mm digits it finds, with no AM/PM awareness at all — so a session
-// whose START time is itself set to "12:00 AM" would sort alongside the
-// existing noon-ish "12:00" entries, not at the very end of the day. In
-// practice this only matters if a session's START (not end) time is pushed
-// into the new very-late range, which is far outside how this bar actually
-// runs — flagged here rather than silently left as a trap, not solved now.
+// Times are stored as bare numbers ("10:00", "4:30") with no AM/PM, read using
+// the same 12-hour wrap this list follows: 10 and 11 are morning, 12 is midday,
+// 1–9 are afternoon/evening. The late-night options (9:00 PM onward) DO carry an
+// explicit AM/PM, both because a bare "10:00" would collide with the morning
+// "10:00" earlier in this same list, and so they read unambiguously here.
+// Existing entries are untouched — nothing already saved changes meaning.
+// Sorting a day's sessions into order is handled by compareSessionTimes() in
+// src/lib/rosterTime.js, which understands all of the above (including a
+// session starting at "12:00 AM" sorting last). Keep any new option here in
+// step with that file.
 const TIME_OPTIONS = ["10:00","10:30","11:00","11:30","12:00","12:30","1:00","1:30","2:00","2:30","3:00","3:30","4:00","4:30","5:00","5:30","6:00","6:30","7:00","7:30","8:00","8:30","9:00 PM","9:30 PM","10:00 PM","10:30 PM","11:00 PM","11:30 PM","12:00 AM"];
 
 const EVENT_STYLES = {
@@ -1676,14 +1673,13 @@ export default function PaynterBarRoster() {
     return acc;
   }, {});
 
-  const parseTime = (timeStr) => {
-    const match = timeStr.match(/(\d{1,2}):(\d{2})/);
-    if (!match) return 0;
-    return parseInt(match[1]) * 60 + parseInt(match[2]);
-  };
+  // Within a day, earliest session first. Times carry no AM/PM, so this can't just
+  // read the raw hour number (11:00 would sort after 4:30) — see
+  // src/lib/rosterTime.js. This used to be an inline parseTime() that did exactly
+  // that, which is why a lunchtime session added to an afternoon day landed last.
   
   Object.keys(groupedByDay).forEach(day => {
-    groupedByDay[day].sort((a, b) => parseTime(a.time) - parseTime(b.time));
+    groupedByDay[day].sort((a, b) => compareSessionTimes(a.time, b.time));
   });
 
   // Collapse past days in the current month by default (less scrolling to reach today)

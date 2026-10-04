@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback } from 'react';
 import { getVolunteers, getSessionsForMonth, getAnnouncements } from '../../../lib/supabase';
+import { compareSessionTimes } from '../../../lib/rosterTime';
 
 const ROTATE_INTERVAL = 15000;
 const REFRESH_INTERVAL = 120000;
@@ -168,7 +169,9 @@ export default function BarDisplay() {
   const today = new Date(new Date().setHours(0,0,0,0));
   const upcomingSessions = sessions
     .filter(s => s.date >= today)
-    .sort((a, b) => a.date - b.date || a.time.localeCompare(b.time));
+    // Time order, not alphabetical: comparing the time TEXT put "10:00 PM" ahead
+    // of "4:30". See src/lib/rosterTime.js.
+    .sort((a, b) => a.date - b.date || compareSessionTimes(a.time, b.time));
 
   const groupedSessions = {};
   upcomingSessions.forEach(s => {
