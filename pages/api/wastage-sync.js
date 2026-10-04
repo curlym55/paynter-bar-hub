@@ -3,9 +3,16 @@ import { getLocationId, getVariationIdMap, postSingleWasteAdjustment } from '../
 import { requireAuth } from '../../lib/session'
 import { invalidateItemsCache } from '../../lib/cache'
 import { persistGet, persistSet } from '../../lib/persist'
+import { GLASS_SERVE_ML } from '../../lib/constants'
 
 const SPIRIT_CATS = ['Spirits', 'Fortified & Liqueurs']
 const WINE_CATS   = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
+// Bottles used per wasted glass — the shared 165ml glass (0.22 of a 750ml
+// bottle), the same figure Square, the Pricing screens and the stock
+// conversion use. This was a hardcoded 0.2 (150ml), which under-deducted
+// stock in Square for every glass of wine written off. Entries ALREADY synced
+// keep the quantity they were deducted at; only unsynced entries use this.
+const GLASS_FRACTION = GLASS_SERVE_ML / 750
 
 function computeSquareQty(entry, itemSettings) {
   const { itemName, category, qty, unit } = entry
@@ -18,7 +25,7 @@ function computeSquareQty(entry, itemSettings) {
     return Number(qty)
   }
   if (WINE_CATS.includes(category)) {
-    if (unit === 'glasses') return +(qty * 0.2).toFixed(3)
+    if (unit === 'glasses') return +(qty * GLASS_FRACTION).toFixed(3)
     return Number(qty)
   }
   return Number(qty)
@@ -34,7 +41,7 @@ function conversionNote(entry, itemSettings) {
     return `${qty} btl × ${nipsPerBottle} nips/btl (${bottleML}ml÷${nipML}ml) = ${+(qty * nipsPerBottle).toFixed(1)} nips`
   }
   if (WINE_CATS.includes(category) && unit === 'glasses') {
-    return `${qty} × 150ml glass ÷ 750ml = ${+(qty * 0.2).toFixed(3)} bottles`
+    return `${qty} × ${GLASS_SERVE_ML}ml glass ÷ 750ml = ${+(qty * GLASS_FRACTION).toFixed(3)} bottles`
   }
   return null
 }

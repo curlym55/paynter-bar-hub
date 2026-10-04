@@ -7,6 +7,11 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const [showComparison, setShowComparison] = useState(false)
 
   const fmt = n => n == null ? '-' : `$${Number(n).toFixed(2)}`
+  // Profit can be negative, and "$-3.00" reads badly — put the sign first.
+  const fmtMoney = n => n == null ? '—' : (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${Number(n).toFixed(2)}`)
+  const marginPct = (profit, revenue) => (profit != null && revenue > 0) ? (profit / revenue) * 100 : null
+  // Coloured against the 30% margin target being explored in Pricing.
+  const marginColor = m => m == null ? '#94a3b8' : m >= 30 ? '#16a34a' : m >= 20 ? '#d97706' : '#dc2626'
   const fmtChange = n => {
     if (n == null) return null
     const sign = n >= 0 ? '+' : ''
@@ -19,6 +24,13 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
         .filter(i => category === 'All' || i.category === category)
         .sort((a, b) => {
           if (sort === 'revenue') return (b.revenue || 0) - (a.revenue || 0)
+          if (sort === 'profit') {
+            // Items with no buy price have no profit figure to rank — they go last.
+            if (a.profit == null && b.profit == null) return 0
+            if (a.profit == null) return 1
+            if (b.profit == null) return -1
+            return b.profit - a.profit
+          }
           const aUnits = a.unitsSold + (a.bottlesSold || 0)
           const bUnits = b.unitsSold + (b.bottlesSold || 0)
           // Slowest First reuses the same combined units figure, just ascending
@@ -30,8 +42,18 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
     : []
 
   const totals = filteredItems.reduce(
-    (acc, i) => ({ units: acc.units + i.unitsSold, bottles: acc.bottles + (i.bottlesSold || 0), prev: acc.prev + i.prevSold, rev: acc.rev + (i.revenue || 0), prevRev: acc.prevRev + (i.prevRev || 0) }),
-    { units: 0, bottles: 0, prev: 0, rev: 0, prevRev: 0 }
+    (acc, i) => ({
+      units: acc.units + i.unitsSold, bottles: acc.bottles + (i.bottlesSold || 0), prev: acc.prev + i.prevSold, rev: acc.rev + (i.revenue || 0), prevRev: acc.prevRev + (i.prevRev || 0),
+      // Profit is only knowable for items that have a buy price. Cost and revenue
+      // of those items are tracked separately so the profit total and margin %
+      // are like-for-like — subtracting a partial cost from the FULL revenue
+      // would overstate profit.
+      cost:        acc.cost        + (i.cost != null ? i.cost : 0),
+      costedRev:   acc.costedRev   + (i.cost != null ? (i.revenue || 0) : 0),
+      uncostedRev: acc.uncostedRev + (i.cost == null ? (i.revenue || 0) : 0),
+      uncostedN:   acc.uncostedN   + (i.cost == null && (i.revenue || 0) > 0 ? 1 : 0),
+    }),
+    { units: 0, bottles: 0, prev: 0, rev: 0, prevRev: 0, cost: 0, costedRev: 0, uncostedRev: 0, uncostedN: 0 }
   )
 
   const hasRev     = report && report.items.some(i => i.revenue != null)
@@ -39,6 +61,10 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const showCat = category === 'All'
   const soldItems = filteredItems.filter(i => i.unitsSold > 0 || i.bottlesSold > 0)
   const avgTx = hasRev && totals.units > 0 ? (totals.rev / totals.units) : null
+  const hasCost = report && report.items.some(i => i.cost != null)
+  const showProfit = hasRev && hasCost
+  const profitTotal = totals.costedRev - totals.cost
+  const marginTotal = totals.costedRev > 0 ? (profitTotal / totals.costedRev) * 100 : null
 
   return (
     <div className="view-wrap" style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -97,9 +123,11 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
               {[
                 { label: 'Units Sold',   value: totals.units,         prev: totals.prev,    money: false },
                 ...(hasRev ? [{ label: 'Revenue', value: fmt(totals.rev), prev: totals.prevRev, money: true, rawVal: totals.rev, rawPrev: totals.prevRev }] : []),
+                ...(showProfit ? [{ label: 'Profit', value: fmtMoney(profitTotal), noChange: true,
+                  sub: marginTotal != null ? `${marginTotal.toFixed(1)}% margin${totals.uncostedN > 0 ? ` · excl. ${totals.uncostedN} uncosted` : ''}` : null }] : []),
                 { label: 'Items Sold',   value: soldItems.length,     noChange: true },
                 ...(avgTx != null ? [{ label: 'Avg / Unit', value: fmt(avgTx), noChange: true }] : []),
-              ].map(({ label, value, prev, money, rawVal, rawPrev, noChange }, i, arr) => {
+              ].map(({ label, value, prev, money, rawVal, rawPrev, noChange, sub }, i, arr) => {
                 const numVal  = money ? (rawVal  ?? 0) : (typeof value === 'number' ? value : 0)
                 const numPrev = money ? (rawPrev ?? 0) : (typeof prev  === 'number' ? prev  : 0)
                 const chg = (!noChange && numPrev > 0) ? +(((numVal - numPrev) / numPrev) * 100).toFixed(1) : null
@@ -113,6 +141,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                         {chg != null && <span style={{ marginLeft: 4, color: chg >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{chg >= 0 ? '+' : ''}{chg}%</span>}
                       </div>
                     )}
+                    {sub && <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>{sub}</div>}
                   </div>
                 )
               })}
@@ -153,14 +182,19 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                   {showComparison ? '▾ Hide comparison' : '▸ Show comparison'}
                 </button>
                 <span style={{ fontSize: 12, color: '#64748b' }}>Sort:</span>
-                {[['units','By Units'],['units-asc','Slowest First'],['revenue','By Revenue']].map(([val, label]) => (
-                  (!hasRev && val === 'revenue') ? null :
+                {[['units','By Units'],['units-asc','Slowest First'],['revenue','By Revenue'],['profit','By Profit']].map(([val, label]) => (
+                  ((!hasRev && val === 'revenue') || (!showProfit && val === 'profit')) ? null :
                   <button key={val}
                     style={{ ...styles.tab, padding: '3px 10px', fontSize: 12, ...(sort === val ? styles.tabActive : {}) }}
                     onClick={() => setSort(val)}>{label}</button>
                 ))}
               </div>
             </div>
+            {showProfit && totals.uncostedN > 0 && (
+              <div style={{ padding: '6px 16px', background: '#fffbeb', borderBottom: '1px solid #fde68a', fontSize: 11, color: '#92400e' }}>
+                ⚠ Profit leaves out {totals.uncostedN} item{totals.uncostedN === 1 ? '' : 's'} with no buy price ({fmt(totals.uncostedRev)} of revenue). Set buy prices in Stock Items → Pricing to include {totals.uncostedN === 1 ? 'it' : 'them'}.
+              </div>
+            )}
             <div style={{ overflowX: 'auto', overflowY: 'auto', maxHeight: 'calc(100vh - 280px)' }}>
               <table style={{ ...styles.table, fontSize: 13 }}>
                 <thead>
@@ -174,6 +208,9 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     {showComparison && <th style={{ ...styles.th, textAlign: 'right' }}>Change</th>}
                     {hasRev && <th style={{ ...styles.th, textAlign: 'right', color: '#16a34a' }}>Revenue</th>}
                     {hasRev && showComparison && <th style={{ ...styles.th, textAlign: 'right', color: '#94a3b8' }}>Prior Rev</th>}
+                    {showProfit && <th style={{ ...styles.th, textAlign: 'right', color: '#0369a1' }}>Cost</th>}
+                    {showProfit && <th style={{ ...styles.th, textAlign: 'right', color: '#16a34a' }}>Profit</th>}
+                    {showProfit && <th style={{ ...styles.th, textAlign: 'right' }}>Margin</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -194,6 +231,25 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                       {showComparison && <td style={{ ...styles.td, textAlign: 'right' }}>{fmtChange(item.change)}</td>}
                       {hasRev && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#16a34a', fontWeight: 600 }}>{fmt(item.revenue)}</td>}
                       {hasRev && showComparison && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#94a3b8' }}>{fmt(item.prevRev)}</td>}
+                      {showProfit && (
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#0369a1' }}
+                          title={item.cost == null ? 'No buy price set — add one in Stock Items → Pricing' : undefined}>
+                          {item.cost != null ? fmt(item.cost) : <span style={{ color: '#cbd5e1' }}>—</span>}
+                        </td>
+                      )}
+                      {showProfit && (
+                        <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 600, color: item.profit == null ? '#cbd5e1' : item.profit >= 0 ? '#16a34a' : '#dc2626' }}>
+                          {fmtMoney(item.profit)}
+                        </td>
+                      )}
+                      {showProfit && (() => {
+                        const m = marginPct(item.profit, item.revenue)
+                        return (
+                          <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: marginColor(m) }}>
+                            {m != null ? `${m.toFixed(1)}%` : '—'}
+                          </td>
+                        )
+                      })()}
                     </tr>
                   ))}
                   <tr style={{ background: '#f1f5f9' }}>
@@ -206,6 +262,9 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     {showComparison && <td style={styles.td} />}
                     {hasRev && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#16a34a' }}>{fmt(totals.rev)}</td>}
                     {hasRev && showComparison && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', color: '#94a3b8' }}>{fmt(totals.prevRev)}</td>}
+                    {showProfit && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: '#0369a1' }} title="Items with a buy price only">{fmt(totals.cost)}</td>}
+                    {showProfit && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: profitTotal >= 0 ? '#16a34a' : '#dc2626' }} title="Items with a buy price only">{fmtMoney(profitTotal)}{totals.uncostedN > 0 ? '*' : ''}</td>}
+                    {showProfit && <td style={{ ...styles.td, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, color: marginColor(marginTotal) }} title="Items with a buy price only">{marginTotal != null ? `${marginTotal.toFixed(1)}%` : '—'}</td>}
                   </tr>
                 </tbody>
               </table>

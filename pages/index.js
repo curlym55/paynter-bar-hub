@@ -19,6 +19,7 @@ import HelpTab from '../components/bar/views/HelpTab'
 import SalesView from '../components/bar/views/SalesView'
 import EditSelect from '../components/bar/EditSelect'
 import EditNumber from '../components/bar/EditNumber'
+import { GLASS_SERVE_ML, GLASSES_PER_BOTTLE } from '../lib/constants'
 import EditText from '../components/bar/EditText'
 import { getSpecialPrice } from '../lib/utils/getSpecialPrice'
 
@@ -2039,8 +2040,9 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const sellBottlePrice = bottleVar?.price != null ? Number(bottleVar.price)
         : item.squareSellPriceBottle != null ? Number(item.squareSellPriceBottle) : null
 
-      // Markup: for wines use glass × 5 vs bottle cost; for spirits use nip vs nip cost; for others use unit
-      const serves = isWine && glassVar ? 5 : 1
+      // Markup: for wines use glass × glasses-per-bottle vs bottle cost; for spirits use nip vs nip cost; for others use unit
+      // (GLASSES_PER_BOTTLE is the shared 165ml figure — this used to be a hardcoded 5.)
+      const serves = isWine && glassVar ? GLASSES_PER_BOTTLE : 1
       const revenue = sellGlassPrice != null ? sellGlassPrice * serves : null
       const markup  = buy != null && buy > 0 && revenue != null ? Math.round((revenue - buy) / buy * 1000) / 10 : null
 
@@ -2134,7 +2136,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
         : glassVar?.price != null ? Number(glassVar.price) : (bottleVar?.price != null ? Number(bottleVar.price) : (i.squareSellPrice != null ? Number(i.squareSellPrice) : null))
       if (sell == null) return false
       const isWine = WINE_C.includes(i.category)
-      const serves = isWine && glassVar ? 5 : 1
+      const serves = isWine && glassVar ? GLASSES_PER_BOTTLE : 1
       const markup = (sell * serves - buy) / buy * 100
       return markup < TARGET
     })
@@ -2182,7 +2184,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
     const ws = wb.addWorksheet('Markup vs Margin')
 
     const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
-    const GLASS_SERVE_ML = 165  // matches the live Suggested column exactly
+    // GLASS_SERVE_ML comes from lib/constants.js — one shared figure.
     const mceil2 = (v, m) => Math.ceil(v / m) * m
     const NAVY = '1E3A5F', GREEN = '166534', RED = '991B1B', GREY = '64748B'
 
@@ -2287,7 +2289,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
       const isWine = WINE_C.includes(item.category)
       const forceBottle = item.category === 'Sparkling' || item.bottleOnly
       const sellUnit = item.isSpirit ? 'nip' : forceBottle ? 'bottle' : isWine ? (item.sellUnit || 'glass') : 'each'
-      const servesPB = isWine && sellUnit === 'glass' ? 5 : 1
+      const servesPB = isWine && sellUnit === 'glass' ? GLASSES_PER_BOTTLE : 1
       const vars = item.variations || []
       const glassVar = vars.find(v => v.name?.toLowerCase().includes('glass'))
       const bottleVar = vars.find(v => v.name?.toLowerCase().includes('bottle') || v.name?.toLowerCase() === 'regular')
@@ -3935,7 +3937,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           const bottleML  = item.isSpirit ? (item.bottleML || 700) : 750
                           const nipML     = item.nipML || 30
                           // spirits: 4.545 glasses per bottle (750÷165), spirits: nipsPerBottle
-                          const GLASS_SERVE_ML = 165  // 750÷165 = 4.545 glasses/bottle
+                          // GLASS_SERVE_ML (165ml → 4.545 glasses/bottle) comes from lib/constants.js
                           const serves    = item.isSpirit ? (bottleML / nipML) : (750 / GLASS_SERVE_ML)
 
                           const buy = item.buyPrice !== '' && item.buyPrice != null ? Number(item.buyPrice) : null

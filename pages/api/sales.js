@@ -2,6 +2,34 @@ import { fetchSalesReport } from '../../lib/square'
 import { kvGet } from '../../lib/redis'
 import { defaultCategory } from '../../lib/calculations'
 import { requireAuth } from '../../lib/session'
+import { GLASS_SERVE_ML } from '../../lib/constants'  // 165ml pour — one shared figure, see lib/constants.js
+
+const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
+
+// Cost of goods sold for one item over the period, from its manual Buy Price.
+// Buy Price means different things by type, mirroring the Pricing table:
+//   Spirits / Fortified & Liqueurs: per NIP (a bottle sale = buy × nips per bottle)
+//   Wine: per BOTTLE (a glass = buy ÷ glasses per bottle)
+//   Everything else: per unit
+// Returns null when no usable Buy Price is set. Profit genuinely can't be known
+// then, and it's better to say so than to treat the item as free — which would
+// silently inflate total profit. A buy price of 0 is treated as "not set" for
+// the same reason (it would show a fake 100% margin).
+function costOf(settings, category, unitsSold, bottlesSold) {
+  const raw = settings.buyPrice
+  const buy = raw != null && raw !== '' ? Number(raw) : null
+  if (buy == null || Number.isNaN(buy) || buy <= 0) return null
+  let cost
+  if (category === 'Spirits' || category === 'Fortified & Liqueurs') {
+    const nipsPerBottle = (Number(settings.bottleML) || 700) / (Number(settings.nipML) || 30)
+    cost = unitsSold * buy + bottlesSold * buy * nipsPerBottle
+  } else if (WINE_CATS.includes(category)) {
+    cost = bottlesSold * buy + unitsSold * (buy / (750 / GLASS_SERVE_ML))
+  } else {
+    cost = (unitsSold + bottlesSold) * buy
+  }
+  return +cost.toFixed(2)
+}
 
 export default async function handler(req, res) {
   // Sales figures. Requires a valid session — no anonymous access.
@@ -36,9 +64,11 @@ export default async function handler(req, res) {
       const revenue     = main.revenue
       const prevRev     = prior.revenue
       const change      = prevSold > 0 ? +(((unitsSold - prevSold) / prevSold) * 100).toFixed(1) : null
+      const cost        = costOf(settings, category, unitsSold, bottlesSold)
+      const profit      = cost != null && revenue != null ? +(revenue - cost).toFixed(2) : null
 
       if (unitsSold > 0 || prevSold > 0 || bottlesSold > 0) {
-        itemMap[name] = { name, category, unitsSold, bottlesSold, prevSold, prevBottles, change, revenue, prevRev }
+        itemMap[name] = { name, category, unitsSold, bottlesSold, prevSold, prevBottles, change, revenue, prevRev, cost, profit }
       }
     }
 
