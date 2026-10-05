@@ -142,4 +142,4 @@ The Sales Report shows **gross profit** per item and in total: revenue less the 
 - **Margin %** is profit ÷ revenue. It is green at 30% or more, amber at 20–30%, red below 20%.
 - Items with no buy price cannot be costed. They show a dash, are left out of the profit total and margin, and an amber note above the table says how many were left out.
 - Wastage and stock losses are not included.
-- Profit appears on screen only. The Print/PDF and Excel exports do not include it yet.
+- Profit is also in the Print and Excel exports: a Gross Profit summary, plus Cost, Profit and Margin for each category and (Excel) each item, with the same note about items left out. The exports count bottles and cans as well as glasses and nips.

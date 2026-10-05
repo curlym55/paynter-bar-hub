@@ -138,7 +138,7 @@ Sales data from Square POS.
 - Total revenue, transactions, average transaction
 - Sales by category and by item
 - Sort by units, **Slowest First**, revenue or **profit**
-- **Cost, Profit and Margin** columns and a Profit summary box: gross profit is revenue less the buy price of what was sold. Items with no buy price are left out of the totals and flagged. On screen only — the Print and Excel exports do not include profit yet
+- **Cost, Profit and Margin** columns and a Profit summary box: gross profit is revenue less the buy price of what was sold. Items with no buy price are left out of the totals and flagged. Also included in the Print and Excel exports, which count bottles and cans as well as glasses and nips
 - Export to Excel
 
 ---
@@ -218,7 +218,6 @@ Volunteer session management (merged from paynter-bar-roster).
 App configuration (BMT access only).
 
 - **Suppliers** — add or remove suppliers
-- **Square Mappings** — each supplier's name in Square. Currently feeds nothing live: it supplied the vendor code for a Square purchase-order CSV export that no longer has a button, and invoice matching, which is retired
 - **Appearance**
 - **App Access** — OneDrive connection status and reconnect, BMT and read-only PINs, the recent-changes audit log (all settings changes with old/new values, timestamp, user), and Data Backup (manual Redis → Supabase sync)
 - Default target weeks is set from the **Target Weeks** stat in the header, not in Settings

@@ -304,10 +304,10 @@ export default function HelpTab() {
             ['Period selector', 'This Month, Last Month, Last 3 Months, Financial Year (May–Apr), Single Day or Custom Range.'],
             ['Category filter', 'Click any category pill to filter the item table to that category. Click again to clear.'],
             ['Sorting', 'Sort the item table By Units, Slowest First (slowest sellers at the top — only items that sold something), By Revenue or By Profit.'],
-            ['Profit', "The Cost, Profit and Margin columns show gross profit: revenue less the buy price of what was sold (wine by the glass is costed at 4.545 glasses per bottle). The Profit box at the top shows the total and overall margin. Items with no buy price can't be costed — they show a dash, are left out of the profit total, and an amber note says how many. Margin is green at 30%+, amber at 20–30% and red below that. Wastage and stock losses aren't included. Profit shows on screen only — Print and Excel don't include it yet."],
+            ['Profit', "The Cost, Profit and Margin columns show gross profit: revenue less the buy price of what was sold (wine by the glass is costed at 4.545 glasses per bottle). The Profit box at the top shows the total and overall margin. Items with no buy price can't be costed — they show a dash, are left out of the profit total, and an amber note says how many. Margin is green at 30%+, amber at 20–30% and red below that. Wastage and stock losses aren't included. The Print and Excel exports include profit too."],
             ['Glasses / Bottles split', 'Wine sold both ways shows separate Glasses and Bottles columns. The Bottles column only appears when at least one item has bottle sales in the selected period.'],
             ['Comparison columns', 'Prior Period, Change % and Prior Revenue are hidden by default. Click ▸ Show comparison to reveal them.'],
-            ['Export', 'Click 📊 Excel for a formatted spreadsheet with category breakdown and revenue columns.'],
+            ['Export', 'Click 📊 Excel, or Print, for a formatted report: a summary, category breakdown, and an all-items list (Excel) or top 10 sellers (Print), with revenue, cost, profit and margin. Unit counts include bottles and cans as well as glasses and nips.'],
           ].map(([q, a], i, arr) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
               <div style={{ width: 160, minWidth: 160, fontSize: 12, fontWeight: 600, color: '#374151' }}>{q}</div>

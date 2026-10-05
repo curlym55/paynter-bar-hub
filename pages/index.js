@@ -119,7 +119,6 @@ export default function Home() {
   const [phHubNames, setPhHubNames] = useState([])
   const [editingTarget, setEditingTarget] = useState(false)
   const [suppliers, setSuppliers]       = useState(DEFAULT_SUPPLIERS)
-  const [supplierVendorNames, setSupplierVendorNames] = useState({}) // { appName: squareVendorName }
   const [addingSupplier, setAddingSupplier] = useState(false)
   const [newSupplierName, setNewSupplierName] = useState('')
   const [daysBack, setDaysBack]         = useState(60)
@@ -382,7 +381,6 @@ export default function Home() {
   function loadSupplierSettings() {
     fetch('/api/settings').then(r => r.json()).then(data => {
       if (data.suppliers) setSuppliers(data.suppliers)
-      if (data.supplierVendorNames) setSupplierVendorNames(data.supplierVendorNames || {})
     }).catch(() => {})
   }
 
@@ -687,88 +685,11 @@ export default function Home() {
     setDocsLoading(false)
   }
 
-  function generatePoExcel(supplier) {
-    const poItems = items.filter(i =>
-      i.supplier === supplier &&
-      (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] > 0 : i.orderQty > 0) &&
-      !dontOrder(i) &&
-      !orderedItems[i.name]
-    ).map(i => {
-      const ov  = orderQtyOverrides[i.name]
-      const qty = i.isSpirit
-        ? (ov !== undefined ? ov : (i.nipsToOrder || 0))
-        : (ov !== undefined ? ov : (i.orderQty   || 0))
-      const btl = i.isSpirit
-        ? (ov !== undefined ? (v => v - Math.floor(v) <= 0.05 ? Math.floor(v) : Math.ceil(v))(ov / ((i.bottleML || 700) / (i.nipML || 30))) : (i.bottlesToOrder || 0))
-        : null
-      const notes = i.isSpirit ? `${btl} Bott` : ''
-      return { ...i, _qty: qty, _btl: btl, _notes: notes }
-    })
-    const escape = v => (v == null || v === '' ? '' : (String(v).includes(',') || String(v).includes('"')) ? `"${String(v).replace(/"/g,'""')}"` : String(v))
-    const rows = [['Item Name','Variation Name','SKU','GTIN','Vendor Code','Notes','Qty','Unit Cost']]
-    poItems.forEach(item => {
-      const unitCost = item.buyPrice != null && item.buyPrice !== '' ? Number(item.buyPrice).toFixed(2) : ''
-      rows.push([item.name, 'Regular', item.sku || '', '', supplierVendorNames[supplier] || '', item._notes, String(item._qty), unitCost])
-    })
-    const csv = rows.map(r => r.map(escape).join(',')).join('\r\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url  = URL.createObjectURL(blob)
-    const a    = document.createElement('a')
-    const date = new Date().toLocaleDateString('en-CA', { timeZone:'Australia/Brisbane' })
-    a.href = url; a.download = `PO-${supplier.replace(/[^a-zA-Z0-9]/g,'-')}-${date}.csv`; a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  function importOrderCsv(file) {
-    const reader = new FileReader()
-    reader.onload = async e => {
-      const text = e.target.result.replace(/^\uFEFF/, '') // strip BOM
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l)
-      const header = lines[0].split(',').map(s => s.trim().replace(/"/g,''))
-      const nameIdx = header.indexOf('Item Name')
-      const qtyIdx  = header.indexOf('Qty')
-      const skuIdx  = header.indexOf('SKU')
-      const vendIdx = header.indexOf('Vendor Code')
-      const notesIdx = header.indexOf('Notes')
-      if (nameIdx < 0 || qtyIdx < 0) { alert('Unrecognised CSV format — needs Item Name and Qty columns'); return }
-      const items = []
-      let supplier = null
-      for (let i = 1; i < lines.length; i++) {
-        // simple CSV split (handles quoted fields)
-        const row = lines[i].match(/(".*?"|[^,]+|(?<=,)(?=,)|(?<=,)$|^(?=,))/g)?.map(s => s.replace(/^"|"$/g,'').trim()) || lines[i].split(',').map(s => s.trim())
-        const name = row[nameIdx]
-        if (!name || name === 'Subtotal' || name === 'Total Due' || name === 'Vendor' || !name.match(/[a-zA-Z]/)) continue
-        const qtyRaw = row[qtyIdx] || '0'
-        const qty = parseInt(qtyRaw.replace(/[^0-9]/g,'')) || 0
-        if (qty <= 0) continue
-        const sku = skuIdx >= 0 ? row[skuIdx] || '' : ''
-        const vend = vendIdx >= 0 ? row[vendIdx] || '' : ''
-        const notes = notesIdx >= 0 ? row[notesIdx] || '' : ''
-        const isSpirit = /nip|30ml|60ml/i.test(name)
-        if (!supplier && vend) supplier = vend
-        items.push({ name, orderQty: qty, sku, isSpirit })
-      }
-      if (!items.length) { alert('No items found in CSV'); return }
-      // Match supplier to Hub supplier names
-      const supplierMatch = supplier
-        ? (suppliers.find(s => s.toLowerCase().includes(supplier.toLowerCase()) || supplier.toLowerCase().includes(s.split(' ')[0].toLowerCase())) || supplier)
-        : 'Unknown'
-      const r = await fetch('/api/purchase-order', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'place', supplier: supplierMatch, items })
-      })
-      const d = await r.json()
-      if (d.ok) {
-        orderedItemsEpochRef.current += 1
-        setOrderedItems(d.ordered)
-        alert(`Imported ${items.length} items for ${supplierMatch} as ON ORDER`)
-      } else {
-        alert('Import failed')
-      }
-    }
-    reader.readAsText(file)
-  }
+  // (Removed: generatePoExcel and importOrderCsv — the export and import halves
+  // of a Square purchase-order CSV flow that no longer has any button, along with
+  // the Square Mappings settings tab that supplied the CSV's vendor code. Nothing
+  // called either function. The supplierVendorNames setting is still stored and
+  // returned by /api/settings, just unused, so no saved data is lost.)
 
 
   // (Removed: extractInvoicePrices, and its three call sites in
@@ -1472,6 +1393,42 @@ export default function Home() {
     const fmtChg = n => n == null ? '—' : (n >= 0 ? '+' : '') + n + '%'
     const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : salesPeriod === 'day' ? 'Prior Day' : 'Prior Period'
 
+    // ── Profit and totals ────────────────────────────────────
+    // /api/sales gives every item a cost and profit worked out from its manual buy
+    // price. An item with no buy price has cost = null: it can't be costed, so it is
+    // left OUT of the profit totals (subtracting a partial cost from the full revenue
+    // would overstate profit) and flagged instead.
+    //
+    // Quantities: items sold as bottles/cans/whole units have unitsSold = 0 and
+    // bottlesSold > 0, so every "units" figure below is unitsSold + bottlesSold — the
+    // same convention the category totals already used and the on-screen report uses.
+    // (The item lists and unit totals used to count glasses/nips only, which silently
+    // left out all beer, cider, soft drink and snack items, and made "% of Total"
+    // divide a combined category figure by a glasses-only total.)
+    const qtyOf  = i => (i.unitsSold || 0) + (i.bottlesSold || 0)
+    const prevOf = i => (i.prevSold  || 0) + (i.prevBottles || 0)
+    const soldItems = report.items.filter(i => qtyOf(i) > 0).sort((a, b) => qtyOf(b) - qtyOf(a))
+    const totalQty  = report.items.reduce((s, i) => s + qtyOf(i), 0)
+    const totalPrev = report.items.reduce((s, i) => s + prevOf(i), 0)
+    const hasProfit = hasRev && report.items.some(i => i.cost != null)
+    const finOf = list => list.reduce((a, i) => ({
+      cost:        a.cost        + (i.cost != null ? i.cost : 0),
+      costedRev:   a.costedRev   + (i.cost != null ? (i.revenue || 0) : 0),
+      uncostedRev: a.uncostedRev + (i.cost == null ? (i.revenue || 0) : 0),
+      uncostedN:   a.uncostedN   + (i.cost == null && (i.revenue || 0) > 0 ? 1 : 0),
+    }), { cost: 0, costedRev: 0, uncostedRev: 0, uncostedN: 0 })
+    const finTotal    = finOf(report.items)
+    const profitTotal = finTotal.costedRev - finTotal.cost
+    const marginTotal = finTotal.costedRev > 0 ? profitTotal / finTotal.costedRev : null
+    const fmtMoney = n => n == null ? '—' : (n < 0 ? `-$${Math.abs(n).toFixed(2)}` : `$${Number(n).toFixed(2)}`)
+    const fmtPct   = m => m == null ? '—' : `${(m * 100).toFixed(1)}%`
+    const profitTds = (profit, margin) =>
+      `<td style="text-align:right;font-family:monospace;color:${profit == null ? '#94a3b8' : profit >= 0 ? '#16a34a' : '#dc2626'}">${fmtMoney(profit)}</td>` +
+      `<td style="text-align:right;color:#64748b">${fmtPct(margin)}</td>`
+    const profitNote = hasProfit && finTotal.uncostedN > 0
+      ? `Profit leaves out ${finTotal.uncostedN} item${finTotal.uncostedN === 1 ? '' : 's'} with no buy price (${fmtRev(finTotal.uncostedRev)} of revenue). Wastage and stock losses are not included.`
+      : (hasProfit ? 'Gross profit = revenue less the buy price of what was sold. Wastage and stock losses are not included.' : '')
+
     if (exportXlsx) {
       await loadExcelJS()
       const wb = new window.ExcelJS.Workbook()
@@ -1509,14 +1466,29 @@ export default function Home() {
       const sPct   = (shade) => ({ ...shade, numFmt: '0.0%', alignment: { horizontal: 'center' } })
       const sCurr  = (shade) => ({ ...shade, numFmt: '"$"#,##0', alignment: { horizontal: 'right' } })
       const sNum   = (shade) => ({ ...shade, alignment: { horizontal: 'center' } })
+      const sCurr2 = (shade) => ({ ...shade, numFmt: '"$"#,##0.00', alignment: { horizontal: 'right' } })
+      const sDash  = (shade) => ({ ...shade, alignment: { horizontal: 'center' } })
 
       const cell = (v, s) => ({ v, s, t: typeof v === 'number' ? 'n' : 's' })
       const empty = () => ({ v: '', s: {} })
 
+      // Cost / Profit / Margin cells for one row. `f` = { cost, costedRev } for that
+      // row's items. No costed items => dashes (profit can't be known), never a zero.
+      const profitCells = (f, shade) => {
+        if (!(f.costedRev > 0 || f.cost > 0)) return [cell('—', sDash(shade)), cell('—', sDash(shade)), cell('—', sDash(shade))]
+        const p = f.costedRev - f.cost
+        const m = f.costedRev > 0 ? p / f.costedRev : null
+        return [
+          cell(f.cost, sCurr2(shade)),
+          cell(p, { ...sCurr2(shade), font: { ...(shade.font || {}), color: { rgb: p >= 0 ? GREEN : RED } } }),
+          m != null ? cell(m, sPct(shade)) : cell('—', sDash(shade)),
+        ]
+      }
+
       // ── Build rows ─────────────────────────────────────────────────────────
       const catDataRows = CATEGORY_ORDER.filter(c => report.categories[c]).map((c, idx) => {
         const cat = report.categories[c]
-        const pct = report.totals.unitsSold > 0 ? (cat.unitsSold / report.totals.unitsSold) : 0
+        const pct = totalQty > 0 ? (cat.unitsSold / totalQty) : 0
         const chg = cat.prevSold > 0 ? ((cat.unitsSold - cat.prevSold) / cat.prevSold) : null
         const shade = idx % 2 === 0 ? sEven : sOdd
         const row = [
@@ -1527,20 +1499,23 @@ export default function Home() {
           cell(pct, sPct(shade)),
         ]
         if (hasRev) row.push(cell(cat.revenue || 0, sCurr(shade)))
+        if (hasProfit) row.push(...profitCells(finOf(report.items.filter(i => i.category === c)), shade))
         return row
       })
 
-      const itemDataRows = report.items.filter(i => i.unitsSold > 0).map((i, idx) => {
+      const itemDataRows = soldItems.map((i, idx) => {
         const shade = idx % 2 === 0 ? sEven : sOdd
-        const chg = i.change != null ? i.change / 100 : null
+        const u = qtyOf(i), pv = prevOf(i)
+        const chg = pv > 0 ? (u - pv) / pv : null
         const row = [
           cell(i.name, { ...shade, font: { ...shade.font, bold: false } }),
           cell(i.category, { ...shade, font: { sz: 10, color: { rgb: '64748B' } } }),
-          cell(i.unitsSold, sNum(shade)),
-          cell(i.prevSold || 0, sNum(shade)),
+          cell(u, sNum(shade)),
+          cell(pv, sNum(shade)),
           chg != null ? cell(chg, sPct(shade)) : cell('—', { ...shade, alignment: { horizontal: 'center' } }),
         ]
         if (hasRev) row.push(cell(i.revenue || 0, sCurr(shade)))
+        if (hasProfit) row.push(...profitCells({ cost: i.cost != null ? i.cost : 0, costedRev: i.cost != null ? (i.revenue || 0) : 0 }, shade))
         return row
       })
 
@@ -1553,9 +1528,11 @@ export default function Home() {
         [],
         // Summary section
         [cell('SUMMARY', sSecHdr), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
-        [cell('Total Units Sold', { font: { bold: true, sz: 10 } }), cell(report.totals.unitsSold, { font: { sz: 10 }, alignment: { horizontal: 'center' } }), cell(prevLabel, sMeta), cell(report.totals.prevSold || 0, { ...sMeta, alignment: { horizontal: 'center' } })],
+        [cell('Total Units Sold', { font: { bold: true, sz: 10 } }), cell(totalQty, { font: { sz: 10 }, alignment: { horizontal: 'center' } }), cell(prevLabel, sMeta), cell(totalPrev, { ...sMeta, alignment: { horizontal: 'center' } })],
         ...(hasRev ? [[cell('Total Revenue', { font: { bold: true, sz: 10 } }), cell(report.totals.revenue || 0, sCurr(sEven)), cell('Prior Revenue', sMeta), cell(report.totals.prevRev || 0, sCurr({ ...sMeta }))]] : []),
-        [cell('Items Sold', { font: { bold: true, sz: 10 } }), cell(report.items.filter(i => i.unitsSold > 0).length, { font: { sz: 10 }, alignment: { horizontal: 'center' } })],
+        ...(hasProfit ? [[cell('Gross Profit', { font: { bold: true, sz: 10 } }), cell(profitTotal, sCurr2(sEven)), cell('Margin', sMeta), marginTotal != null ? cell(marginTotal, sPct({ ...sMeta })) : cell('—', sMeta)]] : []),
+        [cell('Items Sold', { font: { bold: true, sz: 10 } }), cell(soldItems.length, { font: { sz: 10 }, alignment: { horizontal: 'center' } })],
+        ...(profitNote ? [[cell(profitNote, { font: { sz: 9, italic: true, color: { rgb: '92400E' } } })]] : []),
         [],
         // Category breakdown
         [cell('CATEGORY BREAKDOWN', sSecHdr), empty(), empty(), empty(), empty(), ...(hasRev ? [empty()] : [])],
@@ -1565,16 +1542,18 @@ export default function Home() {
           cell(prevLabel, sColHdr),
           cell('Change %', sColHdr),
           cell('% of Total', sColHdr),
-          ...(hasRev ? [cell('Revenue', sColHdr)] : [])
+          ...(hasRev ? [cell('Revenue', sColHdr)] : []),
+          ...(hasProfit ? [cell('Cost', sColHdr), cell('Profit', sColHdr), cell('Margin', sColHdr)] : [])
         ],
         ...catDataRows,
         [
           cell('TOTAL', sTotals),
-          cell(report.totals.unitsSold, { ...sTotals, alignment: { horizontal: 'center' } }),
-          cell(report.totals.prevSold || 0, { ...sTotals, alignment: { horizontal: 'center' } }),
+          cell(totalQty, { ...sTotals, alignment: { horizontal: 'center' } }),
+          cell(totalPrev, { ...sTotals, alignment: { horizontal: 'center' } }),
           cell('', sTotals),
           cell(1, { ...sTotals, numFmt: '0.0%', alignment: { horizontal: 'center' } }),
-          ...(hasRev ? [cell(report.totals.revenue || 0, { ...sTotals, numFmt: '"$"#,##0', alignment: { horizontal: 'right' } })] : [])
+          ...(hasRev ? [cell(report.totals.revenue || 0, { ...sTotals, numFmt: '"$"#,##0', alignment: { horizontal: 'right' } })] : []),
+          ...(hasProfit ? profitCells(finTotal, sTotals) : [])
         ],
         [],
         // All items
@@ -1585,19 +1564,20 @@ export default function Home() {
           cell('Units Sold', sColHdr),
           cell(prevLabel, sColHdr),
           cell('Change %', sColHdr),
-          ...(hasRev ? [cell('Revenue', sColHdr)] : [])
+          ...(hasRev ? [cell('Revenue', sColHdr)] : []),
+          ...(hasProfit ? [cell('Cost', sColHdr), cell('Profit', sColHdr), cell('Margin', sColHdr)] : [])
         ],
         ...itemDataRows,
       ]
 
 
-      const lastCol2 = hasRev ? 5 : 4
+      const lastCol2 = hasProfit ? 8 : (hasRev ? 5 : 4)
       const salesMerges = [
         { s:{r:0,c:0}, e:{r:0,c:lastCol2} },
         { s:{r:4,c:0}, e:{r:4,c:lastCol2} },
       ]
       xlsAOAtoWS(wb, rows, 'Sales Report', {
-        cols: [{ wch:36 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:12 },...(hasRev ? [{ wch:14 }] : [])],
+        cols: [{ wch:36 },{ wch:18 },{ wch:12 },{ wch:12 },{ wch:12 },...(hasRev ? [{ wch:14 }] : []),...(hasProfit ? [{ wch:12 },{ wch:12 },{ wch:10 }] : [])],
         rowHeights: rows.map((_, i) => i === 0 ? { hpt:28 } : { hpt:18 }),
         merges: salesMerges,
         freeze: 0,
@@ -1607,22 +1587,30 @@ export default function Home() {
     }
 
     // ── PDF (print) ───────────────────────────────────────────────────────────
-    const top10 = report.items.filter(i => i.unitsSold > 0).slice(0, 10)
-    const top10Rows = top10.map((item, idx) => `
+    const top10 = soldItems.slice(0, 10)
+    const top10Rows = top10.map((item, idx) => {
+      const u = qtyOf(item), pv = prevOf(item)
+      const chg = pv > 0 ? +(((u - pv) / pv) * 100).toFixed(1) : null
+      return `
       <tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'}">
         <td style="text-align:center;color:#94a3b8;font-size:10px">${idx + 1}</td>
         <td>${item.name}</td>
         <td style="color:#64748b;font-size:11px">${item.category}</td>
-        <td style="text-align:right;font-family:monospace;font-weight:700">${item.unitsSold}</td>
-        <td style="text-align:right;font-family:monospace;color:#64748b">${item.prevSold || 0}</td>
-        <td style="text-align:right;font-family:monospace;color:${(item.change||0) >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">${fmtChg(item.change)}</td>
+        <td style="text-align:right;font-family:monospace;font-weight:700">${u}</td>
+        <td style="text-align:right;font-family:monospace;color:#64748b">${pv}</td>
+        <td style="text-align:right;font-family:monospace;color:${(chg||0) >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">${fmtChg(chg)}</td>
         ${hasRev ? `<td style="text-align:right;font-family:monospace;color:#16a34a">${fmtRev(item.revenue)}</td>` : ''}
-      </tr>`).join('')
+        ${hasProfit ? profitTds(item.profit, item.profit != null && item.revenue > 0 ? item.profit / item.revenue : null) : ''}
+      </tr>`
+    }).join('')
 
     const catRows = CATEGORY_ORDER.filter(c => report.categories[c]).map((c, idx) => {
         const cat = report.categories[c]
-        const pct = report.totals.unitsSold > 0 ? ((cat.unitsSold / report.totals.unitsSold) * 100).toFixed(1) : 0
+        const pct = totalQty > 0 ? ((cat.unitsSold / totalQty) * 100).toFixed(1) : 0
         const chg = cat.prevSold > 0 ? +(((cat.unitsSold - cat.prevSold) / cat.prevSold) * 100).toFixed(1) : null
+        const f = finOf(report.items.filter(i => i.category === c))
+        const costed = f.costedRev > 0 || f.cost > 0
+        const catProfit = costed ? f.costedRev - f.cost : null
         return `<tr style="background:${idx % 2 === 0 ? '#fff' : '#f8fafc'}">
           <td>${c}</td>
           <td style="text-align:right;font-family:monospace;font-weight:700">${cat.unitsSold}</td>
@@ -1630,6 +1618,7 @@ export default function Home() {
           <td style="text-align:right;font-family:monospace;color:${chg >= 0 ? '#16a34a' : '#dc2626'};font-weight:600">${fmtChg(chg)}</td>
           <td style="text-align:right;color:#64748b">${pct}%</td>
           ${hasRev ? `<td style="text-align:right;font-family:monospace;color:#16a34a">${fmtRev(cat.revenue)}</td>` : ''}
+          ${hasProfit ? profitTds(catProfit, catProfit != null && f.costedRev > 0 ? catProfit / f.costedRev : null) : ''}
         </tr>`
       }).join('')
 
@@ -1671,23 +1660,28 @@ export default function Home() {
   </div>
   <div class="summary">
     <div class="summary-card">
-      <div class="num">${report.totals.unitsSold}</div>
+      <div class="num">${totalQty}</div>
       <div class="lbl">Total Units Sold</div>
-      <div class="sub">Prior: ${report.totals.prevSold || 0}</div>
+      <div class="sub">Prior: ${totalPrev}</div>
     </div>
     ${hasRev ? `<div class="summary-card">
       <div class="num">${fmtRev(report.totals.revenue)}</div>
       <div class="lbl">Total Revenue</div>
       <div class="sub">Prior: ${fmtRev(report.totals.prevRev)}</div>
     </div>` : ''}
+    ${hasProfit ? `<div class="summary-card">
+      <div class="num">${fmtMoney(profitTotal)}</div>
+      <div class="lbl">Gross Profit</div>
+      <div class="sub">${marginTotal != null ? fmtPct(marginTotal) + ' margin' : ''}${finTotal.uncostedN > 0 ? ' · excl. ' + finTotal.uncostedN + ' uncosted' : ''}</div>
+    </div>` : ''}
     <div class="summary-card">
-      <div class="num">${report.items.filter(i => i.unitsSold > 0).length}</div>
+      <div class="num">${soldItems.length}</div>
       <div class="lbl">Items Sold</div>
     </div>
     <div class="summary-card">
-      <div class="num" style="font-size:14px">${report.items[0]?.name.split(' ').slice(0,3).join(' ') || '—'}</div>
+      <div class="num" style="font-size:14px">${soldItems[0]?.name.split(' ').slice(0,3).join(' ') || '—'}</div>
       <div class="lbl">Top Seller</div>
-      <div class="sub">${report.items[0]?.unitsSold || 0} units</div>
+      <div class="sub">${soldItems[0] ? qtyOf(soldItems[0]) : 0} units</div>
     </div>
   </div>
   <div class="section-title">Category Breakdown</div>
@@ -1696,15 +1690,17 @@ export default function Home() {
       <th>Category</th><th style="text-align:right">Units Sold</th><th style="text-align:right">${prevLabel}</th>
       <th style="text-align:right">Change</th><th style="text-align:right">% of Total</th>
       ${hasRev ? '<th style="text-align:right">Revenue</th>' : ''}
+      ${hasProfit ? '<th style="text-align:right">Profit</th><th style="text-align:right">Margin</th>' : ''}
     </tr></thead>
     <tbody>
       ${catRows}
       <tr class="totals-row">
         <td>TOTAL</td>
-        <td style="text-align:right;font-family:monospace">${report.totals.unitsSold}</td>
-        <td style="text-align:right;font-family:monospace;color:#64748b">${report.totals.prevSold || 0}</td>
+        <td style="text-align:right;font-family:monospace">${totalQty}</td>
+        <td style="text-align:right;font-family:monospace;color:#64748b">${totalPrev}</td>
         <td style="text-align:right">—</td><td style="text-align:right">100%</td>
         ${hasRev ? `<td style="text-align:right;font-family:monospace;color:#16a34a">${fmtRev(report.totals.revenue)}</td>` : ''}
+        ${hasProfit ? profitTds(finTotal.costedRev > 0 || finTotal.cost > 0 ? profitTotal : null, marginTotal) : ''}
       </tr>
     </tbody>
   </table>
@@ -1715,9 +1711,11 @@ export default function Home() {
       <th style="text-align:right">Units Sold</th><th style="text-align:right">${prevLabel}</th>
       <th style="text-align:right">Change</th>
       ${hasRev ? '<th style="text-align:right">Revenue</th>' : ''}
+      ${hasProfit ? '<th style="text-align:right">Profit</th><th style="text-align:right">Margin</th>' : ''}
     </tr></thead>
     <tbody>${top10Rows}</tbody>
   </table>
+  ${profitNote ? `<p style="margin-top:12px;font-size:10px;color:#92400e">${profitNote}</p>` : ''}
   <div class="footer">
     <span>Paynter Bar Hub — Data from Square POS</span>
     <span>Generated ${generated}</span>
@@ -4171,7 +4169,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
             {/* Sub-tab strip */}
             <div style={{ display:'flex', gap:6, marginBottom:20, borderBottom:'2px solid #e2e8f0', paddingBottom:0 }}>
-              {[['suppliers','🏭 Suppliers'],['mappings','🔗 Square Mappings'],['appearance','🎨 Appearance'],['access','🔐 App Access']].map(([t,label]) => (
+              {[['suppliers','🏭 Suppliers'],['appearance','🎨 Appearance'],['access','🔐 App Access']].map(([t,label]) => (
                 <button key={t} onClick={() => setSettingsSubTab(t)}
                   style={{ padding:'8px 16px', border:'none', borderBottom: settingsSubTab===t ? '2px solid #1e3a5f' : '2px solid transparent',
                     background:'none', fontSize:13, fontWeight: settingsSubTab===t ? 700 : 500,
@@ -4228,7 +4226,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <div style={{ display:'flex', alignItems:'center', gap:10 }}>
                         <div style={{ width:12, height:12, borderRadius:'50%', background: SUPPLIER_COLORS[s] || '#374151' }} />
                         <span style={{ fontWeight:600, fontSize:14 }}>{s}</span>
-                        {supplierVendorNames[s] && <span style={{ fontSize:11, color:'#64748b', background:'#e2e8f0', padding:'1px 6px', borderRadius:4 }}>Square: {supplierVendorNames[s]}</span>}
                       </div>
                       <button onClick={() => deleteSupplier(s)} style={{ padding:'3px 10px', background:'#fee2e2', color:'#dc2626', border:'1px solid #fca5a5', borderRadius:5, fontSize:11, fontWeight:700, cursor:'pointer' }}>🗑 Remove</button>
                     </div>
@@ -4247,32 +4244,6 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                       <button onClick={() => setAddingSupplier(true)} style={{ padding:'6px 14px', background:'#f1f5f9', border:'1px dashed #94a3b8', borderRadius:6, fontSize:13, cursor:'pointer', color:'#64748b' }}>+ Add Supplier</button>
                     )}
                   </div>
-                </div>
-              </div>
-            )}
-
-            {/* ── SQUARE MAPPINGS ────────────────────────────────────── */}
-            {settingsSubTab === 'mappings' && (
-              <div style={{ background:'#fff', border:'1px solid #e2e8f0', borderRadius:10, overflow:'hidden' }}>
-                <div style={{ background:'#1e3a5f', color:'#fff', padding:'10px 16px', fontWeight:700, fontSize:13 }}>Square Vendor Names</div>
-                <div style={{ padding:16 }}>
-                  <div style={{ fontSize:12, color:'#64748b', marginBottom:12 }}>Map each supplier to their name in Square — used to match invoices and filter Square reports.</div>
-                  {suppliers.map(s => (
-                    <div key={s} style={{ display:'flex', alignItems:'center', gap:10, marginBottom:8 }}>
-                      <span style={{ width:140, fontWeight:600, fontSize:13 }}>{s}</span>
-                      <input defaultValue={supplierVendorNames[s] || ''}
-                        onBlur={async e => {
-                          const val = e.target.value.trim()
-                          const updated = { ...supplierVendorNames }
-                          if (!val) delete updated[s]; else updated[s] = val
-                          setSupplierVendorNames(updated)
-                          await fetch('/api/settings', { method:'POST', headers:{'Content-Type':'application/json'},
-                            body: JSON.stringify({ itemName:'_global', field:'supplierVendorNames', value: updated }) })
-                        }}
-                        placeholder={`Square name for ${s}...`}
-                        style={{ flex:1, padding:'5px 10px', border:'1px solid #cbd5e1', borderRadius:6, fontSize:13 }} />
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
