@@ -14,7 +14,6 @@ const KEYS = [
   { key: 'targetWeeks',        fallback: 6 },
   { key: 'revenueTarget',      fallback: null },
   { key: 'suppliers',          fallback: ['Dan Murphy', 'Coles Woolies', 'ACW'] },
-  { key: 'supplierVendorNames', fallback: {} },
   { key: 'priceListSettings',  fallback: {} },
   { key: 'settingsAudit',      fallback: {} },
   { key: 'orderedItems',       fallback: {} },

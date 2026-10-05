@@ -29,7 +29,7 @@ async function set(key, value) {
 
 export default async function handler(req, res) {
   if (req.method === 'GET') {
-    // Buy prices, revenue targets, and vendor names are BMT-only data --
+    // Buy prices and revenue targets are BMT-only data --
     // require at least a logged-in session for any of this endpoint, and
     // strip the sensitive fields below for non-BMT roles, mirroring the
     // same pattern items.js already uses via sanitisePayload.
@@ -56,7 +56,6 @@ export default async function handler(req, res) {
       const targetWeeks     = (await get('targetWeeks', 6))
       const revenueTarget   = (await get('revenueTarget', null))
       const suppliers          = (await get('suppliers', ['Dan Murphy', 'Coles Woolies', 'ACW']))
-      const supplierVendorNames = (await get('supplierVendorNames', {}))
 
       // One-time migration: rename "Dan Murphys" → "Dan Murphy" everywhere
       let migrated = false
@@ -67,9 +66,9 @@ export default async function handler(req, res) {
       const fixedSuppliers = suppliers.map(s => s === 'Dan Murphys' ? 'Dan Murphy' : s)
       if (fixedSuppliers.some((s, i) => s !== suppliers[i])) await set('suppliers', fixedSuppliers)
       if (isBmt) {
-        res.status(200).json({ settings, targetWeeks, revenueTarget, suppliers: fixedSuppliers, supplierVendorNames })
+        res.status(200).json({ settings, targetWeeks, revenueTarget, suppliers: fixedSuppliers })
       } else {
-        // Strip buy-price / per-item-supplier / revenue-target / vendor-name
+        // Strip buy-price / per-item-supplier / revenue-target
         // data for non-BMT sessions -- same class of cost data items.js
         // already protects via sanitisePayload.
         const sanitisedSettings = {}
@@ -84,7 +83,6 @@ export default async function handler(req, res) {
           targetWeeks,
           revenueTarget: null,
           suppliers: fixedSuppliers,
-          supplierVendorNames: {},
         })
       }
     } catch (err) {
@@ -136,9 +134,6 @@ export default async function handler(req, res) {
 
       if (field === 'suppliers') {
         await set('suppliers', value)
-      } else if (field === 'supplierVendorNames') {
-        await set('supplierVendorNames', value)
-        return res.status(200).json({ ok: true })
       }
 
       const allSettings = (await kvGet('itemSettings')) || {}

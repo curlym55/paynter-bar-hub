@@ -12,7 +12,6 @@ const KEYS = [
   'targetWeeks',
   'revenueTarget',
   'suppliers',
-  'supplierVendorNames',
   'priceListSettings',
   'settingsAudit',
   'orderedItems',
