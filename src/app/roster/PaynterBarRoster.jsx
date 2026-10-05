@@ -1396,7 +1396,7 @@ export default function PaynterBarRoster() {
       ]},
       { title: "⏰ Editing Shift Times", items: [
         "In admin mode, the time shows as two dropdowns (Start and End)",
-        "Select from 30-minute intervals between 10:00 AM and 8:00 PM",
+        "Select from 30-minute intervals running from 10:00 AM through to 12:00 AM (midnight)",
         "Changes save automatically when you select a new time"
       ]},
       { title: "👥 Managing Volunteers on Shifts", items: [
@@ -1422,7 +1422,8 @@ export default function PaynterBarRoster() {
       { title: "➕ Adding Extra Sessions", items: [
         "Tap '+ Add Extra Day' at the top of the roster in admin mode",
         "Set the date, event name (optional), start/end time, and volunteers needed",
-        "You can also tap the ➕ button on any session card to add another shift on the same day"
+        "You can also tap the ➕ button on any session card to add another shift on the same day",
+        "Sessions on the same day always list in time order, no matter which one you add first"
       ]},
       { title: "🗑️ Deleting Sessions", items: [
         "Tap the 🗑️ button on a session card in admin mode",

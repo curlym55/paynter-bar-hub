@@ -89,7 +89,7 @@ Process an incoming delivery against a purchase order.
 - Enter quantities received per item
 - Untick items not in this delivery (stay on order)
 - **PO Reference field** — visible and editable; pre-filled from PO, amber warning if blank
-- Attach supplier invoice PDF → auto-extracted and saved to price history
+- Attach supplier invoice PDF → saved to OneDrive and linked to the PO record (no price data is read from it)
 - Confirm delivery → updates Square inventory, saves documents to OneDrive
 - Generates and emails delivery receipt
 
@@ -137,6 +137,8 @@ Sales data from Square POS.
 - Filter by date range
 - Total revenue, transactions, average transaction
 - Sales by category and by item
+- Sort by units, **Slowest First**, revenue or **profit**
+- **Cost, Profit and Margin** columns and a Profit summary box: gross profit is revenue less the buy price of what was sold. Items with no buy price are left out of the totals and flagged. On screen only — the Print and Excel exports do not include profit yet
 - Export to Excel
 
 ---
@@ -153,57 +155,31 @@ Full-year revenue chart.
 
 ## Pricing Table
 
-Full pricing view with buy/sell prices and markup calculations.
+Pricing view in Stock Items (💲 Pricing): buy and sell prices, markup and suggested sell prices.
 
-**Columns:** Item, Category, Supplier, Unit, Serves, Buy Price (inc GST), Sell Price, Markup %
+**Columns:** Item, Category, Supplier, Unit, Serves, Buy Price (inc GST, entered by hand), Sell Price (from Square), Suggested (follows the toggle), Markup % (under ▸ Show Details)
 
 **Pricing policy:**
-- Markup target: **40%** (Sell = Buy × 1.40)
+- Suggested sell is **Markup 40%** (Buy × 1.40) or **Margin 30%** (Buy ÷ 0.70) — one global toggle beside Print/Excel
 - Prices reviewed twice yearly: January 1 and July 1
 - No price reductions — only increases proposed
-- Average buy price based on last 3 months of invoices
+- Buy prices are manual — nothing is calculated from invoices
 
-**Price Review modal:**
-- Shows items deviating from target by more than BAND%
-- Suggested sell prices (rounded to nearest $0.25)
-- 3-supplier view with glass and bottle rows
-- Margin selector (20–60%)
-- Print and CSV export
+**Suggested price:**
+- Rounded **up** to the next $0.25
+- Wines sold by the glass and the bottle show the glass price with the bottle price underneath
+- Wine glass maths uses 4.545 glasses per bottle (165ml) — see `PRICING.md`
 
-**Pricing export (Excel):**
-- All items with buy price, sell price, markup %, suggested sell
-- Glass+bottle wines split into two rows (paired with purple accent)
-- Min/Max buy columns (flags wide price spread with red highlight)
-- Notes column for anomaly flags
-- Overall average markup summary row
-- Uses all-time invoice average (730 days)
+**Exports:**
+- 🖨️ Print — pricing sheet
+- 📥 Excel — Pricing Analysis (buy, sell, markup, suggested sell and on-hand per active item, with a summary block)
+- 📊 Compare Both — Excel sheet with the suggested price at Markup 40% and at Margin 30% side by side, the difference, which is higher, and bottle prices for wines sold both ways. Items with no buy price, or ticked Rundown, are left out
 
 ---
 
-## Price History
+## Price History (retired)
 
-Invoice price tracking. Three sub-tabs:
-
-### Import Invoice
-- Upload supplier invoice PDF
-- AI extracts line items (Claude Haiku): item name, qty, pack size, unit price
-- Review extracted items, correct name mappings
-- Save to `buy_price_history` table
-
-### Average Buy Prices
-- Shows weighted average buy price per item across invoices
-- Date range selector: 30 / 60 / 90 / 180 / All days (default: All)
-- Supplier filter
-- Update Hub buy prices from averages (bulk or individual)
-- **🤖 Auto-match**: AI matches invoice raw names to Hub item names
-
-### Manage History
-- All distinct invoice item names with row counts
-- Edit Hub name mapping and units-per-pack
-- Delete incorrect records
-- **🤖 Auto-match button**: sends unmatched items to Claude Haiku for name suggestion
-  - Confidence badges: ✓ high (green), ~ medium (amber), ? low (red)
-  - Review suggestions, save individually
+Invoice price tracking — AI extraction of supplier invoices, average buy prices and name matching — was **retired in October 2026**. Buy prices are now entered by hand. Attaching an invoice still files it to OneDrive and links it to the PO record. See `INVOICE-IMPORT.md`.
 
 ---
 
@@ -241,11 +217,11 @@ Volunteer session management (merged from paynter-bar-roster).
 
 App configuration (BMT access only).
 
-- Square location and credentials
-- Default markup target (currently 40%)
-- OneDrive folder setup
-- Bulk actions (e.g. Square inventory sync)
-- **Audit Log**: all settings changes with old/new values, timestamp, user
+- **Suppliers** — add or remove suppliers
+- **Square Mappings** — each supplier's name in Square. Currently feeds nothing live: it supplied the vendor code for a Square purchase-order CSV export that no longer has a button, and invoice matching, which is retired
+- **Appearance**
+- **App Access** — OneDrive connection status and reconnect, BMT and read-only PINs, the recent-changes audit log (all settings changes with old/new values, timestamp, user), and Data Backup (manual Redis → Supabase sync)
+- Default target weeks is set from the **Target Weeks** stat in the header, not in Settings
 
 ---
 

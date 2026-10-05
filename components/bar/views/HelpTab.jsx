@@ -235,11 +235,12 @@ export default function HelpTab() {
         <div>
           {[
             ['Reading the table', 'Each row shows current stock (On Hand), weekly average sales, target stock level and how much to order. Red = CRITICAL (≤2 weeks stock), yellow = LOW, green = OK.'],
-            ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Min Stock, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns. Hidden by default to keep the view clean.'],
+            ['Show Details', 'Click ▸ Show Details to reveal Category, Wkly Avg, Target, Min Stock, Max Stock, Pack, Bottle Size, Nip Size, Order Qty and Bottles columns (plus the actual Markup column in the Pricing view). Hidden by default to keep the view clean.'],
             ['Supplier tabs', 'Click a supplier name to filter the table to just that supplier.'],
-            ['Pricing view', 'Click 💲 Pricing to switch to pricing mode. Buy Price is a manual entry — the single source of truth for markup, suggested sell price and stock value, so keep it current. Sell Price shows both glass and bottle prices inline for wine (no toggle needed). A ⚠️ banner and $ missing tag flag any item without a buy price set. Print and Excel export from here.'],
+            ['Pricing view', "Click 💲 Pricing to switch to pricing mode. Buy Price is a manual entry — the single source of truth for markup, suggested sell price and stock value, so keep it current. Sell Price shows both glass and bottle prices inline for wine (no toggle needed). A ⚠️ banner and $ missing tag flag any item without a buy price set. The Suggested column follows the Markup 40% / Margin 30% toggle above the table; wines sold by the glass and the bottle show the glass price with the bottle price underneath. The actual Markup % is under ▸ Show Details. Print, Excel and 📊 Compare Both export from here."],
             ['Editing inline', 'Click any value in the Category, Supplier, Pack, Bottle Size or Nip Size columns to edit inline. Changes save automatically and order quantities recalculate immediately.'],
             ['Min Stock', 'Type a value in the Min Stock column (visible under Show Details) to set a minimum stock floor. The order quantity will always be enough to reach this level, even if the calculated target is lower. Leave blank to use the calculated target only.'],
+            ['Max Stock and the min/max label', "Max Stock (also under Show Details) caps the target so an item is never ordered up beyond that level. When Min or Max Stock — rather than recent sales — is what sets an item's Target, a small blue min or amber max label appears beside the figure. Hover it to see why."],
             ['Rundown items', 'Tick the Rundown checkbox on any item to flag it for running down — excluded from order calculations and pricing exports.'],
             ['Order Again', 'Items that are on order are hidden from the main list. Click + Order Again on any on-order item to bring it back into view if you need to order more.'],
             ['On Order stat', 'Click the On Order number in the toolbar to open the View Order modal directly — no need to go back to the Dashboard.'],
@@ -279,7 +280,10 @@ export default function HelpTab() {
         <div>
           {[
             ['Buy Price — manual entry', 'Buy Price is entered and kept up to date by hand in Stock Items → Pricing. It is the single source of truth for markup, suggested sell price and stock value — nothing updates it automatically from invoices.'],
-            ['Markup calculation', 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. For wine sold by the glass, markup is calculated on revenue per bottle (glasses per bottle × glass price) against the bottle buy price.'],
+            ['Markup calculation', 'Markup % = (Sell − Buy) ÷ Buy × 100. Green = 40%+, amber = 25–40%, red = below 25%. For wine sold by the glass, markup is calculated on revenue per bottle (4.545 glasses per bottle — a 165ml pour — × glass price) against the bottle buy price.'],
+            ['Markup vs margin', "Markup is profit as a percentage of what you paid; margin is profit as a percentage of what you charge, so the same profit gives a different number. 40% markup is about a 28.6% margin, and a 30% margin needs about a 42.9% markup. The Sales Report's Margin column is a margin figure."],
+            ['Suggested price', "The toggle above the Pricing table sets how the Suggested column is worked out: Markup 40% (Buy × 1.40) or Margin 30% (Buy ÷ 0.70), rounded up to the nearest 25 cents. It applies to every item and is remembered for everyone. Suggested prices are a guide only — sell prices are still changed in Square."],
+            ['Compare Both report', "📊 Compare Both downloads an Excel sheet showing, for every priced item, the suggested price at Markup 40% and at Margin 30% side by side, the dollar difference, and which is higher (with bottle prices for wines sold both ways). Items with no buy price, or ticked Rundown, are left out."],
             ['Sell prices', 'All sell prices come directly from Square. Changes must be made in Square — the Hub reflects current Square prices on every Refresh. Wine shows both glass and bottle sell prices side by side.'],
           ].map(([q, a], i, arr) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: i < arr.length - 1 ? '1px solid #f1f5f9' : 'none' }}>
@@ -299,6 +303,8 @@ export default function HelpTab() {
             ['Opening', 'Click 📊 Sales Report under Analytics. Data is fetched live from Square — allow a few seconds.'],
             ['Period selector', 'This Month, Last Month, Last 3 Months, Financial Year (May–Apr), Single Day or Custom Range.'],
             ['Category filter', 'Click any category pill to filter the item table to that category. Click again to clear.'],
+            ['Sorting', 'Sort the item table By Units, Slowest First (slowest sellers at the top — only items that sold something), By Revenue or By Profit.'],
+            ['Profit', "The Cost, Profit and Margin columns show gross profit: revenue less the buy price of what was sold (wine by the glass is costed at 4.545 glasses per bottle). The Profit box at the top shows the total and overall margin. Items with no buy price can't be costed — they show a dash, are left out of the profit total, and an amber note says how many. Margin is green at 30%+, amber at 20–30% and red below that. Wastage and stock losses aren't included. Profit shows on screen only — Print and Excel don't include it yet."],
             ['Glasses / Bottles split', 'Wine sold both ways shows separate Glasses and Bottles columns. The Bottles column only appears when at least one item has bottle sales in the selected period.'],
             ['Comparison columns', 'Prior Period, Change % and Prior Revenue are hidden by default. Click ▸ Show comparison to reveal them.'],
             ['Export', 'Click 📊 Excel for a formatted spreadsheet with category breakdown and revenue columns.'],
@@ -379,7 +385,7 @@ export default function HelpTab() {
           </STEP>
 
           <STEP n="2" title="Sync to Square">
-            Unsynced entries show a <strong>Sync</strong> button. Syncing moves that quantity from IN_STOCK to WASTE in Square.
+            Unsynced entries show a <strong>Sync</strong> button. Syncing moves that quantity from IN_STOCK to WASTE in Square. Wine entered in glasses is converted to bottles at 4.545 glasses per bottle (a 165ml pour).
           </STEP>
 
           <Note type="warn">

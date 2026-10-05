@@ -2,40 +2,73 @@
 
 Pricing policy and calculation reference for the Paynter Bar.
 
+*Rewritten October 2026. The earlier version described buy prices averaged from supplier invoices, which the app no longer does.*
+
 ---
 
 ## Policy
 
-- Sell prices are calculated at a **40% markup** on the average buy price (inc. GST)
+- Suggested sell prices target either a **40% markup** or a **30% margin**. The toggle in the Pricing view switches between them (see *Suggested sell price*). Both percentages are fixed.
 - Prices are reviewed **twice yearly**: January 1 and July 1
 - Price changes are submitted to the **Licensee (HOC)** for approval via the HOC representative
 - **No price reductions** — only increases are ever proposed, regardless of cost movements
-- Average buy price is based on the **last 3 months** (90 days) of supplier invoices
+- Sell prices are changed in **Square**, not in the Hub. The Hub reads them live on every Refresh.
 
 ---
 
-## Markup Calculation
+## Buy price
 
-```
-Suggested Sell = Buy Price (inc GST) × 1.40
-```
+Buy Price is **entered by hand** in Stock Items → Pricing. It is the single source of truth for markup, suggested sell price, stock value, wastage valuation, and the cost and profit figures in the Sales Report. Nothing updates it automatically.
 
-For glass-sold wines (buy price is per bottle, sell price is per glass):
-```
-Suggested Sell per Glass = Buy Price (inc GST) × 1.40 ÷ Serves per Bottle
-```
+- All buy prices are **inc GST**.
+- The basis differs by item type:
+  - **per unit** — beer, cider, soft drink, snacks
+  - **per nip** — spirits, fortified wines and liqueurs
+  - **per bottle** — wine
+- Items with no buy price are flagged (⚠️ banner and a "$ missing" tag). They are left out of the Compare Both report and out of the Sales Report profit totals.
+- Buy prices display to 2 decimal places. The stored value keeps its full precision (for example 2.619), and all calculations use the stored value.
 
-Suggested sells are rounded to the nearest **$0.25**.
+The Hub used to work out buy prices from supplier invoices using AI extraction. That was retired in October 2026 — see `INVOICE-IMPORT.md`.
 
-### Actual Markup %
+---
+
+## Glass size
+
+All wine glass maths uses one figure: **165ml**, which is **4.545 glasses per 750ml bottle** (0.22 of a bottle per glass). This is the true pour including overpour. It is deliberately a little larger than the 150ml pour advertised on the customer price list.
+
+The figure lives in one place — `GLASS_SERVE_ML` in `lib/constants.js` — and is used by:
+
+- the Pricing view and its exports
+- the Sales Report profit calculation
+- the stock conversion in `lib/square.js` (glasses sold → bottles used)
+- the wastage sync (wasted glasses → bottles deducted in Square)
+
+Change it there and everything follows. Before October 2026 some of these used 150ml / 5 glasses, so the same wine showed different markups on different screens.
+
+---
+
+## Markup and margin
+
+| | Formula |
+|---|---|
+| **Markup %** | (Sell − Buy) ÷ Buy × 100 — profit as a percentage of what you paid |
+| **Margin %** | (Sell − Buy) ÷ Sell × 100 — profit as a percentage of what you charge |
+
+They are different numbers for the same profit. For example, **40% markup is a 28.6% margin**, and a **30% margin** needs a sell price of Buy ÷ 0.70, which is about a **42.9% markup**.
+
+### Actual markup %
+
 ```
 Markup % = (Sell − Buy) ÷ Buy × 100
 ```
 
-For glass-sold wines:
+For wine sold by the glass (buy price is per bottle, sell price is per glass):
+
 ```
-Markup % = (Sell × Serves − Buy) ÷ Buy × 100
+Markup % = (Sell × 4.545 − Buy) ÷ Buy × 100
 ```
+
+The actual Markup column sits under **▸ Show Details** in the Pricing view.
 
 ### Colour coding
 
@@ -47,98 +80,66 @@ Markup % = (Sell × Serves − Buy) ÷ Buy × 100
 
 ---
 
-## Unit Types
+## Suggested sell price
+
+```
+Markup basis:   Suggested = Buy × 1.40
+Margin basis:   Suggested = Buy ÷ 0.70
+```
+
+- The result is rounded **up** to the next **$0.25**.
+- Wine sold by the glass: the bottle figure above is divided by 4.545, then rounded up. Wines sold both by the glass and the bottle also show the bottle suggestion, under the glass price.
+- The **Suggested price: Markup 40% | Margin 30%** toggle sits beside Print and Excel in the Pricing view. It applies to every item and is stored as the global setting `pricingBasis`, so it is the same for everyone.
+- Suggested prices are a guide. Sell prices are still changed in Square.
+
+Notes:
+
+- The Pricing Analysis Excel export uses a fixed 40% markup for its suggested columns and does not follow the toggle. The printed pricing sheet shows no suggested prices.
+- Item settings may contain `pricingMode` and `targetPct` fields from a short per-item trial in October 2026. Nothing reads them.
+
+---
+
+## Unit types
 
 | Category | Unit | Buy price basis | Sell price basis |
 |---|---|---|---|
 | Beer / Cider | each | per can/bottle | per can/bottle |
-| Spirits | nip | per nip (bottle cost ÷ nips per bottle) | per nip |
+| Spirits | nip | per nip | per nip |
 | Wine (glass) | glass | per bottle | per glass |
 | Wine (bottle) | bottle | per bottle | per bottle |
 | Sparkling | bottle | per bottle | per bottle |
 | Snacks | each | per unit | per unit |
 
-### Spirit nip conversion
+### Working out a spirit's buy price per nip
+
+The Hub stores spirits per nip, so work the figure out before entering it:
+
 ```
-Buy per Nip (ex GST) = Invoice Bottle Price (ex GST) ÷ (Bottle ML ÷ Nip ML)
-Buy per Nip (inc GST) = Buy per Nip (ex GST) × 1.10
+Buy per Nip (inc GST) = Bottle price (inc GST) ÷ (Bottle ML ÷ Nip ML)
 ```
 
-Default nip size: 30ml. Items with "60ml nip" in their name (e.g. Baileys, Galway Pipe) use 60ml automatically.
+Default nip size is 30ml. Items with "60ml nip" in their name (for example Baileys, Galway Pipe) use 60ml.
 
 ---
 
-## Buy Price Source
+## Pricing view and exports
 
-Buy prices are sourced in priority order:
+The Pricing view (💲 Pricing in Stock Items) offers three downloads or prints:
 
-1. **90-day weighted average** from imported supplier invoices (`buy_price_history` table)
-2. **Manual Hub buy price** — entered directly in the inventory view (fallback if no invoice data)
+**🖨️ Print** — a pricing sheet: Item, Category, Unit, Buy, Sell, Bottle Sell, Markup, Bottle Markup, Stock.
 
-In the pricing export:
-- Blue cell = price from invoice average
-- Amber cell = fallback to manual Hub buy price
-- Yellow cell = no buy price at all
+**📥 Excel (Pricing Analysis)** — one row per active item. Columns: Item, Category, Supplier, Buy, Sell (glass/unit), Sell (bottle), Markup % (glass/unit), Markup % (bottle), Sugg Sell (glass), Sugg Sell (bottle), On Hand, Notes. A summary block at the bottom shows the number of active items tracked, items with price data, and items below the 40% target. Items ticked **Rundown** are excluded.
+
+**📊 Compare Both (Excel)** — for deciding between markup and margin pricing. One row per item with a buy price: Buy, Current Sell, Suggested at Markup 40%, Suggested at Margin 30%, the dollar difference, and which is higher. Wines sold both ways also get bottle suggestions for each. Items with no buy price, or ticked Rundown, are left out.
 
 ---
 
-## Average Price Calculation
+## Profit in the Sales Report
 
-The weighted average accounts for order size:
+The Sales Report shows **gross profit** per item and in total: revenue less the buy price of what was sold.
 
-```
-Average = Sum(unit_price_ex_gst × qty_units) ÷ Sum(qty_units)
-```
-
-Since each item is ordered once per invoice, `qty_units = units_per_pack` (e.g. 6 for a wine case, 24 for a beer carton). This means larger orders are weighted proportionally.
-
-The result is converted to inc-GST for display:
-```
-Avg Buy (inc GST) = Avg Unit Price (ex GST) × 1.10
-```
-
----
-
-## Pricing Export (Excel)
-
-The pricing export (`📥 Excel` button in Pricing view) generates a spreadsheet with:
-
-**Columns:**
-| Column | Description |
-|---|---|
-| Item | Hub item name |
-| Category | Item category |
-| Supplier | Primary supplier |
-| Unit | glass / bottle / nip / each |
-| Buy inc GST | Average buy price (inc GST) — editable |
-| Serves/Btl | Serves per bottle (for glass wines) |
-| Sell | Current sell price |
-| Markup % | Actual current markup (formula) |
-| Sugg Sell (40%) | Suggested sell at 40% target (formula) |
-| On Hand | Current Square on-hand qty |
-| Invoice Count | Total invoices in history |
-| Min Buy | Lowest buy price ever recorded |
-| Max Buy | Highest buy price ever recorded |
-| Notes | Anomaly flags |
-
-**Wine glass+bottle split:** Wines sold by both glass and bottle appear as two rows (paired with purple left-border accent).
-
-**Anomaly flags (Notes column):**
-- `⚠ Markup gap: glass X% vs bottle Y%` — glass and bottle markups differ by >20%
-- `⚠ Bottle ($X) costs more than 5 glasses ($Y)` — bottle dearer than per-glass
-
-**Min/Max highlighting:** Red cells if price spread exceeds 20% of average (possible extraction error).
-
-**Summary row:** Overall average markup across all items.
-
----
-
-## Price Review Modal
-
-The `💰 Price Review` button opens a modal showing items where the current price deviates from the target markup by more than BAND%.
-
-- Items needing a **price increase** shown in red
-- Items **above target** shown in blue
-- Suggested sell pre-calculated
-- CSV export for record-keeping
-- Print option
+- Cost uses the buy-price basis above: per unit, per nip, or per bottle. Wine sold by the glass is costed at 4.545 glasses per bottle.
+- **Margin %** is profit ÷ revenue. It is green at 30% or more, amber at 20–30%, red below 20%.
+- Items with no buy price cannot be costed. They show a dash, are left out of the profit total and margin, and an amber note above the table says how many were left out.
+- Wastage and stock losses are not included.
+- Profit appears on screen only. The Print/PDF and Excel exports do not include it yet.

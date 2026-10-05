@@ -104,6 +104,8 @@ Body: `{ items: [{ catalogObjectId, quantity }] }`
 
 ## Invoices
 
+> **Dormant.** Since October 2026 the app no longer extracts invoice prices or builds an average-buy-price report, and nothing calls these routes. They are kept in place, unused, along with the `buy_price_history` table. The request and response shapes below are historical; `avg-prices` in particular has since been rewritten to return the latest invoice price per active item, so its response no longer matches what is shown here. See `INVOICE-IMPORT.md`.
+
 ### `POST /api/invoices/extract`
 Extract line items from a supplier invoice PDF using Claude Haiku.
 

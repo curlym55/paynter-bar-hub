@@ -18,6 +18,8 @@ Database schema and configuration for Paynter Bar Hub.
 ### `buy_price_history`
 Stores per-unit buy prices extracted from supplier invoices.
 
+> **Dormant since October 2026.** Nothing in the app reads or writes this table any more. It is kept, with its data, in case invoice price tracking is ever revived. See `INVOICE-IMPORT.md`.
+
 | Column | Type | Description |
 |---|---|---|
 | id | uuid | Primary key |
