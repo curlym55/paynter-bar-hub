@@ -42,7 +42,7 @@ export async function getVolunteers() {
   if (!supabase) return [];
   const { data, error } = await supabase
     .from('volunteers')
-    .select('*')
+    .select('id, name, villa, rsa, duty_manager, active')
     .order('name');
   if (error) {
     console.error('getVolunteers:', error);
@@ -52,7 +52,6 @@ export async function getVolunteers() {
     id: v.id,
     name: v.name,
     villa: v.villa,
-    phone: v.phone,
     rsa: v.rsa,
     dm: v.duty_manager,
     active: v.active
