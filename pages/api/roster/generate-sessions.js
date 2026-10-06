@@ -2,9 +2,9 @@
 //
 // Auto-provisions session rows for a given month, driven entirely by the
 // admin-configurable schedule in roster_settings + roster_recurring_events
-// (see Admin ▸ Settings in the roster UI) instead of a hardcoded day/event
+// (see Admin > Settings in the roster UI) instead of a hardcoded day/event
 // pattern. Runs on every visitor's page load (not just admins) to lazily
-// ensure sessions exist for whatever month is being viewed — not a
+// ensure sessions exist for whatever month is being viewed - not a
 // privileged action, so unlike write.js this does NOT require the admin PIN.
 //
 // Replaces the previous approach of calling a Postgres RPC
@@ -12,7 +12,7 @@
 // That RPC is no longer called and can be dropped later if wanted.
 //
 // Known simplification: the old logic auto-added a second Trivia shift
-// (6:30-8pm) from May 2026 onward — a one-off scheduling change, not a
+// (6:30-8pm) from May 2026 onward - a one-off scheduling change, not a
 // general "events can have two shifts a night" feature. Not reproduced here;
 // add a second shift manually via "+ Add Extra Day" if still needed.
 
@@ -38,28 +38,43 @@ export default async function handler(req, res) {
   const monthIndex = month - 1
   const mm = String(month).padStart(2, '0')
 
+  // First day of the following month. Used as an exclusive upper bound so the
+  // lookup works for 28/29/30/31-day months (a hardcoded "-31" is an invalid
+  // date in Feb, Apr, Jun, Sep and Nov and makes the query fail silently).
+  const nextMonthStart = Number(month) === 12
+    ? `${Number(year) + 1}-01-01`
+    : `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`
+
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.SUPABASE_SERVICE_ROLE_KEY
   )
 
   try {
-    const [{ data: settings }, { data: events }, { data: deletedRows }, { data: existingRows }] = await Promise.all([
+    const [
+      { data: settings },
+      { data: events },
+      { data: deletedRows },
+      { data: existingRows, error: existingError },
+    ] = await Promise.all([
       supabase.from('roster_settings').select('days').eq('id', 1).maybeSingle(),
       supabase.from('roster_recurring_events').select('*').eq('active', true),
       supabase.from('deleted_dates').select('date'),
       supabase.from('sessions')
         .select('session_date, shift_label')
         .gte('session_date', `${year}-${mm}-01`)
-        .lte('session_date', `${year}-${mm}-31`),
+        .lt('session_date', nextMonthStart),
     ])
+
+    // If we can't see what already exists, do NOT insert anything - inserting
+    // blind is what creates duplicate sessions.
+    if (existingError) throw existingError
 
     const days = settings?.days || {}
     const deletedDates = new Set((deletedRows || []).map(r => r.date))
-    // Auto-generated (non-extra) rows are inserted with an empty shift_label
-    // — see below — so this key only collides with other auto-generated
-    // rows on the same date, never with manually-added extra shifts.
-    const existingKeys = new Set((existingRows || []).map(r => `${r.session_date}|${r.shift_label || ''}`))
+    // Any existing session on a date (regular or extra) blocks auto-generation
+    // for that date, so we never add a regular shift beside an extra one.
+    const existingKeys = new Set((existingRows || []).map(r => `${r.session_date}|`))
 
     const daysInMonth = new Date(year, monthIndex + 1, 0).getDate()
     const rowsToInsert = []
@@ -91,7 +106,7 @@ export default async function handler(req, res) {
         day_type: ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][dow],
         event_type: matchedEvent ? matchedEvent.label.toLowerCase().replace(/\s+/g, '_') : null,
         event_name: matchedEvent ? matchedEvent.label : null,
-        time_slot: matchedEvent?.time_slot || dayCfg?.time || '4:30 - 6:30',
+        time_slot: matchedEvent?.time_slot || dayCfg?.time || '5:00 - 7:00',
         volunteers_needed: 2,
         is_extra: false,
         shift_label: '',
