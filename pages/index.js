@@ -1838,7 +1838,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const TARGET    = 40
     const WINE_C    = ['White Wine','Red Wine','Rose','Sparkling']
-    const mceil     = (v, m) => Math.ceil(v / m) * m
+    const mceil     = (v, m) => Math.ceil(Math.round((v / m) * 1e6) / 1e6) * m
     const fmtPct    = p => p != null ? `${p.toFixed(1)}%` : ''
     const NAVY      = '0F172A'
     const TEAL      = '0E7490'
@@ -2052,7 +2052,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
 
     const WINE_CATS = ['White Wine', 'Red Wine', 'Rose', 'Sparkling']
     // GLASS_SERVE_ML comes from lib/constants.js — one shared figure.
-    const mceil2 = (v, m) => Math.ceil(v / m) * m
+    const mceil2 = (v, m) => Math.ceil(Math.round((v / m) * 1e6) / 1e6) * m
     const NAVY = '1E3A5F', GREEN = '166534', RED = '991B1B', GREY = '64748B'
 
     ws.columns = [
@@ -3861,7 +3861,7 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           // (40% markup ≈ 28.6% margin) — 30% margin is in fact closer
                           // to a ~42.9% markup, i.e. slightly MORE profit per item
                           // than the old 40%-markup default, not less.
-                          const mceil2  = (v, m) => Math.ceil(v / m) * m
+                          const mceil2  = (v, m) => Math.ceil(Math.round((v / m) * 1e6) / 1e6) * m
                           const costPerServe = (b) => pricingBasis === 'margin' ? b / 0.70 : b * 1.40
                           const suggNum = buy != null
                             ? item.isSpirit ? mceil2(costPerServe(buy), 0.25)
