@@ -7,6 +7,10 @@
 // ensure sessions exist for whatever month is being viewed - not a
 // privileged action, so unlike write.js this does NOT require the admin PIN.
 //
+// Because it is public, it validates its inputs (month 1-12, and only a
+// sensible window around today) so it can't be used to create sessions for
+// arbitrary years.
+//
 // Replaces the previous approach of calling a Postgres RPC
 // (generate_monthly_sessions) that had Palmwoods' schedule hardcoded in SQL.
 // That RPC is no longer called and can be dropped later if wanted.
@@ -17,6 +21,11 @@
 // add a second shift manually via "+ Add Extra Day" if still needed.
 
 import { createClient } from '@supabase/supabase-js'
+
+// How far from today a month may be requested. Past months are allowed so
+// browsing back never errors; future months are capped.
+const MONTHS_BACK = 12
+const MONTHS_AHEAD = 24
 
 function nthWeekdayOfMonth(year, monthIndex, weekday, occurrence) {
   // occurrence: '1'..'4' or 'last'. monthIndex is 0-based (Jan=0).
@@ -33,17 +42,32 @@ function nthWeekdayOfMonth(year, monthIndex, weekday, occurrence) {
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
-  const { year, month } = req.body || {} // month is 1-based, matching the existing caller
-  if (!year || !month) return res.status(400).json({ error: 'year and month required' })
+  const body = req.body || {}
+  const year = Number(body.year)
+  const month = Number(body.month) // 1-based, matching the existing caller
+
+  // Input validation: whole numbers only, real month, sensible window.
+  if (!Number.isInteger(year) || !Number.isInteger(month)) {
+    return res.status(400).json({ error: 'year and month must be whole numbers' })
+  }
+  if (month < 1 || month > 12) {
+    return res.status(400).json({ error: 'month must be 1-12' })
+  }
+  const now = new Date()
+  const monthsFromNow = (year - now.getFullYear()) * 12 + (month - 1 - now.getMonth())
+  if (monthsFromNow < -MONTHS_BACK || monthsFromNow > MONTHS_AHEAD) {
+    return res.status(400).json({ error: 'month is outside the allowed range' })
+  }
+
   const monthIndex = month - 1
   const mm = String(month).padStart(2, '0')
 
   // First day of the following month. Used as an exclusive upper bound so the
   // lookup works for 28/29/30/31-day months (a hardcoded "-31" is an invalid
   // date in Feb, Apr, Jun, Sep and Nov and makes the query fail silently).
-  const nextMonthStart = Number(month) === 12
-    ? `${Number(year) + 1}-01-01`
-    : `${year}-${String(Number(month) + 1).padStart(2, '0')}-01`
+  const nextMonthStart = month === 12
+    ? `${year + 1}-01-01`
+    : `${year}-${String(month + 1).padStart(2, '0')}-01`
 
   const supabase = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -52,9 +76,9 @@ export default async function handler(req, res) {
 
   try {
     const [
-      { data: settings },
-      { data: events },
-      { data: deletedRows },
+      { data: settings, error: settingsError },
+      { data: events, error: eventsError },
+      { data: deletedRows, error: deletedError },
       { data: existingRows, error: existingError },
     ] = await Promise.all([
       supabase.from('roster_settings').select('days').eq('id', 1).maybeSingle(),
@@ -66,11 +90,17 @@ export default async function handler(req, res) {
         .lt('session_date', nextMonthStart),
     ])
 
-    // If we can't see what already exists, do NOT insert anything - inserting
-    // blind is what creates duplicate sessions.
-    if (existingError) throw existingError
+    // If any lookup fails, STOP and report it. Carrying on with missing data
+    // is what previously created duplicate sessions, and treating a missing
+    // schedule as "nothing to generate" hid a setup problem.
+    const lookupError = settingsError || eventsError || deletedError || existingError
+    if (lookupError) throw lookupError
+    if (!settings) {
+      console.error('[roster/generate-sessions] roster_settings row (id=1) not found')
+      return res.status(503).json({ error: 'Schedule settings not found - run the roster settings migration.' })
+    }
 
-    const days = settings?.days || {}
+    const days = settings.days || {}
     const deletedDates = new Set((deletedRows || []).map(r => r.date))
     // Any existing session on a date (regular or extra) blocks auto-generation
     // for that date, so we never add a regular shift beside an extra one.
@@ -113,12 +143,26 @@ export default async function handler(req, res) {
       })
     }
 
+    let created = 0
     if (rowsToInsert.length > 0) {
       const { error } = await supabase.from('sessions').insert(rowsToInsert)
-      if (error) throw error
+      if (!error) {
+        created = rowsToInsert.length
+      } else if (error.code === '23505') {
+        // Unique-violation: another visitor's request created some of these
+        // sessions at the same moment, and the database rejected the whole
+        // batch. Add the remaining ones one at a time, skipping the clashes.
+        for (const row of rowsToInsert) {
+          const { error: rowError } = await supabase.from('sessions').insert([row])
+          if (!rowError) created++
+          else if (rowError.code !== '23505') throw rowError
+        }
+      } else {
+        throw error
+      }
     }
 
-    return res.json({ ok: true, created: rowsToInsert.length })
+    return res.json({ ok: true, created })
   } catch (err) {
     console.error('[roster/generate-sessions]', err.message)
     return res.status(500).json({ error: err.message })
