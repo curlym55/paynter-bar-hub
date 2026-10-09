@@ -95,7 +95,10 @@ export default async function handler(req, res) {
       // writes the whole blob back. Two saves overlapping in time would each read
       // the old copy, and the second write would silently erase the first. The
       // lock makes saves run one at a time, across all server instances.
-      await withLock('settings', async () => {
+      // The reply is sent AFTER the lock is released (the work inside only
+      // returns { status, body }), so a response that ends the request early can
+      // never leave the lock held for its full 15 seconds.
+      const result = await withLock('settings', async () => {
         const { action, itemName, name, field, value } = req.body
 
         // Price list item setting
@@ -109,7 +112,7 @@ export default async function handler(req, res) {
             allPl[realName][field] = value
           }
           await set('priceListSettings', allPl)
-          return res.status(200).json({ ok: true })
+          return { status: 200, body: { ok: true } }
         }
 
         // (Removed: legacy 'setOrdered' action. Nothing called it, and it wrote
@@ -118,23 +121,23 @@ export default async function handler(req, res) {
         // any item sitting on more than one order. purchase-order.js is now the
         // only writer of orderedItems.)
 
-        if (!itemName && !name) return res.status(400).json({ error: 'itemName and field required' })
+        if (!itemName && !name) return { status: 400, body: { error: 'itemName and field required' } }
         const resolvedName = itemName || name
 
         if (field === 'targetWeeks') {
           await set('targetWeeks', Number(value))
-          return res.status(200).json({ ok: true })
+          return { status: 200, body: { ok: true } }
         }
         if (field === 'pricingBasis') {
           await set('pricingBasis', value === 'margin' ? 'margin' : 'markup')
           // Busts the items cache so a fresh /api/items load reflects it —
           // same reasoning as other item-settings writes below.
           await invalidateItemsCache()
-          return res.status(200).json({ ok: true })
+          return { status: 200, body: { ok: true } }
         }
         if (field === 'revenueTarget') {
           await set('revenueTarget', value === null ? null : Number(value))
-          return res.status(200).json({ ok: true })
+          return { status: 200, body: { ok: true } }
         }
 
         if (field === 'suppliers') {
@@ -184,8 +187,9 @@ export default async function handler(req, res) {
         // Deletes by pattern — /api/items accepts any ?days= value, not just the
         // 30/60/90 the UI offers, so a hardcoded list could miss keys.
         await invalidateItemsCache()
-        res.status(200).json({ ok: true })
+        return { status: 200, body: { ok: true } }
       })
+      return res.status(result.status).json(result.body)
     } catch (err) {
       res.status(500).json({ error: err.message })
     }

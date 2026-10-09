@@ -808,14 +808,33 @@ export default function Home() {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }
   }
+  // Shared by the settings saves that don't go through saveSetting(): checks the
+  // server's reply and warns when the change was NOT stored (expired login,
+  // read-only access, server busy or offline). Returns true when it was saved.
+  async function postSettings(body) {
+    let res = null
+    try {
+      res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+    } catch { res = null }
+    if (!res || !res.ok) {
+      alert(
+        res?.status === 401 ? 'Your login has expired — please log in again. That change was NOT saved.'
+        : res?.status === 403 ? 'Read-only access — that change was NOT saved.'
+        : 'Could not save that change — please check your connection and try again.'
+      )
+      return false
+    }
+    return true
+  }
   async function saveTargetWeeks(val) {
     const weeks = Number(val)
     if (!weeks || weeks < 1 || weeks > 26) return
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemName: '_global', field: 'targetWeeks', value: weeks })
-    })
+    const saved = await postSettings({ itemName: '_global', field: 'targetWeeks', value: weeks })
+    if (!saved) return
     setTargetWeeks(weeks)
     setEditingTarget(false)
     // Immediately recalculate targetStock and orderQty for all items using new weeks
@@ -852,16 +871,14 @@ export default function Home() {
 
   async function savePricingBasis(basis) {
     const val = basis === 'margin' ? 'margin' : 'markup'
+    const previousBasis = pricingBasis
     setPricingBasis(val)
     // No per-item recalculation needed — unlike targetWeeks, this only
     // affects the Suggested Sell column, which reads pricingBasis directly
     // from component state on every render, so the whole table updates the
     // moment this state changes.
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemName: '_global', field: 'pricingBasis', value: val })
-    })
+    const saved = await postSettings({ itemName: '_global', field: 'pricingBasis', value: val })
+    if (!saved) setPricingBasis(previousBasis)
   }
 
   async function addSupplier() {
@@ -871,11 +888,8 @@ export default function Home() {
     setSuppliers(updated)
     setNewSupplierName('')
     setAddingSupplier(false)
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemName: '_global', field: 'suppliers', value: updated })
-    })
+    const saved = await postSettings({ itemName: '_global', field: 'suppliers', value: updated })
+    if (!saved) setSuppliers(suppliers)
   }
 
   async function deleteSupplier(name) {
@@ -887,11 +901,8 @@ export default function Home() {
     const updated = suppliers.filter(s => s !== name)
     setSuppliers(updated)
     if (view === name) setView('all')
-    await fetch('/api/settings', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ itemName: '_global', field: 'suppliers', value: updated })
-    })
+    const saved = await postSettings({ itemName: '_global', field: 'suppliers', value: updated })
+    if (!saved) setSuppliers(suppliers)
   }
 
 
@@ -906,11 +917,8 @@ export default function Home() {
       const current = priceListSettings[itemName] || {}
       const updated = { ...priceListSettings, [itemName]: { ...current, [field]: value } }
       setPriceListSettings(updated)
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'setItem', name: `__pl_${itemName}`, field, value })
-      })
+      const saved = await postSettings({ action: 'setItem', name: `__pl_${itemName}`, field, value })
+      if (!saved) setPriceListSettings(priceListSettings)
     } finally {
       setPlSaving(s => ({ ...s, [key]: false }))
     }
@@ -3748,10 +3756,14 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                     <input
                                       type="number" min="0" value={display}
                                       onChange={e => {
+                                        // Update the box only while typing; the save happens once,
+                                        // when the box is left (onBlur) - saving on every key press
+                                        // sent "1" then "12" and the two could finish out of order.
                                         const v = parseInt(e.target.value) || 0
                                         setOrderQtyOverrides(prev => ({ ...prev, [item.name]: v }))
-                                        saveSetting(item.name, 'orderQtyOverride', v)
                                       }}
+                                      onBlur={e => saveSetting(item.name, 'orderQtyOverride', parseInt(e.target.value) || 0)}
+                                      onKeyDown={e => { if (e.key === 'Enter') e.target.blur() }}
                                       style={{ width: 60, textAlign: 'right', fontFamily: 'IBM Plex Mono, monospace', fontWeight: 700, fontSize: 14,
                                         border: isEdited ? '1px solid #f59e0b' : '1px solid #e2e8f0',
                                         borderRadius: 5, padding: '2px 6px', background: isEdited ? '#fffbeb' : '#f8fafc',
