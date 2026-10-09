@@ -227,7 +227,6 @@ export default function PaynterBarRoster() {
   const [showCalendar, setShowCalendar] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [showPrint, setShowPrint] = useState(false);
-  const [mobileInIframe, setMobileInIframe] = useState(false);
   // FIX: Track whether we've initialized (client-only)
   const [isLive, setIsLive] = useState(false);
   const [announcements, setAnnouncements] = useState([]);
@@ -256,13 +255,6 @@ export default function PaynterBarRoster() {
   const setSaving = (key, value) => {
     setSavingStates(prev => ({ ...prev, [key]: value }));
   };
-
-  // Detect mobile in iframe (Wix blocks touch events)
-  useEffect(() => {
-    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const inIframe = window.self !== window.top;
-    if (isMobile && inIframe) setMobileInIframe(true);
-  }, []);
 
   // FIX: Initialize on client mount — this runs only on client, avoiding hydration mismatch
   useEffect(() => {
@@ -311,22 +303,6 @@ export default function PaynterBarRoster() {
     }
   }, [year, month, loading, isLive]);
 
-  // Broadcast height to parent for seamless iframe embedding
-  useEffect(() => {
-    const sendHeight = () => {
-      const h = document.documentElement.scrollHeight;
-      window.parent.postMessage({ type: 'roster-height', height: h }, '*');
-    };
-    sendHeight();
-    window.addEventListener('resize', sendHeight);
-    const obs = new ResizeObserver(sendHeight);
-    obs.observe(document.body);
-    return () => {
-      window.removeEventListener('resize', sendHeight);
-      obs.disconnect();
-    };
-  }, [sessions, view, showVolForm, showIdentify, showExtraShift, showPinDialog, showNewDay, showCalendar, showInstructions, showPrint, showNoticeForm, announcements]);
-
   // Auto-scroll to volunteer form when editing
   useEffect(() => {
     if (showVolForm) {
@@ -343,7 +319,6 @@ export default function PaynterBarRoster() {
         const el = document.getElementById('add-shift-form');
         if (el) {
           window.scrollTo({ top: el.offsetTop - 10, behavior: 'smooth' });
-          window.parent.postMessage({ type: 'roster-scroll-top' }, '*');
         }
       }, 100);
     }
