@@ -126,6 +126,10 @@ export default async function handler(req, res) {
 
         if (field === 'targetWeeks') {
           await set('targetWeeks', Number(value))
+          // The page reads targetWeeks (and every order quantity worked out from
+          // it) from the cached items data, so that cache must be cleared or a
+          // reload shows the old number until the next full refresh finishes.
+          await invalidateItemsCache()
           return { status: 200, body: { ok: true } }
         }
         if (field === 'pricingBasis') {
