@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { kvGet, kvSet } from '../../../lib/redis'
+import { kvIncr, kvDecr } from '../../../lib/redis'
 import { createRosterSessionCookie, clearRosterSessionCookie } from '../../../lib/rosterSession'
 import { safeCompare } from '../../../lib/session'
 import { verifyPin } from '../../../lib/rosterPin'
@@ -30,11 +30,18 @@ export default async function handler(req, res) {
   if (!pin) return res.status(400).json({ ok: false })
 
   // Rate limit — lock this IP out after too many failures so a 4-digit PIN
-  // can't be brute-forced by a script.
+  // can't be brute-forced by a script. The attempt is counted FIRST and
+  // atomically (see pages/api/auth.js for why), and a successful login
+  // refunds it rather than resetting the counter.
   const ip = clientIp(req)
   const attemptsKey = `rosterAuthAttempts:${ip}`
-  const attempts = (await kvGet(attemptsKey).catch(() => null)) || 0
-  if (attempts >= MAX_ATTEMPTS) {
+  let attempts = 0
+  try {
+    attempts = await kvIncr(attemptsKey, LOCKOUT_WINDOW)
+  } catch (e) {
+    console.error('[roster/auth] rate-limit counter unavailable:', e.message)
+  }
+  if (attempts > MAX_ATTEMPTS) {
     return res.status(429).json({ ok: false, error: 'Too many attempts — please wait 15 minutes and try again.' })
   }
 
@@ -61,12 +68,12 @@ export default async function handler(req, res) {
   }
 
   if (!valid) {
-    await kvSet(attemptsKey, attempts + 1, LOCKOUT_WINDOW).catch(() => {})
+    // The failed attempt was already counted above.
     return res.status(401).json({ ok: false })
   }
 
-  // Success — clear the counter and issue the session cookie
-  await kvSet(attemptsKey, 0, 1).catch(() => {})
+  // Success — refund this attempt and issue the session cookie
+  await kvDecr(attemptsKey).catch(() => {})
   res.setHeader('Set-Cookie', createRosterSessionCookie())
   return res.status(200).json({ ok: true })
 }
