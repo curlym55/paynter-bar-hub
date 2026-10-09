@@ -837,34 +837,25 @@ export default function Home() {
     if (!saved) return
     setTargetWeeks(weeks)
     setEditingTarget(false)
-    // Immediately recalculate targetStock and orderQty for all items using new weeks
-    // without waiting for a full Square refresh (which takes ~50s due to Orders API)
-    setItems(prev => prev.map(item => {
-      const isSpirit = item.isSpirit
-      const weeklyAvg = (item.weeklyAvgOverride != null ? item.weeklyAvgOverride : item.weeklyAvg) || 0
-      const pack = item.pack || 1
-      const targetStock = isSpirit
-        ? Math.ceil(weeklyAvg * weeks)
-        : Math.ceil(weeklyAvg * weeks)
-      const unitsNeeded = Math.max(0, targetStock - (item.onHand || 0))
-      const nipsPerBottle = item.nipsPerBottle || null
-      const nipsToOrder = isSpirit && unitsNeeded > 0 && nipsPerBottle
-        ? Math.ceil(Math.ceil(unitsNeeded / nipsPerBottle) * nipsPerBottle)
-        : null
-      const bottlesToOrder = isSpirit && unitsNeeded > 0 && nipsPerBottle
-        ? Math.ceil(unitsNeeded / nipsPerBottle)
-        : null
-      const orderQty = isSpirit
-        ? (nipsToOrder || 0)
-        : (unitsNeeded === 0 ? 0 : Math.ceil(unitsNeeded / pack) * pack)
-      const weeksLeft = isSpirit
-        ? (item.onHand || 0) / (weeklyAvg || 1)
-        : (item.onHand || 0) / (weeklyAvg || 1)
-      const priority = (isSpirit ? nipsToOrder > 0 : orderQty > 0)
-        ? (weeksLeft <= 2 ? 'CRITICAL' : 'LOW')
-        : 'OK'
-      return { ...item, targetStock, orderQty, nipsToOrder, bottlesToOrder, priority }
-    }))
+    // Immediately recalculate every item with the app's real calculation (the
+    // same calculateItem() the server and the per-item edits use), so Min/Max
+    // stock, per-item target-weeks overrides and the projected-stock fields all
+    // update on screen straight away. The old hand-written shortcut ignored
+    // those and left several fields stale until a full refresh.
+    setItems(prev => prev.map(item => ({
+      ...item,
+      ...calculateItem(item, {
+        category: item.category,
+        pack: item.pack,
+        minStock: item.minStock,
+        maxStock: item.maxStock,
+        targetWeeksOverride: item.targetWeeksOverride,
+        weeklyAvgOverride: item.weeklyAvgOverride,
+        stockOverride: item.stockOverride,
+        bottleML: item.bottleML,
+        nipML: item.nipML,
+      }, weeks, daysBack)
+    })))
     // Also trigger background refresh to rebuild cache with correct targetWeeks
     loadItems(true)
   }
