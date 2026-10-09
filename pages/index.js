@@ -755,11 +755,25 @@ export default function Home() {
     const key = `${itemName}_${field}`
     setSaving(s => ({ ...s, [key]: true }))
     try {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ itemName, field, value, who: readOnly ? 'volunteer' : 'BMT' })
-      })
+      let res = null
+      try {
+        res = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ itemName, field, value, who: readOnly ? 'volunteer' : 'BMT' })
+        })
+      } catch { res = null }
+      // Don't show a change as saved when the server refused it. Before this
+      // check, an expired login (401) or a server error left the new value on
+      // screen even though nothing was stored, so it vanished on the next reload.
+      if (!res || !res.ok) {
+        alert(
+          res?.status === 401 ? 'Your login has expired — please log in again. That change was NOT saved.'
+          : res?.status === 403 ? 'Read-only access — that change was NOT saved.'
+          : 'Could not save that change — please check your connection and try again.'
+        )
+        return false
+      }
       setItems(prev => prev.map(item => {
         if (item.name !== itemName) return item
         const numFields = ['pack','bottleML','nipML','stockOverride','buyPrice','sellPrice','sellPriceBottle','weeklyAvgOverride','targetPct']
@@ -789,6 +803,7 @@ export default function Home() {
       }))
       // For supplier changes, reload items to reflect new grouping
       if (field === 'supplier') loadItems(false)
+      return true
     } finally {
       setSaving(s => { const n = { ...s }; delete n[key]; return n })
     }

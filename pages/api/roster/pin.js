@@ -12,6 +12,7 @@
 // silently change the PIN and lock everyone else out.
 
 import { createClient } from '@supabase/supabase-js'
+import { kvIncr, kvDecr } from '../../../lib/redis'
 import { requireRosterAuth } from '../../../lib/rosterSession'
 import { safeCompare } from '../../../lib/session'
 import { hashPin, verifyPin } from '../../../lib/rosterPin'
@@ -20,6 +21,16 @@ const sb = () => createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL,
   process.env.SUPABASE_SERVICE_ROLE_KEY
 )
+
+// The current-PIN check below is itself a PIN guess, so it gets the same
+// lockout as the login: 10 wrong tries per 15 minutes per address.
+const MAX_ATTEMPTS   = 10
+const LOCKOUT_WINDOW = 15 * 60 // seconds
+
+function clientIp(req) {
+  const fwd = req.headers['x-forwarded-for']
+  return (Array.isArray(fwd) ? fwd[0] : fwd)?.split(',')[0].trim() || req.socket?.remoteAddress || 'unknown'
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -33,6 +44,18 @@ export default async function handler(req, res) {
     return res.status(400).json({ ok: false, error: 'PIN must be 4-8 digits' })
   }
 
+  // Count this attempt first, atomically (see pages/api/auth.js for why).
+  const attemptsKey = `rosterPinChangeAttempts:${clientIp(req)}`
+  let attempts = 0
+  try {
+    attempts = await kvIncr(attemptsKey, LOCKOUT_WINDOW)
+  } catch (e) {
+    console.error('[roster/pin] rate-limit counter unavailable:', e.message)
+  }
+  if (attempts > MAX_ATTEMPTS) {
+    return res.status(429).json({ ok: false, error: 'Too many attempts — please wait 15 minutes and try again.' })
+  }
+
   const supabase = sb()
   const { data } = await supabase.from('roster_settings').select('pin_hash').eq('id', 1).maybeSingle()
   const storedHash = data?.pin_hash || null
@@ -44,6 +67,7 @@ export default async function handler(req, res) {
   if (!currentValid) {
     return res.status(401).json({ ok: false, error: 'Current PIN is incorrect' })
   }
+  await kvDecr(attemptsKey).catch(() => {}) // correct PIN - refund the attempt
 
   const newHash = hashPin(newPin)
   const { error } = await supabase

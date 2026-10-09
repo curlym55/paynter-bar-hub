@@ -1,4 +1,4 @@
-import { kvGet, kvSet } from '../../lib/redis'
+import { kvGet, kvSet, withLock } from '../../lib/redis'
 import { sbConfigGet, sbConfigSet } from '../../lib/supabase-config'
 import { requireAuth, getSession } from '../../lib/session'
 import { invalidateItemsCache } from '../../lib/cache'
@@ -91,95 +91,101 @@ export default async function handler(req, res) {
   } else if (req.method === 'POST') {
     if (!requireAuth(req, res, { allowReadOnly: false })) return
     try {
-      const { action, itemName, name, field, value } = req.body
+      // Every settings write reads the WHOLE settings blob, changes one field and
+      // writes the whole blob back. Two saves overlapping in time would each read
+      // the old copy, and the second write would silently erase the first. The
+      // lock makes saves run one at a time, across all server instances.
+      await withLock('settings', async () => {
+        const { action, itemName, name, field, value } = req.body
 
-      // Price list item setting
-      if (action === 'setItem' && name && name.startsWith('__pl_')) {
-        const realName = name.replace('__pl_', '')
-        const allPl = (await kvGet('priceListSettings')) || {}
-        if (!allPl[realName]) allPl[realName] = {}
-        if (value === null || value === '') {
-          delete allPl[realName][field]
+        // Price list item setting
+        if (action === 'setItem' && name && name.startsWith('__pl_')) {
+          const realName = name.replace('__pl_', '')
+          const allPl = (await kvGet('priceListSettings')) || {}
+          if (!allPl[realName]) allPl[realName] = {}
+          if (value === null || value === '') {
+            delete allPl[realName][field]
+          } else {
+            allPl[realName][field] = value
+          }
+          await set('priceListSettings', allPl)
+          return res.status(200).json({ ok: true })
+        }
+
+        // (Removed: legacy 'setOrdered' action. Nothing called it, and it wrote
+        // orderedItems in the old single-object shape, bypassing
+        // pages/api/purchase-order.js — if ever triggered, it would have wiped
+        // any item sitting on more than one order. purchase-order.js is now the
+        // only writer of orderedItems.)
+
+        if (!itemName && !name) return res.status(400).json({ error: 'itemName and field required' })
+        const resolvedName = itemName || name
+
+        if (field === 'targetWeeks') {
+          await set('targetWeeks', Number(value))
+          return res.status(200).json({ ok: true })
+        }
+        if (field === 'pricingBasis') {
+          await set('pricingBasis', value === 'margin' ? 'margin' : 'markup')
+          // Busts the items cache so a fresh /api/items load reflects it —
+          // same reasoning as other item-settings writes below.
+          await invalidateItemsCache()
+          return res.status(200).json({ ok: true })
+        }
+        if (field === 'revenueTarget') {
+          await set('revenueTarget', value === null ? null : Number(value))
+          return res.status(200).json({ ok: true })
+        }
+
+        if (field === 'suppliers') {
+          await set('suppliers', value)
+        }
+
+        const allSettings = (await kvGet('itemSettings')) || {}
+        if (!allSettings[resolvedName]) allSettings[resolvedName] = {}
+
+        // Capture old value BEFORE updating
+        const oldVal = allSettings[resolvedName]?.[field] ?? null
+
+        const numFields  = ['pack', 'bottleML', 'nipML', 'stockOverride', 'weeklyAvgOverride', 'targetWeeksOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle', 'minStock', 'maxStock']
+        const boolFields = ['bottleOnly']
+        if (value === null || value === '' || value === false) {
+          delete allSettings[resolvedName][field]
+        } else if (boolFields.includes(field)) {
+          allSettings[resolvedName][field] = true
         } else {
-          allPl[realName][field] = value
+          allSettings[resolvedName][field] = numFields.includes(field) ? Number(value) : value
         }
-        await set('priceListSettings', allPl)
-        return res.status(200).json({ ok: true })
-      }
 
-      // (Removed: legacy 'setOrdered' action. Nothing called it, and it wrote
-      // orderedItems in the old single-object shape, bypassing
-      // pages/api/purchase-order.js — if ever triggered, it would have wiped
-      // any item sitting on more than one order. purchase-order.js is now the
-      // only writer of orderedItems.)
+        // Audit log
+        const audit = (await get('settingsAudit', {}))
+        const auditKey = `${resolvedName}__${field}`
+        if (value === null || value === '' || value === false) {
+          delete audit[auditKey]
+        } else {
+          audit[auditKey] = {
+            ts: new Date().toISOString(),
+            who: req.body.who || 'BMT',
+            oldValue: oldVal,
+            newValue: value
+          }
+        }
+        // Trim audit log to last 200 entries by timestamp
+        const auditEntries = Object.entries(audit)
+        if (auditEntries.length > 200) {
+          const trimmed = auditEntries.sort((a, b) => new Date(b[1].ts) - new Date(a[1].ts)).slice(0, 200)
+          Object.keys(audit).forEach(k => delete audit[k])
+          trimmed.forEach(([k, v]) => { audit[k] = v })
+        }
+        await set('settingsAudit', audit)
 
-      if (!itemName && !name) return res.status(400).json({ error: 'itemName and field required' })
-      const resolvedName = itemName || name
-
-      if (field === 'targetWeeks') {
-        await set('targetWeeks', Number(value))
-        return res.status(200).json({ ok: true })
-      }
-      if (field === 'pricingBasis') {
-        await set('pricingBasis', value === 'margin' ? 'margin' : 'markup')
-        // Busts the items cache so a fresh /api/items load reflects it —
-        // same reasoning as other item-settings writes below.
+        await set('itemSettings', allSettings)
+        // Bust the items cache so the next load recalculates with new settings.
+        // Deletes by pattern — /api/items accepts any ?days= value, not just the
+        // 30/60/90 the UI offers, so a hardcoded list could miss keys.
         await invalidateItemsCache()
-        return res.status(200).json({ ok: true })
-      }
-      if (field === 'revenueTarget') {
-        await set('revenueTarget', value === null ? null : Number(value))
-        return res.status(200).json({ ok: true })
-      }
-
-      if (field === 'suppliers') {
-        await set('suppliers', value)
-      }
-
-      const allSettings = (await kvGet('itemSettings')) || {}
-      if (!allSettings[resolvedName]) allSettings[resolvedName] = {}
-
-      // Capture old value BEFORE updating
-      const oldVal = allSettings[resolvedName]?.[field] ?? null
-
-      const numFields  = ['pack', 'bottleML', 'nipML', 'stockOverride', 'weeklyAvgOverride', 'targetWeeksOverride', 'buyPrice', 'sellPrice', 'sellPriceBottle', 'minStock', 'maxStock']
-      const boolFields = ['bottleOnly']
-      if (value === null || value === '' || value === false) {
-        delete allSettings[resolvedName][field]
-      } else if (boolFields.includes(field)) {
-        allSettings[resolvedName][field] = true
-      } else {
-        allSettings[resolvedName][field] = numFields.includes(field) ? Number(value) : value
-      }
-
-      // Audit log
-      const audit = (await get('settingsAudit', {}))
-      const auditKey = `${resolvedName}__${field}`
-      if (value === null || value === '' || value === false) {
-        delete audit[auditKey]
-      } else {
-        audit[auditKey] = {
-          ts: new Date().toISOString(),
-          who: req.body.who || 'BMT',
-          oldValue: oldVal,
-          newValue: value
-        }
-      }
-      // Trim audit log to last 200 entries by timestamp
-      const auditEntries = Object.entries(audit)
-      if (auditEntries.length > 200) {
-        const trimmed = auditEntries.sort((a, b) => new Date(b[1].ts) - new Date(a[1].ts)).slice(0, 200)
-        Object.keys(audit).forEach(k => delete audit[k])
-        trimmed.forEach(([k, v]) => { audit[k] = v })
-      }
-      await set('settingsAudit', audit)
-
-      await set('itemSettings', allSettings)
-      // Bust the items cache so the next load recalculates with new settings.
-      // Deletes by pattern — /api/items accepts any ?days= value, not just the
-      // 30/60/90 the UI offers, so a hardcoded list could miss keys.
-      await invalidateItemsCache()
-      res.status(200).json({ ok: true })
+        res.status(200).json({ ok: true })
+      })
     } catch (err) {
       res.status(500).json({ error: err.message })
     }

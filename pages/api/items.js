@@ -73,7 +73,12 @@ export default async function handler(req, res) {
   if (!token) return res.status(500).json({ error: 'SQUARE_ACCESS_TOKEN not configured' })
 
   const forceRefresh = req.query.refresh === 'true'
-  const daysBack     = parseInt(req.query.days) || 60
+  // Only the windows the UI offers. Any other number used to miss the cache,
+  // force a full live Square fetch and create a new Redis key - and this
+  // endpoint is reachable without logging in (the public price list).
+  const ALLOWED_DAYS  = [30, 60, 90]
+  const requestedDays = parseInt(req.query.days)
+  const daysBack      = ALLOWED_DAYS.includes(requestedDays) ? requestedDays : 60
 
 
   try {

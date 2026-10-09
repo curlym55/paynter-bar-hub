@@ -3,6 +3,18 @@ import { requireAuth } from '../../../lib/session'
 
 const REDIRECT_URI = 'https://paynter-bar-hub.vercel.app/api/onedrive/callback'
 
+// Anything that came from the web address or an error message must be escaped
+// before it goes into the page, or a crafted link could run script in a
+// logged-in manager's browser.
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 function errorPage(title, message, showRetry) {
   const retry = showRetry ? '<a href="/api/onedrive/auth">\u2190 Try again</a>' : ''
   return '<html><body style="font-family:Arial;padding:40px;max-width:600px;margin:auto">'
@@ -34,7 +46,7 @@ export default async function handler(req, res) {
   if (error) {
     return res.status(400).send(errorPage(
       '\u274c OneDrive Connection Failed',
-      '<strong>' + error + '</strong><p>' + (error_description || '') + '</p>',
+      '<strong>' + escapeHtml(error) + '</strong><p>' + escapeHtml(error_description || '') + '</p>',
       true
     ))
   }
@@ -83,6 +95,6 @@ export default async function handler(req, res) {
       + '</body></html>'
     )
   } catch (err) {
-    return res.status(500).send(errorPage('\u274c Token Exchange Failed', err.message, true))
+    return res.status(500).send(errorPage('\u274c Token Exchange Failed', escapeHtml(err.message), true))
   }
 }
