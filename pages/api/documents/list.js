@@ -18,19 +18,25 @@ export default async function handler(req, res) {
   const { data, error } = await sb.from('bar_documents').select('*').order('updated_at', { ascending: false }).limit(300)
   if (error) return res.status(500).json({ error: error.message })
 
-  // Generate 1-hour signed download URLs for Supabase Storage files
-  const docs = await Promise.all(data.map(async doc => {
+  // Generate 1-hour signed download URLs for Supabase Storage files.
+  // One batched createSignedUrls call per 100 paths instead of one request per
+  // file (up to 600 Storage requests for 300 records before).
+  const paths = [...new Set(data.flatMap(doc => [doc.receive_report_path, doc.invoice_path]).filter(Boolean))]
+  const signed = {}
+  const BATCH = 100
+  for (let i = 0; i < paths.length; i += BATCH) {
+    const { data: batch, error: signErr } = await sb.storage.from('bar-documents').createSignedUrls(paths.slice(i, i + BATCH), 3600)
+    if (signErr) continue // same behaviour as before: a failed signing just leaves the URL off
+    for (const row of batch || []) {
+      if (row?.signedUrl && row.path) signed[row.path] = row.signedUrl
+    }
+  }
+  const docs = data.map(doc => {
     const urls = {}
-    if (doc.receive_report_path) {
-      const { data: s } = await sb.storage.from('bar-documents').createSignedUrl(doc.receive_report_path, 3600)
-      if (s?.signedUrl) urls.receive_url = s.signedUrl
-    }
-    if (doc.invoice_path) {
-      const { data: s } = await sb.storage.from('bar-documents').createSignedUrl(doc.invoice_path, 3600)
-      if (s?.signedUrl) urls.invoice_url = s.signedUrl
-    }
+    if (doc.receive_report_path && signed[doc.receive_report_path]) urls.receive_url = signed[doc.receive_report_path]
+    if (doc.invoice_path && signed[doc.invoice_path]) urls.invoice_url = signed[doc.invoice_path]
     return { ...doc, ...urls }
-  }))
+  })
 
   return res.json({ documents: docs })
 }
