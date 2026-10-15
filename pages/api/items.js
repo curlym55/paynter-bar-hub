@@ -96,14 +96,22 @@ export default async function handler(req, res) {
     }
 
     // Fetch live from Square
-    const squareItems = await fetchSquareData(token, daysBack, kvGet, kvSet)
-    const allSettings = (await kvGet('itemSettings').catch(() => null)) || {}
-    const targetWeeks = (await kvGet('targetWeeks').catch(() => null))  || 6
-    const suppliers   = (await kvGet('suppliers').catch(() => null))    || ['Dan Murphy', 'Coles Woolies', 'ACW']
+    // The Square fetch and the four Redis settings reads are independent, so run
+    // them together instead of one after another. (Each Redis read already
+    // swallows its own error and falls back to a default, as before.)
     // Global Suggested Sell basis for the whole Pricing table (Markup 40% /
     // Margin 30%, both fixed) — see pages/index.js for why this is global
     // rather than per item.
-    const pricingBasisRaw = await kvGet('pricingBasis').catch(() => null)
+    const [squareItems, allSettingsRaw, targetWeeksRaw, suppliersRaw, pricingBasisRaw] = await Promise.all([
+      fetchSquareData(token, daysBack, kvGet, kvSet),
+      kvGet('itemSettings').catch(() => null),
+      kvGet('targetWeeks').catch(() => null),
+      kvGet('suppliers').catch(() => null),
+      kvGet('pricingBasis').catch(() => null),
+    ])
+    const allSettings = allSettingsRaw || {}
+    const targetWeeks = targetWeeksRaw || 6
+    const suppliers   = suppliersRaw   || ['Dan Murphy', 'Coles Woolies', 'ACW']
     const pricingBasis = pricingBasisRaw === 'margin' ? 'margin' : 'markup'
 
     // One-time migration: rename "Dan Murphys" -> "Dan Murphy" in item settings
