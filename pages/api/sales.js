@@ -65,10 +65,13 @@ export default async function handler(req, res) {
       const prevRev     = prior.revenue
       const change      = prevSold > 0 ? +(((unitsSold - prevSold) / prevSold) * 100).toFixed(1) : null
       const cost        = costOf(settings, category, unitsSold, bottlesSold)
+      // Prior-period cost at TODAY's buy price (no price history is kept), so prior
+      // profit is an estimate. Null when there's no usable buy price, same as cost.
+      const prevCost    = costOf(settings, category, prevSold, prevBottles)
       const profit      = cost != null && revenue != null ? +(revenue - cost).toFixed(2) : null
 
       if (unitsSold > 0 || prevSold > 0 || bottlesSold > 0) {
-        itemMap[name] = { name, category, unitsSold, bottlesSold, prevSold, prevBottles, change, revenue, prevRev, cost, profit }
+        itemMap[name] = { name, category, unitsSold, bottlesSold, prevSold, prevBottles, change, revenue, prevRev, cost, prevCost, profit }
       }
     }
 

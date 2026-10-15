@@ -52,8 +52,11 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
       costedRev:   acc.costedRev   + (i.cost != null ? (i.revenue || 0) : 0),
       uncostedRev: acc.uncostedRev + (i.cost == null ? (i.revenue || 0) : 0),
       uncostedN:   acc.uncostedN   + (i.cost == null && (i.revenue || 0) > 0 ? 1 : 0),
+      // Prior-period equivalents (estimated at today's buy prices) for the profit comparison
+      prevCost:      acc.prevCost      + (i.prevCost != null ? i.prevCost : 0),
+      prevCostedRev: acc.prevCostedRev + (i.prevCost != null ? (i.prevRev || 0) : 0),
     }),
-    { units: 0, bottles: 0, prev: 0, rev: 0, prevRev: 0, cost: 0, costedRev: 0, uncostedRev: 0, uncostedN: 0 }
+    { units: 0, bottles: 0, prev: 0, rev: 0, prevRev: 0, cost: 0, costedRev: 0, uncostedRev: 0, uncostedN: 0, prevCost: 0, prevCostedRev: 0 }
   )
 
   const hasRev     = report && report.items.some(i => i.revenue != null)
@@ -65,6 +68,8 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const showProfit = hasRev && hasCost
   const profitTotal = totals.costedRev - totals.cost
   const marginTotal = totals.costedRev > 0 ? (profitTotal / totals.costedRev) * 100 : null
+  const prevProfitTotal = totals.prevCostedRev - totals.prevCost
+  const hasPrevProfit = totals.prevCostedRev > 0
 
   return (
     <div className="view-wrap" style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -123,11 +128,11 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
               {[
                 { label: 'Units Sold',   value: totals.units,         prev: totals.prev,    money: false },
                 ...(hasRev ? [{ label: 'Revenue', value: fmt(totals.rev), prev: totals.prevRev, money: true, rawVal: totals.rev, rawPrev: totals.prevRev }] : []),
-                ...(showProfit ? [{ label: 'Profit', value: fmtMoney(profitTotal), noChange: true,
+                ...(showProfit ? [{ label: 'Profit', value: fmtMoney(profitTotal), prev: hasPrevProfit ? prevProfitTotal : null, money: true, rawVal: profitTotal, rawPrev: prevProfitTotal, estPrior: true,
                   sub: marginTotal != null ? `${marginTotal.toFixed(1)}% margin${totals.uncostedN > 0 ? ` · excl. ${totals.uncostedN} uncosted` : ''}` : null }] : []),
                 { label: 'Items Sold',   value: soldItems.length,     noChange: true },
                 ...(avgTx != null ? [{ label: 'Avg / Unit', value: fmt(avgTx), noChange: true }] : []),
-              ].map(({ label, value, prev, money, rawVal, rawPrev, noChange, sub }, i, arr) => {
+              ].map(({ label, value, prev, money, rawVal, rawPrev, noChange, sub, estPrior }, i, arr) => {
                 const numVal  = money ? (rawVal  ?? 0) : (typeof value === 'number' ? value : 0)
                 const numPrev = money ? (rawPrev ?? 0) : (typeof prev  === 'number' ? prev  : 0)
                 const chg = (!noChange && numPrev > 0) ? +(((numVal - numPrev) / numPrev) * 100).toFixed(1) : null
@@ -137,7 +142,7 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                     <div style={{ fontSize: 20, fontWeight: 700, fontFamily: 'IBM Plex Mono, monospace', color: '#0f172a', lineHeight: 1.1 }}>{value}</div>
                     {!noChange && prev != null && (
                       <div style={{ fontSize: 10, color: '#94a3b8', marginTop: 1 }}>
-                        Prior: {money ? fmt(rawPrev) : prev}
+                        Prior{estPrior ? ' (est.)' : ''}: {estPrior ? fmtMoney(rawPrev) : money ? fmt(rawPrev) : prev}
                         {chg != null && <span style={{ marginLeft: 4, color: chg >= 0 ? '#16a34a' : '#dc2626', fontWeight: 700 }}>{chg >= 0 ? '+' : ''}{chg}%</span>}
                       </div>
                     )}
