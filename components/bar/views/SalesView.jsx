@@ -63,7 +63,6 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
   const hasBottles = report && report.items.some(i => i.bottlesSold > 0)
   const showCat = category === 'All'
   const soldItems = filteredItems.filter(i => i.unitsSold > 0 || i.bottlesSold > 0)
-  const avgTx = hasRev && totals.units > 0 ? (totals.rev / totals.units) : null
   const hasCost = report && report.items.some(i => i.cost != null)
   const showProfit = hasRev && hasCost
   const profitTotal = totals.costedRev - totals.cost
@@ -131,7 +130,6 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
                 ...(showProfit ? [{ label: 'Profit', value: fmtMoney(profitTotal), prev: hasPrevProfit ? prevProfitTotal : null, money: true, rawVal: profitTotal, rawPrev: prevProfitTotal, estPrior: true,
                   sub: marginTotal != null ? `${marginTotal.toFixed(1)}% margin${totals.uncostedN > 0 ? ` · excl. ${totals.uncostedN} uncosted` : ''}` : null }] : []),
                 { label: 'Items Sold',   value: soldItems.length,     noChange: true },
-                ...(avgTx != null ? [{ label: 'Avg / Unit', value: fmt(avgTx), noChange: true }] : []),
               ].map(({ label, value, prev, money, rawVal, rawPrev, noChange, sub, estPrior }, i, arr) => {
                 const numVal  = money ? (rawVal  ?? 0) : (typeof value === 'number' ? value : 0)
                 const numPrev = money ? (rawPrev ?? 0) : (typeof prev  === 'number' ? prev  : 0)
