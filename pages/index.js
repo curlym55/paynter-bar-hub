@@ -428,7 +428,9 @@ export default function Home() {
         start = new Date(fyStart, 4, 1); start.setHours(0,0,0,0)
         end   = new Date(now)
         compareStart = new Date(fyStart - 1, 4, 1); compareStart.setHours(0,0,0,0)
-        compareEnd   = new Date(start.getTime() - 1)
+        // Same dates one year earlier (1 May last FY to today's date last year),
+        // so a part-year FY is compared with the same part of the previous year.
+        compareEnd   = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999)
       } else if (period === 'day' && custom.day) {
         start = new Date(custom.day + 'T00:00:00'); start.setHours(0,0,0,0)
         end   = new Date(custom.day + 'T23:59:59'); end.setHours(23,59,59,999)
@@ -1362,7 +1364,8 @@ export default function Home() {
       end   = new Date(now); end.setHours(23,59,59,999)
       periodLabel = `Financial Year ${fyStart}–${String(fyStart + 1).slice(2)} (May–Apr)`
       compareStart = new Date(fyStart - 1, 4, 1, 0, 0, 0)
-      compareEnd   = new Date(start.getTime() - 1)
+      // Same dates one year earlier, so the comparison is like-for-like
+      compareEnd   = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate(), 23, 59, 59, 999)
     } else if (salesPeriod === 'day') {
       if (!salesCustom?.day) { setSalesPdfLoading(false); alert('Please select a date first'); return }
       start = new Date(salesCustom.day + 'T00:00:00'); start.setHours(0,0,0,0)
@@ -1405,7 +1408,7 @@ export default function Home() {
     const generated = now.toLocaleString('en-AU', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
     const fmtRev = n => n ? `$${Number(n).toFixed(2)}` : '—'
     const fmtChg = n => n == null ? '—' : (n >= 0 ? '+' : '') + n + '%'
-    const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY' : salesPeriod === '3months' ? 'Prior 3 Mo' : salesPeriod === 'day' ? 'Prior Day' : 'Prior Period'
+    const prevLabel = salesPeriod === 'financialYear' ? 'Prior FY (same dates)' : salesPeriod === '3months' ? 'Prior 3 Mo' : salesPeriod === 'day' ? 'Prior Day' : 'Prior Period'
 
     // ── Profit and totals ────────────────────────────────────
     // /api/sales gives every item a cost and profit worked out from its manual buy
