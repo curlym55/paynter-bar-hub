@@ -521,8 +521,17 @@ export default function Home() {
       // ── 1. Update Hub / Redis state (existing behaviour) ─────────────────
       const ref = receiveModal.ref
       const action = ref ? 'receiveByRef' : allReceived ? 'receive' : 'partialReceive'
+      // Short deliveries: whatever wasn't delivered stays on the order.
+      const remaining = {}
+      for (const i of receiveModal.items) {
+        if (!isRecv(i.name)) continue
+        const ov = orderQtyOverrides[i.name]
+        const ordQty = ov !== undefined ? ov : (i.orderQty || 0)
+        const gotQty = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : ordQty
+        if (gotQty < ordQty) remaining[i.name] = ordQty - gotQty
+      }
       const body = ref
-        ? { action: 'receiveByRef', ref, receivedItems: allReceived ? null : receivedNames }
+        ? { action: 'receiveByRef', ref, receivedItems: allReceived ? null : receivedNames, remaining }
         : allReceived
         ? { action, supplier }
         : { action: 'partialReceive', supplier, receivedItems: receivedNames }

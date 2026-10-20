@@ -121,12 +121,45 @@ export default async function handler(req, res) {
       return res.json({ ok: true, ordered, ref, poNumber: poNum })
     }
 
+    if (action === 'restoreOrder') {
+      // Put items back on an existing order under a given ref WITHOUT
+      // advancing the PO counter (used to recover lines cleared by mistake).
+      // items: [{ name, orderQty, isSpirit?, bottlesToOrder?, sku? }]
+      const { ref, poNumber, date } = req.body
+      if (!ref || !Array.isArray(items) || !items.length) {
+        return res.status(400).json({ error: 'ref and items required' })
+      }
+      const ordered = await getOrderedNormalized()
+      for (const item of items) {
+        const entries = (ordered[item.name] || []).filter(e => e.ref !== ref)
+        entries.push({
+          ref, supplier, date: date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
+          poNumber: poNumber || null,
+          orderQty:       item.orderQty,
+          bottlesToOrder: item.bottlesToOrder || null,
+          isSpirit:       item.isSpirit || false,
+          sku:            item.sku || '',
+        })
+        ordered[item.name] = entries
+      }
+      await set('orderedItems', ordered)
+      return res.json({ ok: true, ordered })
+    }
+
     if (action === 'receiveByRef') {
       // Clear only the entries belonging to a specific PO ref
-      const { ref, receivedItems } = req.body
+      // remaining (optional): { itemName: qty } — for items delivered short,
+      // the undelivered balance stays on this order instead of being cleared.
+      const { ref, receivedItems, remaining } = req.body
       const ordered = await getOrderedNormalized()
       for (const [name, entries] of Object.entries(ordered)) {
-        const keep = entries.filter(e => !(e.ref === ref && (!receivedItems || receivedItems.includes(name))))
+        const left = remaining && Number(remaining[name]) > 0 ? Number(remaining[name]) : 0
+        const keep = []
+        for (const e of entries) {
+          const isReceived = e.ref === ref && (!receivedItems || receivedItems.includes(name))
+          if (!isReceived) keep.push(e)
+          else if (left > 0) keep.push({ ...e, orderQty: left, bottlesToOrder: null })
+        }
         if (keep.length) ordered[name] = keep
         else delete ordered[name]
       }
