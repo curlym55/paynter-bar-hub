@@ -504,9 +504,18 @@ export default function Home() {
 
   async function confirmReceive() {
     const { supplier } = receiveModal
-    const receivedNames = Object.entries(receiveChecked).filter(([, v]) => v).map(([k]) => k)
+    // An item only counts as received if it is ticked AND has a quantity above 0.
+    // Ticked items with 0 received stay live on the order (not delivered yet).
+    const isRecv = (name) => {
+      if (!receiveChecked[name]) return false
+      const it = receiveModal.items.find(x => x.name === name)
+      const ov = orderQtyOverrides[name]
+      const q = receiveQtys[name] !== undefined ? receiveQtys[name] : (ov !== undefined ? ov : (it ? it.orderQty || 0 : 0))
+      return q > 0
+    }
+    const receivedNames = receiveModal.items.map(i => i.name).filter(isRecv)
     const allItems = receiveModal.items.map(i => i.name)
-    const allReceived = allItems.every(n => receiveChecked[n])
+    const allReceived = allItems.every(n => isRecv(n))
     setPoReceiving(receiveModal.ref || supplier)
     try {
       // ── 1. Update Hub / Redis state (existing behaviour) ─────────────────
@@ -542,7 +551,7 @@ export default function Home() {
 
         // ── 2. Build receipt rows (for display in receipt modal) ──────────
         const receivedItems = receiveModal.items
-          .filter(i => receiveChecked[i.name])
+          .filter(i => isRecv(i.name))
           .map(i => {
             const override = orderQtyOverrides[i.name]
             const nips = receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (override !== undefined ? override : i.orderQty)
@@ -552,7 +561,7 @@ export default function Home() {
 
         // ── 3. Update Square inventory ───────────────────────────────────
         const squareItems = receiveModal.items
-          .filter(i => receiveChecked[i.name])
+          .filter(i => isRecv(i.name))
           .map(i => ({
             name:     i.name,
             quantity: receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : (i.orderQty || 0),
@@ -579,9 +588,9 @@ export default function Home() {
         const odItems = receiveModal.items.map(i => ({
           name: i.name,
           orderedQty: (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0,
-          receivedQty: receiveChecked[i.name] ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : ((orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0)) : 0,
+          receivedQty: isRecv(i.name) ? (receiveQtys[i.name] !== undefined ? receiveQtys[i.name] : ((orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0)) : 0,
           unit: i.isSpirit ? "nip" : "each",
-          note: receiveChecked[i.name] ? "" : "Not received this delivery",
+          note: isRecv(i.name) ? "" : "Not received this delivery",
         }))
         let oneDriveResult = null
         try {
