@@ -38,7 +38,8 @@ export default async function handler(req, res) {
       : supplierRaw.replace(/[^a-zA-Z0-9 ]/g, '').trim()
     const folder = `POs Invoices and Receive Reports/Invoices/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
-    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(filename)}:/content`
+    const safeFilename = filename.replace(/[\\/:*?"<>|#%]/g, '-')
+    const url = `https://graph.microsoft.com/v1.0/me/drive/root:/${encodedPath}/${encodeURIComponent(safeFilename)}:/content`
 
     const uploadRes = await fetch(url, {
       method: 'PUT',

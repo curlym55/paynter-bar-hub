@@ -184,7 +184,7 @@ export default async function handler(req, res) {
     // ── Write and upload ─────────────────────────────────────────────────────
     const buf = await wb.xlsx.writeBuffer()
     const safeSupplier = sup.replace(/[^a-zA-Z0-9 ]/g, '').trim()
-    const filename = `${reference ? reference.replace(/\s/g, '_') + '-' : ''}Receipt-${dateFile}.xlsx`
+    const filename = `${reference ? reference.replace(/\s/g, '_').replace(/[\\/:*?"<>|#%]/g, '-') + '-' : ''}Receipt-${dateFile}.xlsx`
     const folder   = `POs Invoices and Receive Reports/Receive Reports/${safeSupplier}`
     const encodedPath = folder.split('/').map(encodeURIComponent).join('/')
     const token    = await getAccessToken()
