@@ -4560,6 +4560,24 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 )}
                               </div>
                             )}
+                            {/* Note to the treasurer — appears in the delivery email */}
+                            {(!readOnly || doc.notes) && (
+                              <textarea
+                                key={doc.id + '-' + (doc.notes || '')}
+                                defaultValue={doc.notes || ''}
+                                readOnly={readOnly}
+                                placeholder="📝 Note for the treasurer (e.g. short delivery, price change)…"
+                                rows={2}
+                                onBlur={async e => {
+                                  const v = e.target.value.trim()
+                                  if (v === (doc.notes || '').trim()) return
+                                  const r = await fetch('/api/documents/save', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({ action: 'set_notes', po_ref: doc.po_ref, notes: v }) }).catch(() => null)
+                                  if (r?.ok) setDocuments(prev => prev.map(d => d.id === doc.id ? { ...d, notes: v || null } : d))
+                                  else alert('Could not save the note — try again.')
+                                }}
+                                style={{ width: '100%', fontSize: 11, fontFamily: 'inherit', border: '1px solid #e2e8f0', borderRadius: 5, padding: '4px 6px', resize: 'vertical', background: doc.notes ? '#fffbeb' : '#fff' }} />
+                            )}
                             {!doc.invoice_onedrive_url && !doc.invoice_url && (() => {
                               if (docInvoiceUploading[doc.id]) return <span style={{ fontSize: 11, color: '#d97706' }}>⏳ Uploading…</span>
                               return (

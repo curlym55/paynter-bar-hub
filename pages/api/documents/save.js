@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!requireAuth(req, res, { allowReadOnly: false })) return
   const client = sb()
-  const { action, po_ref, supplier, order_date, receive_date, item_count, items, partial, outstanding,
+  const { action, po_ref, supplier, order_date, receive_date, item_count, items, partial, outstanding, notes,
           file_base64, file_name, file_mime,
           po_onedrive_url, receipt_onedrive_url, invoice_onedrive_url } = req.body
 
@@ -134,6 +134,10 @@ export default async function handler(req, res) {
         }
       }
       if (Object.keys(urlUpdates).length) await upsertDoc(client, po_ref, urlUpdates)
+    }
+    else if (action === 'set_notes') {
+      // Free-text note to the treasurer, shown in the delivery email
+      await upsertDoc(client, po_ref, { notes: (notes || '').trim() || null })
     }
     else if (action === 'clear_invoice') {
       // Remove invoice links (file on OneDrive/Supabase storage is NOT deleted)

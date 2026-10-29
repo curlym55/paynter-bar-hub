@@ -180,6 +180,7 @@ export default async function handler(req, res) {
       <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Items</td><td style="padding:6px 0">${(deliveries.length > 1 ? totalItems : d0.item_count) || '—'}</td></tr>
     </table>
     ${deliveriesBlock}
+    ${d0.notes ? `<div style="margin:0 0 14px;padding:10px 12px;background:#fffbeb;border:1px solid #fde68a;border-radius:6px;font-size:13px"><div style="font-weight:700;margin-bottom:4px">Note from the Bar Manager</div><div style="white-space:pre-wrap">${esc(d0.notes)}</div></div>` : ''}
     ${attachMsg}
     ${oneDriveLinks ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:13px">${oneDriveLinks}</div>` : ''}
   </div>
