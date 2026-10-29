@@ -641,6 +641,7 @@ export default function Home() {
         const receiveDocRes = await fetch("/api/documents/save", { method:"POST", headers:{"Content-Type":"application/json"},
           body: JSON.stringify({
             action: "receive", po_ref: poRef, supplier,
+            partial: receiveModal.items.some(i => !isRecv(i.name)) || Object.keys(remaining).length > 0,
             receive_date: new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Brisbane"}),
             item_count: receivedItems.length,
             items: receivedItems.map(i => ({ name: i.name, orderedQty: i.orderQty||0, receivedQty: receiveQtys[i.name]||i.orderQty||0, unit: i.isSpirit ? "nips" : "units" }))
@@ -662,7 +663,8 @@ export default function Home() {
           // which used to show a false "invoice save failed" warning here.
           if (invoiceFile && invoiceFile.base64) {
             const ext = invoiceFile.name.split(".").pop()
-            const invName = `${poRef.replace(/\s/g,"_")}-Invoice.${ext}`
+            const invNoSuffix = receiveModal.invNo ? `-Inv-${String(receiveModal.invNo).replace(/[^a-zA-Z0-9]/g, "")}` : ""
+            const invName = `${poRef.replace(/\s/g,"_")}${invNoSuffix}-Invoice.${ext}`
 
             const odInvRes = await fetch("/api/onedrive/save-invoice", { method:"POST", headers:{"Content-Type":"application/json"},
               body: JSON.stringify({ filename: invName, base64: invoiceFile.base64, mimeType: invoiceFile.mimeType, supplier }) }).catch(() => null)
@@ -3077,19 +3079,35 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                 <div style={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>📦 Receive from {receiveModal.supplier}</div>
                 <button onClick={() => setReceiveModal(null)} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: '#94a3b8' }}>✕</button>
               </div>
-              {/* PO Reference — visible and editable */}
+              {/* PO Reference — locked once an order has one, so the delivery always
+                  lands on the SAME PO Documents row (editing it used to create a
+                  duplicate row and left the order uncleared). */}
               <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, padding:'7px 12px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:7 }}>
                 <span style={{ fontSize:11, fontWeight:700, color:'#64748b', whiteSpace:'nowrap' }}>PO Ref:</span>
                 <input
                   type="text"
                   value={receiveModal.ref || ''}
+                  readOnly={!!receiveModal.origRef}
                   onChange={e => setReceiveModal(prev => ({ ...prev, ref: e.target.value }))}
                   placeholder="e.g. CW-PO-001-25Jun (used in invoice filename)"
-                  style={{ flex:1, fontSize:12, fontFamily:'monospace', fontWeight:600, color:'#0f172a', border:'1px solid #cbd5e1', borderRadius:5, padding:'4px 8px', background: receiveModal.ref ? '#f0fdf4' : '#fffbeb' }}
+                  style={{ flex:1, fontSize:12, fontFamily:'monospace', fontWeight:600, color:'#0f172a', border:'1px solid #cbd5e1', borderRadius:5, padding:'4px 8px', background: receiveModal.origRef ? '#f1f5f9' : (receiveModal.ref ? '#f0fdf4' : '#fffbeb'), cursor: receiveModal.origRef ? 'not-allowed' : 'text' }}
                 />
                 {!receiveModal.ref && (
                   <span style={{ fontSize:10, color:'#d97706', fontWeight:700, whiteSpace:'nowrap' }}>⚠ No ref set</span>
                 )}
+                {!!receiveModal.origRef && (
+                  <span style={{ fontSize:10, color:'#64748b', fontWeight:700, whiteSpace:'nowrap' }}>🔒 locked</span>
+                )}
+              </div>
+              <div style={{ display:'flex', alignItems:'center', gap:8, marginBottom:10, padding:'7px 12px', background:'#f8fafc', border:'1px solid #e2e8f0', borderRadius:7 }}>
+                <span style={{ fontSize:11, fontWeight:700, color:'#64748b', whiteSpace:'nowrap' }}>Supplier invoice no:</span>
+                <input
+                  type="text"
+                  value={receiveModal.invNo || ''}
+                  onChange={e => setReceiveModal(prev => ({ ...prev, invNo: e.target.value }))}
+                  placeholder="optional, e.g. 172340653 (added to the invoice file name)"
+                  style={{ flex:1, fontSize:12, fontFamily:'monospace', fontWeight:600, color:'#0f172a', border:'1px solid #cbd5e1', borderRadius:5, padding:'4px 8px', background:'#fff' }}
+                />
               </div>
               <p style={{ fontSize: 12, color: '#64748b', marginBottom: 14 }}>
                 Enter quantities received. Untick items not in this delivery — they stay on order.
@@ -3240,7 +3258,8 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                           setInvoiceFile({ name: file.name, base64, mimeType: file.type, uploading: false, saved: false })
                           return
                         }
-                        const invName = `${poRef.replace(/\s/g,'_')}-Invoice.${ext}`
+                        const invNoSuffix = receiveModal.invNo ? `-Inv-${String(receiveModal.invNo).replace(/[^a-zA-Z0-9]/g, '')}` : ''
+                        const invName = `${poRef.replace(/\s/g,'_')}${invNoSuffix}-Invoice.${ext}`
                         // Awaited and in order — these both upsert the same bar_documents
                         // row, and firing them concurrently could insert two rows for
                         // one PO (the PO 168 bug). confirmReceive re-saves both anyway,

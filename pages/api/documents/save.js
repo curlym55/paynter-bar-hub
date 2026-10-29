@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!requireAuth(req, res, { allowReadOnly: false })) return
   const client = sb()
-  const { action, po_ref, supplier, order_date, receive_date, item_count, items,
+  const { action, po_ref, supplier, order_date, receive_date, item_count, items, partial,
           file_base64, file_name, file_mime,
           po_onedrive_url, receipt_onedrive_url, invoice_onedrive_url } = req.body
 
@@ -76,7 +76,8 @@ export default async function handler(req, res) {
       await upsertDoc(client, po_ref, {
         supplier,
         receive_date: receive_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
-        status: 'received',
+        // 'partial' when some lines are still outstanding on the order
+        status: partial ? 'partial' : 'received',
         item_count,
         ...(receive_report_path ? { receive_report_path } : {}),
         ...(receipt_onedrive_url ? { receipt_onedrive_url } : {}),
