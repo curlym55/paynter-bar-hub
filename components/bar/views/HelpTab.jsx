@@ -126,10 +126,12 @@ export default function HelpTab() {
           <STEP n="2" title="Check items and enter quantities received">
             All ordered items appear with their ordered quantities pre-filled.<br /><br />
             Use <strong>✓ All Full</strong> if everything arrived as ordered, or <strong>½ All Partial</strong> as a starting point for a partial delivery.<br /><br />
-            <strong>Uncheck any items</strong> that did not arrive — they stay on order and you can receive them later. Adjust quantities for items that arrived short.
+            <strong>Uncheck any items</strong> that did not arrive, or set their quantity to 0 — they stay on the order. If an item arrived <strong>short</strong> (say 16 of 24), enter what actually came; the balance stays on the order as the quantity still to come.
+            <Note type="warn">Don't change the PO reference to match the invoice. The PO Ref box is <strong>🔒 locked</strong> because the delivery has to land on the same PO Documents record as the order.</Note>
           </STEP>
 
-          <STEP n="3" title="Attach the supplier invoice">
+          <STEP n="3" title="Enter the supplier invoice number and attach the invoice">
+            Type the supplier's invoice number in <strong>Supplier invoice no:</strong>. It is added to the saved file name, so when a supplier sends a second invoice for the same PO (a split delivery), neither invoice overwrites the other.<br /><br />
             Click <strong>📎 Attach Supplier Invoice</strong> and select the PDF from your device. This is needed to:
             <ul style={{ marginTop: 6, paddingLeft: 18, lineHeight: 2 }}>
               <li>Include as an attachment in the treasurer email</li>
@@ -144,13 +146,18 @@ export default function HelpTab() {
               <li>Updates Square inventory for all received items</li>
               <li>Saves a receive report (CSV) to OneDrive</li>
               <li>Saves the invoice to OneDrive (if attached)</li>
-              <li>Updates the PO Documents record to Received</li>
-              <li>Removes items from the on-order list</li>
+              <li>Updates the PO Documents record — <strong>Received</strong> if everything arrived, <strong>Partial</strong> if anything is still outstanding</li>
+              <li>Removes the delivered items from the on-order list; undelivered items and short balances stay on the same order</li>
             </ul>
             <Note type="success">If Square inventory update fails, it can be retried — the receive report and invoice are already saved.</Note>
           </STEP>
 
-          <STEP n="5" title="Download the receipt (if needed)">
+          <STEP n="5" title="Short or split deliveries">
+            Receive what arrived and confirm. The order stays open with only the outstanding items, and PO Documents shows <strong>Partial</strong> with a note of what is still to come. When the rest arrives, receive it against the <strong>same order</strong> — do not create a new PO. The final delivery marks the record <strong>Received</strong>, and every delivery keeps its own receive report.
+            <Note>If the supplier can't supply the missing quantity, lower the quantity on the order (View Order) to what they will actually send before you receive it.</Note>
+          </STEP>
+
+          <STEP n="6" title="Download the receipt (if needed)">
             The receipt modal shows what was received. If OneDrive is connected, the report is already saved automatically. Use <strong>📥 Download locally</strong> only if OneDrive was unavailable.
           </STEP>
         </div>
@@ -163,7 +170,7 @@ export default function HelpTab() {
       content: (
         <div>
           <p style={{ fontSize: 13, color: '#475569', marginBottom: 18, lineHeight: 1.7 }}>
-            After each delivery is received and the invoice is attached, email the Treasurer from PO Documents.
+            Once an order is fully received and the invoice is attached, email the Treasurer from PO Documents. For split deliveries, send it after the final delivery — one email covers every delivery.
           </p>
 
           <STEP n="1" title="Go to PO Documents">
@@ -176,11 +183,15 @@ export default function HelpTab() {
           </STEP>
 
           <STEP n="3" title="Click 📧 Email Treasurer">
-            Click the button on the received delivery card. The Hub sends an email from <strong>paynterbar@gemwoods.com.au</strong> to <strong>treasurer@gemwoods.com.au</strong> with the receive report and invoice attached.<br /><br />
+            Click the button on the received delivery card. The Hub sends an email from <strong>paynterbar@gemwoods.com.au</strong> to <strong>treasurer@gemwoods.com.au</strong> with <strong>a receive report for each delivery</strong> and every invoice saved for that PO attached. If there was more than one delivery, the email lists each one with its date and anything that was not delivered.<br /><br />
             On success the button changes to <strong>✅ Treasurer notified</strong> with the date and time. A <strong>🔁 Resend</strong> option is available if needed.
           </STEP>
 
-          <Note>The receive report is saved as a CSV (Excel-compatible). The invoice is the original PDF you attached during receive. Both are sourced from OneDrive — make sure OneDrive is connected in Settings → App Access.</Note>
+          <STEP n="4" title="Add a note to explain anything unusual">
+            Each PO Documents card has a <strong>📝 Note for the treasurer</strong> box. Type the explanation (e.g. "Supplier could only supply 16 of 24 Moscato; short 8, not on backorder"), then click outside the box to save. It appears in the email under <strong>Note from the Bar Manager</strong>. If you add or change a note after emailing, press <strong>🔁 Resend</strong>.
+          </STEP>
+
+          <Note>The receive report is an Excel file on OneDrive. The invoice is the original file you attached during receive. Both are sourced from OneDrive — make sure OneDrive is connected in Settings → App Access.</Note>
         </div>
       )
     },
@@ -194,10 +205,12 @@ export default function HelpTab() {
           </p>
           {[
             ['PO link ☁️', 'Opens the formatted Excel PO document on OneDrive. Created automatically when the order is placed.'],
-            ['Receipt link 📄', 'Opens the receive report CSV on OneDrive. Created automatically when the delivery is confirmed.'],
+            ['Receipt link 📄', 'Opens the receive report on OneDrive. Created automatically when a delivery is confirmed. Split deliveries show one line each (Deliv. 1, Deliv. 2…) with its date.'],
+            ['Partial status', 'Some items on the order have not arrived yet. The card shows an amber "Still to be delivered" note. It changes to Received when the final delivery is confirmed.'],
+            ['📝 Treasurer note', 'Free-text box on each card. Saved when you click out of it, and included in the treasurer email.'],
             ['Invoice link 📎', 'Opens the invoice PDF. Attach in the receive modal or via 📎 Upload Invoice on the card.'],
             ['✕ Remove invoice', 'Removes the invoice link from this record (file on OneDrive is not deleted). Use if the wrong invoice was attached — then upload the correct one using 📎 Upload Invoice.'],
-            ['Filter bar', 'Search by PO ref, filter by supplier or filter by status (Ordered / Received). A ✕ Clear button appears when any filter is active.'],
+            ['Filter bar', 'Search by PO ref, filter by supplier or filter by status (Ordered / Partial / Received). A ✕ Clear button appears when any filter is active.'],
             ['🗑 Delete', 'Deletes the PO record. Only possible for Ordered status records — received records are permanent for audit purposes.'],
           ].map(([q, a]) => (
             <div key={q} style={{ display: 'flex', gap: 12, padding: '8px 0', borderBottom: '1px solid #f1f5f9' }}>
