@@ -21,7 +21,7 @@ export default async function handler(req, res) {
   // Generate 1-hour signed download URLs for Supabase Storage files.
   // One batched createSignedUrls call per 100 paths instead of one request per
   // file (up to 600 Storage requests for 300 records before).
-  const paths = [...new Set(data.flatMap(doc => [doc.receive_report_path, doc.invoice_path]).filter(Boolean))]
+  const paths = [...new Set(data.flatMap(doc => [doc.receive_report_path, doc.invoice_path, ...(doc.deliveries || []).map(d => d.report_path)]).filter(Boolean))]
   const signed = {}
   const BATCH = 100
   for (let i = 0; i < paths.length; i += BATCH) {
@@ -35,7 +35,8 @@ export default async function handler(req, res) {
     const urls = {}
     if (doc.receive_report_path && signed[doc.receive_report_path]) urls.receive_url = signed[doc.receive_report_path]
     if (doc.invoice_path && signed[doc.invoice_path]) urls.invoice_url = signed[doc.invoice_path]
-    return { ...doc, ...urls }
+    const deliveries = (doc.deliveries || []).map(d => ({ ...d, url: d.report_path ? signed[d.report_path] || null : null }))
+    return { ...doc, ...urls, deliveries }
   })
 
   return res.json({ documents: docs })

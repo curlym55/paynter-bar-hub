@@ -84,59 +84,87 @@ export default async function handler(req, res) {
     ])
 
     const safeSupplier = (doc.supplier || 'Unknown').replace(/[^a-zA-Z0-9 ]/g, '').trim()
-    const safeRef      = (doc.po_ref || '').replace(/\s/g, '_')
+    // Same sanitising as the file names written to OneDrive (':' and '#' are not allowed in paths)
+    const safeRef      = (doc.po_ref || '').replace(/\s/g, '_').replace(/[\\/:*?"<>|#%]/g, '-')
     const attachments  = []
 
-    // ── Attach receive report ─────────────────────────────────────────────────
-    let receiptName = null
-    if (doc.receive_date) {
-      const [y, m, d] = doc.receive_date.split('-')
-      const dateFile  = `${d}-${m}-${y}`
-      receiptName     = `${safeRef}-Receipt-${dateFile}.xlsx`
-      const path      = `POs Invoices and Receive Reports/Receive Reports/${safeSupplier}/${receiptName}`
-      const b64       = await fetchFileBase64(path, delegatedToken)
+    // Use the stored row, not what the browser sent, so every delivery is included
+    const { data: row } = await sb().from('bar_documents').select('*').eq('id', doc.id).maybeSingle()
+    const d0 = row || doc
+    let deliveries = Array.isArray(d0.deliveries) ? d0.deliveries : []
+    if (!deliveries.length && d0.receive_date) deliveries = [{ n: 1, date: d0.receive_date, item_count: d0.item_count, outstanding: [] }]
+
+    // ── Attach one receive report per delivery ───────────────────────────────
+    const seen = new Set()
+    for (const dv of deliveries) {
+      if (!dv.date) continue
+      const [y, m, d] = dv.date.split('-')
+      const name = `${safeRef}-Receipt-${d}-${m}-${y}.xlsx`
+      if (seen.has(name)) continue
+      seen.add(name)
+      const b64 = await fetchFileBase64(`POs Invoices and Receive Reports/Receive Reports/${safeSupplier}/${name}`, delegatedToken)
       if (b64) {
         attachments.push({
           '@odata.type': '#microsoft.graph.fileAttachment',
-          name:         receiptName,
+          name,
           contentType:  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
           contentBytes: b64,
         })
+        dv._attached = name
       }
     }
 
-    // ── Attach invoice (try pdf → jpg → jpeg → png) ───────────────────────────
-    let invoiceName = null
-    if (doc.invoice_onedrive_url || doc.invoice_url) {
-      const mimeMap = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' }
-      for (const ext of ['pdf', 'jpg', 'jpeg', 'png']) {
-        const name = `${safeRef}-Invoice.${ext}`
-        const path = `POs Invoices and Receive Reports/Invoices/${safeSupplier}/${name}`
-        const b64  = await fetchFileBase64(path, delegatedToken)
+    // ── Attach every invoice saved for this PO (one per supplier invoice) ───
+    const mimeMap = { pdf: 'application/pdf', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' }
+    if (d0.invoice_onedrive_url || d0.invoice_url) {
+      const folder = `POs Invoices and Receive Reports/Invoices/${safeSupplier}`
+      let names = []
+      try {
+        const encFolder = folder.split('/').map(encodeURIComponent).join('/')
+        const lr = await fetch(`https://graph.microsoft.com/v1.0/me/drive/root:/${encFolder}:/children?$select=name&$top=500`, { headers: { Authorization: `Bearer ${delegatedToken}` } })
+        if (lr.ok) names = ((await lr.json()).value || []).map(f => f.name)
+      } catch (e) { console.warn('[send-treasurer-email] invoice folder list failed:', e.message) }
+      const mine = names.filter(n => n.startsWith(safeRef + '-') && /-Invoice\.(pdf|jpe?g|png)$/i.test(n))
+      // Fallback to the old single-file guess if the listing found nothing
+      const candidates = mine.length ? mine : ['pdf', 'jpg', 'jpeg', 'png'].map(e => `${safeRef}-Invoice.${e}`)
+      for (const name of candidates) {
+        const ext = name.split('.').pop().toLowerCase()
+        const b64 = await fetchFileBase64(`${folder}/${name}`, delegatedToken)
         if (b64) {
-          invoiceName = name
-          attachments.push({
-            '@odata.type': '#microsoft.graph.fileAttachment',
-            name:         name,
-            contentType:  mimeMap[ext],
-            contentBytes: b64,
-          })
-          break
+          attachments.push({ '@odata.type': '#microsoft.graph.fileAttachment', name, contentType: mimeMap[ext], contentBytes: b64 })
+          if (!mine.length) break
         }
       }
     }
 
     // ── Build email body ──────────────────────────────────────────────────────
-    const subject   = `Delivery Receipt — ${doc.supplier} — ${doc.po_ref} — ${fmtDate(doc.receive_date)}`
+    const lastDate  = deliveries.length ? deliveries[deliveries.length - 1].date : d0.receive_date
+    const subject   = `Delivery Receipt — ${doc.supplier} — ${doc.po_ref} — ${fmtDate(lastDate)}`
+    const esc = t => String(t ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
     const attachMsg = attachments.length > 0
-      ? `<p style="color:#16a34a;font-weight:600">✅ ${attachments.length} document${attachments.length !== 1 ? 's' : ''} attached: ${attachments.map(a => a.name).join(', ')}</p>`
+      ? `<p style="color:#16a34a;font-weight:600">✅ ${attachments.length} document${attachments.length !== 1 ? 's' : ''} attached: ${attachments.map(a => esc(a.name)).join(', ')}</p>`
       : `<p style="color:#d97706;font-weight:600">⚠️ Files could not be retrieved — please download from OneDrive links below.</p>`
 
+    const deliveryRows = deliveries.map((dv, i) => {
+      const out = (dv.outstanding || []).map(o => `${esc(o.name)} × ${esc(o.qty)}`).join(', ')
+      return `<tr>
+        <td style="padding:5px 10px 5px 0;white-space:nowrap;font-weight:600">Delivery ${i + 1}</td>
+        <td style="padding:5px 10px 5px 0;white-space:nowrap">${fmtDate(dv.date)}</td>
+        <td style="padding:5px 10px 5px 0">${dv.item_count ?? '—'} items${out ? `<br><span style="color:#b45309;font-size:12px">Not delivered: ${out}</span>` : ''}</td>
+      </tr>`
+    }).join('')
+    const deliveriesBlock = deliveries.length > 1 || (deliveries[0]?.outstanding || []).length
+      ? `<p style="margin:14px 0 6px;font-weight:700">Deliveries for this order</p>
+         <table style="border-collapse:collapse;font-size:13px;margin-bottom:12px">${deliveryRows}</table>`
+      : ''
+
     const oneDriveLinks = [
-      doc.receipt_onedrive_url ? `<a href="${doc.receipt_onedrive_url}" style="color:#0e7490">📄 Receive Report on OneDrive</a>` : null,
-      doc.invoice_onedrive_url ? `<a href="${doc.invoice_onedrive_url}" style="color:#0e7490">📎 Invoice on OneDrive</a>` : null,
+      ...deliveries.filter(dv => dv.onedrive_url).map((dv, i) => `<a href="${dv.onedrive_url}" style="color:#0e7490">📄 Receive Report — ${fmtDate(dv.date)} on OneDrive</a>`),
+      !deliveries.some(dv => dv.onedrive_url) && d0.receipt_onedrive_url ? `<a href="${d0.receipt_onedrive_url}" style="color:#0e7490">📄 Receive Report on OneDrive</a>` : null,
+      d0.invoice_onedrive_url ? `<a href="${d0.invoice_onedrive_url}" style="color:#0e7490">📎 Invoice on OneDrive</a>` : null,
     ].filter(Boolean).join('<br>')
 
+    const totalItems = deliveries.reduce((n, dv) => n + (Number(dv.item_count) || 0), 0)
     const htmlBody = `
 <!DOCTYPE html><html><body style="font-family:Arial,sans-serif;font-size:14px;color:#1e293b;max-width:600px">
   <div style="background:#0f172a;padding:20px 24px;border-radius:8px 8px 0 0">
@@ -145,12 +173,13 @@ export default async function handler(req, res) {
   </div>
   <div style="background:#f8fafc;padding:20px 24px;border:1px solid #e2e8f0;border-top:none">
     <table style="border-collapse:collapse;width:100%;margin-bottom:16px">
-      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;white-space:nowrap;font-weight:600">Supplier</td><td style="padding:6px 0;font-weight:700">${doc.supplier}</td></tr>
-      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">PO Reference</td><td style="padding:6px 0">${doc.po_ref || '—'}</td></tr>
-      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Order Date</td><td style="padding:6px 0">${fmtDate(doc.order_date)}</td></tr>
-      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Received</td><td style="padding:6px 0">${fmtDate(doc.receive_date)}</td></tr>
-      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Items</td><td style="padding:6px 0">${doc.item_count || '—'}</td></tr>
+      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;white-space:nowrap;font-weight:600">Supplier</td><td style="padding:6px 0;font-weight:700">${esc(doc.supplier)}</td></tr>
+      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">PO Reference</td><td style="padding:6px 0">${esc(doc.po_ref) || '—'}</td></tr>
+      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Order Date</td><td style="padding:6px 0">${fmtDate(d0.order_date)}</td></tr>
+      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">${deliveries.length > 1 ? 'Final delivery' : 'Received'}</td><td style="padding:6px 0">${fmtDate(lastDate)}</td></tr>
+      <tr><td style="padding:6px 20px 6px 0;color:#64748b;font-size:13px;font-weight:600">Items</td><td style="padding:6px 0">${(deliveries.length > 1 ? totalItems : d0.item_count) || '—'}</td></tr>
     </table>
+    ${deliveriesBlock}
     ${attachMsg}
     ${oneDriveLinks ? `<div style="margin-top:12px;display:flex;flex-direction:column;gap:6px;font-size:13px">${oneDriveLinks}</div>` : ''}
   </div>

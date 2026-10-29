@@ -47,7 +47,7 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
   if (!requireAuth(req, res, { allowReadOnly: false })) return
   const client = sb()
-  const { action, po_ref, supplier, order_date, receive_date, item_count, items, partial,
+  const { action, po_ref, supplier, order_date, receive_date, item_count, items, partial, outstanding,
           file_base64, file_name, file_mime,
           po_onedrive_url, receipt_onedrive_url, invoice_onedrive_url } = req.body
 
@@ -66,19 +66,40 @@ export default async function handler(req, res) {
     }
 
     else if (action === 'receive') {
+      // Each delivery keeps its OWN report file and its own entry in the
+      // `deliveries` list, so a final delivery never overwrites the first.
+      const { data: existing } = await client.from('bar_documents')
+        .select('deliveries, receive_report_path, receive_date, receipt_onedrive_url, item_count')
+        .eq('po_ref', po_ref).order('created_at', { ascending: false }).limit(1).maybeSingle()
+      let deliveries = Array.isArray(existing?.deliveries) ? [...existing.deliveries] : []
+      // Older rows (before deliveries existed) already have one report: keep it as delivery 1.
+      if (!deliveries.length && existing?.receive_report_path) {
+        deliveries.push({ n: 1, date: existing.receive_date, report_path: existing.receive_report_path,
+          onedrive_url: existing.receipt_onedrive_url || null, item_count: existing.item_count, outstanding: [] })
+      }
+      const dateNow = receive_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' })
       let receive_report_path = null
       if (items?.length) {
         const csv = buildReceiveCsv({ reference: po_ref, receivedBy: 'Bar Manager', locationName: 'Paynter Bar', items })
         const buf = Buffer.from(csv, 'utf8')
-        receive_report_path = `receipts/${sanitiseRef(po_ref)}-Receipt.csv`
+        receive_report_path = `receipts/${sanitiseRef(po_ref)}-Receipt-${Date.now()}.csv`
         await uploadFile(client, receive_report_path, buf, 'text/csv')
       }
+      deliveries.push({
+        n: deliveries.length + 1,
+        date: dateNow,
+        report_path: receive_report_path,
+        onedrive_url: receipt_onedrive_url || null,
+        item_count,
+        outstanding: Array.isArray(outstanding) ? outstanding : [],
+      })
       await upsertDoc(client, po_ref, {
         supplier,
-        receive_date: receive_date || new Date().toLocaleDateString('en-CA', { timeZone: 'Australia/Brisbane' }),
+        receive_date: dateNow,
         // 'partial' when some lines are still outstanding on the order
         status: partial ? 'partial' : 'received',
         item_count,
+        deliveries,
         ...(receive_report_path ? { receive_report_path } : {}),
         ...(receipt_onedrive_url ? { receipt_onedrive_url } : {}),
       })
@@ -102,6 +123,16 @@ export default async function handler(req, res) {
       if (po_onedrive_url) urlUpdates.po_onedrive_url = po_onedrive_url
       if (receipt_onedrive_url) urlUpdates.receipt_onedrive_url = receipt_onedrive_url
       if (invoice_onedrive_url) urlUpdates.invoice_onedrive_url = invoice_onedrive_url
+      // The receipt link belongs to the latest delivery -- record it there too.
+      if (receipt_onedrive_url) {
+        const { data: row } = await client.from('bar_documents').select('deliveries')
+          .eq('po_ref', po_ref).order('created_at', { ascending: false }).limit(1).maybeSingle()
+        if (Array.isArray(row?.deliveries) && row.deliveries.length) {
+          const d = [...row.deliveries]
+          d[d.length - 1] = { ...d[d.length - 1], onedrive_url: receipt_onedrive_url }
+          urlUpdates.deliveries = d
+        }
+      }
       if (Object.keys(urlUpdates).length) await upsertDoc(client, po_ref, urlUpdates)
     }
     else if (action === 'clear_invoice') {

@@ -16,7 +16,7 @@ export default async function handler(req, res) {
   // itself, not the request body.
   const { data: doc, error: fetchErr } = await sb
     .from('bar_documents')
-    .select('receive_report_path, invoice_path, po_onedrive_url, receipt_onedrive_url, invoice_onedrive_url')
+    .select('receive_report_path, invoice_path, deliveries, po_onedrive_url, receipt_onedrive_url, invoice_onedrive_url')
     .eq('id', id)
     .maybeSingle()
 
@@ -24,13 +24,13 @@ export default async function handler(req, res) {
 
   // Supabase Storage files
   if (doc) {
-    const filesToDelete = [doc.receive_report_path, doc.invoice_path].filter(Boolean)
+    const filesToDelete = [...new Set([doc.receive_report_path, doc.invoice_path, ...(doc.deliveries || []).map(d => d.report_path)].filter(Boolean))]
     if (filesToDelete.length) {
       await sb.storage.from('bar-documents').remove(filesToDelete).catch(() => null)
     }
 
     // OneDrive files -- best-effort per file, never blocks the record deletion below.
-    const oneDriveUrls = [doc.po_onedrive_url, doc.receipt_onedrive_url, doc.invoice_onedrive_url].filter(Boolean)
+    const oneDriveUrls = [...new Set([doc.po_onedrive_url, doc.receipt_onedrive_url, doc.invoice_onedrive_url, ...(doc.deliveries || []).map(d => d.onedrive_url)].filter(Boolean))]
     for (const url of oneDriveUrls) {
       try {
         await deleteFileByShareUrl(url)

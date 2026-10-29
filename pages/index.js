@@ -642,6 +642,14 @@ export default function Home() {
           body: JSON.stringify({
             action: "receive", po_ref: poRef, supplier,
             partial: receiveModal.items.some(i => !isRecv(i.name)) || Object.keys(remaining).length > 0,
+            // What was NOT delivered this time, so PO Documents and the treasurer email can show it
+            outstanding: receiveModal.items.flatMap(i => {
+              if (!isRecv(i.name)) {
+                const q = (orderQtyOverrides[i.name] !== undefined ? orderQtyOverrides[i.name] : i.orderQty) || 0
+                return [{ name: i.name, qty: q }]
+              }
+              return remaining[i.name] ? [{ name: i.name, qty: remaining[i.name] }] : []
+            }),
             receive_date: new Date().toLocaleDateString("en-CA",{timeZone:"Australia/Brisbane"}),
             item_count: receivedItems.length,
             items: receivedItems.map(i => ({ name: i.name, orderedQty: i.orderQty||0, receivedQty: receiveQtys[i.name]||i.orderQty||0, unit: i.isSpirit ? "nips" : "units" }))
@@ -4500,8 +4508,29 @@ ${ref ? `<div class="ref">${ref}</div>` : ''}
                                 </button>
                               </div>
                             ) : null}
-                            {/* Receipt */}
-                            {(doc.receipt_onedrive_url || doc.receive_url) && (
+                            {/* Receipt(s) — one line per delivery */}
+                            {(doc.deliveries || []).length > 0 ? (
+                              <>
+                                {doc.deliveries.map((dv, i) => (
+                                  <div key={i} style={{ display: 'flex', gap: 5, alignItems: 'center', flexWrap: 'wrap' }}>
+                                    <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>
+                                      {doc.deliveries.length > 1 ? `Deliv. ${i + 1}` : 'Receipt'}
+                                    </span>
+                                    <span style={{ fontSize: 10, color: '#64748b' }}>{fmtD(dv.date)}</span>
+                                    {DocLink({ href: dv.onedrive_url || (i === doc.deliveries.length - 1 ? doc.receipt_onedrive_url : null), icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
+                                    {DocLink({ href: dv.url || (i === doc.deliveries.length - 1 ? doc.receive_url : null), icon: '🗄️', label: 'Supabase', color: '#16a34a' })}
+                                  </div>
+                                ))}
+                                {doc.status === 'partial' && (() => {
+                                  const out = doc.deliveries[doc.deliveries.length - 1].outstanding || []
+                                  return out.length > 0 ? (
+                                    <div style={{ fontSize: 10, color: '#b45309', fontWeight: 600, background: '#fffbeb', border: '1px solid #fde68a', borderRadius: 4, padding: '3px 8px' }}>
+                                      ⏳ Still to be delivered: {out.map(o => `${o.name} × ${o.qty}`).join(', ')}
+                                    </div>
+                                  ) : null
+                                })()}
+                              </>
+                            ) : (doc.receipt_onedrive_url || doc.receive_url) && (
                               <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
                                 <span style={{ fontSize: 10, color: '#94a3b8', width: 48, flexShrink: 0 }}>Receipt</span>
                                 {DocLink({ href: doc.receipt_onedrive_url, icon: '☁️', label: 'OneDrive', color: '#0ea5e9' })}
