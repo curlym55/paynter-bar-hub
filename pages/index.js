@@ -499,7 +499,7 @@ export default function Home() {
     } else {
       setInvoiceFile(null)
     }
-    setReceiveModal({ supplier, ref: ref || '', items: supplierItems })
+    setReceiveModal({ supplier, ref: ref || '', origRef: ref || '', items: supplierItems })
   }
 
   async function confirmReceive() {
@@ -519,7 +519,10 @@ export default function Home() {
     setPoReceiving(receiveModal.ref || supplier)
     try {
       // ── 1. Update Hub / Redis state (existing behaviour) ─────────────────
-      const ref = receiveModal.ref
+      // Clear the order using the ORIGINAL reference it was placed under. The
+      // reference box in the Receive window can be edited (it names the report
+      // and invoice), and an edited value matches nothing on the live order.
+      const ref = receiveModal.origRef !== undefined ? receiveModal.origRef : receiveModal.ref
       const action = ref ? 'receiveByRef' : allReceived ? 'receive' : 'partialReceive'
       // Short deliveries: whatever wasn't delivered stays on the order.
       const remaining = {}
