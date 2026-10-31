@@ -82,6 +82,10 @@ export default function SalesView({ period, setPeriod, custom, setCustom, report
             {label}
           </button>
         ))}
+        <a href="/api/sales-trend" target="_blank" rel="noreferrer"
+          style={{ padding: '5px 12px', background: '#1e3a5f', color: '#fff', borderRadius: 6, fontSize: 12, fontWeight: 700, textDecoration: 'none' }}>
+          📈 6-Month Trends
+        </a>
         {period === 'day' && (
           <input type="date" value={custom.day || ''} onChange={e => { const c2 = {...custom, day: e.target.value}; setCustom(c2); if (e.target.value) onLoad('day', c2) }}
             style={{ ...styles.supplierInput, width: 150 }} />
